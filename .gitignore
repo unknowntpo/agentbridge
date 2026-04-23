@@ -1,0 +1,6 @@
+.spectra/
+openspec/.vector-search.db*
+node_modules/
+dist/
+.agentbridge/
+.env
