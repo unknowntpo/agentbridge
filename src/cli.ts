@@ -1,3 +1,5 @@
+import "dotenv/config"
+
 import { AgentBridge } from "./bridge/agentBridge.js"
 import { ReplyFormatter } from "./bridge/replyFormatter.js"
 import { CodexExecAdapter } from "./codex/codexExecAdapter.js"
@@ -22,7 +24,13 @@ async function main(): Promise<void> {
     new ReplyFormatter(config.discordMessageLimit),
   )
 
-  const discord = new DiscordGatewayAdapter(config.discordToken, bridge, config.allowedChannelIds)
+  const discord = new DiscordGatewayAdapter(
+    config.discordToken,
+    config.discordClientId,
+    config.discordGuildId,
+    bridge,
+    config.allowedChannelIds,
+  )
   bridge.setDiscordTransport(discord)
 
   const recovered = bridge.recoverBindings()

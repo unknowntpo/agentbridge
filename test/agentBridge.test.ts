@@ -77,6 +77,24 @@ describe("AgentBridge", () => {
     expect(harness.store.getBinding("thread-123")).toBeNull()
   })
 
+  it("can use an override transport for slash-style prompts", async () => {
+    const harness = createHarness()
+    const slashTransport = new FakeDiscordTransport(false)
+
+    await harness.bridge.handlePromptWithTransport(
+      {
+        threadId: "thread-123",
+        messageId: "interaction-1",
+        content: "summarize this repo",
+      },
+      "summarize this repo",
+      slashTransport,
+    )
+
+    expect(slashTransport.messages[0]).toBe("ok")
+    expect(harness.discord.messages).toHaveLength(0)
+  })
+
   it("chunks long replies to the same reply target", async () => {
     const harness = createHarness({ output: "a".repeat(4100) })
     await harness.bridge.handleMessage({

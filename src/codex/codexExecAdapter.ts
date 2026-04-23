@@ -67,6 +67,10 @@ export function parseCodexJson(stdout: string): CodexTurnResult {
       sessionId = data.session_id
     }
 
+    if (!sessionId && data.type === "thread.started" && typeof data.thread_id === "string") {
+      sessionId = data.thread_id
+    }
+
     if (typeof data.output_text === "string") {
       outputParts.push(data.output_text)
     }
@@ -77,6 +81,10 @@ export function parseCodexJson(stdout: string): CodexTurnResult {
 
     if (data.type === "final" && typeof data.text === "string") {
       outputParts.push(data.text)
+    }
+
+    if (data.type === "item.completed" && data.item?.type === "agent_message" && typeof data.item.text === "string") {
+      outputParts.push(data.item.text)
     }
   }
 
@@ -94,4 +102,9 @@ interface CodexEvent {
   content?: string
   output_text?: string
   session_id?: string
+  thread_id?: string
+  item?: {
+    type?: string
+    text?: string
+  }
 }

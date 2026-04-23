@@ -6,18 +6,20 @@
   "scripts": {
     "build": "bun build ./src/index.ts ./src/cli.ts --outdir dist --target bun --format esm",
     "check": "bunx tsc --noEmit -p tsconfig.json",
-    "start": "bun run ./src/cli.ts",
-    "dev": "bun --watch run ./src/cli.ts",
+    "start": "bunx tsx src/cli.ts",
+    "dev": "bunx tsx watch src/cli.ts",
     "test": "bunx vitest run",
     "test:watch": "bunx vitest"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",
-    "discord.js": "^14.19.3"
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.14.1",
+    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.2"
   }

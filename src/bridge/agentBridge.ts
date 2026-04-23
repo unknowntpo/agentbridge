@@ -49,11 +49,56 @@ export class AgentBridge {
     await this.continueSession(binding, message.content)
   }
 
+  async handlePrompt(message: InboundDiscordMessage, prompt: string): Promise<void> {
+    await this.handlePromptWithTransport(message, prompt, this.discordTransport)
+  }
+
+  async handlePromptWithTransport(
+    message: InboundDiscordMessage,
+    prompt: string,
+    transport: DiscordTransport,
+  ): Promise<void> {
+    const binding = this.stateStore.getBinding(message.threadId)
+    if (!binding) {
+      await this.startNewSession(message.threadId, prompt, transport)
+      return
+    }
+
+    await this.continueSession(binding, prompt, transport)
+  }
+
+  async handleNamedCommand(
+    threadId: string,
+    command: "new" | "status" | "reset" | "stop",
+  ): Promise<void> {
+    await this.handleNamedCommandWithTransport(threadId, command, this.discordTransport)
+  }
+
+  async handleNamedCommandWithTransport(
+    threadId: string,
+    command: "new" | "status" | "reset" | "stop",
+    transport: DiscordTransport,
+  ): Promise<void> {
+    await this.handleCommand(
+      {
+        threadId,
+        messageId: `interaction:${command}`,
+        content: `/codex ${command}`,
+      },
+      command,
+      transport,
+    )
+  }
+
   recoverBindings(): ThreadBinding[] {
     return this.stateStore.recoverBindings()
   }
 
-  private async handleCommand(message: InboundDiscordMessage, command: Command): Promise<void> {
+  private async handleCommand(
+    message: InboundDiscordMessage,
+    command: Command,
+    transport: DiscordTransport = this.discordTransport,
+  ): Promise<void> {
     const existing = this.stateStore.getBinding(message.threadId)
 
     switch (command) {
@@ -61,10 +106,10 @@ export class AgentBridge {
         if (existing) {
           this.stateStore.deleteBinding(message.threadId)
         }
-        await this.startNewSession(message.threadId, "")
+        await this.startNewSession(message.threadId, "", transport)
         return
       case "status":
-        await this.discordTransport.sendReply(
+        await transport.sendReply(
           message.threadId,
           existing
             ? `Thread binding: ${existing.threadId} -> ${existing.sessionId} (${existing.state})`
@@ -75,13 +120,13 @@ export class AgentBridge {
         if (existing) {
           this.stateStore.deleteBinding(message.threadId)
         }
-        await this.startNewSession(message.threadId, "")
+        await this.startNewSession(message.threadId, "", transport)
         return
       case "stop":
         if (existing) {
           this.stateStore.deleteBinding(message.threadId)
         }
-        await this.discordTransport.sendReply(
+        await transport.sendReply(
           message.threadId,
           "Stopped the current Thread Binding. Future turns require re-activation.",
         )
@@ -89,8 +134,12 @@ export class AgentBridge {
     }
   }
 
-  private async startNewSession(threadId: string, prompt: string): Promise<void> {
-    await this.runTurn(threadId, async () => {
+  private async startNewSession(
+    threadId: string,
+    prompt: string,
+    transport: DiscordTransport = this.discordTransport,
+  ): Promise<void> {
+    await this.runTurn(threadId, transport, async () => {
       const starting = createBinding(threadId, "pending", "starting", this.now())
       this.stateStore.saveBinding(starting)
 
@@ -100,27 +149,35 @@ export class AgentBridge {
         sessionId: result.sessionId,
       }
 
-      await this.deliverTurn(bound, result.output)
+      await this.deliverTurn(bound, result.output, transport)
     })
   }
 
-  private async continueSession(binding: ThreadBinding, prompt: string): Promise<void> {
-    await this.runTurn(binding.threadId, async () => {
+  private async continueSession(
+    binding: ThreadBinding,
+    prompt: string,
+    transport: DiscordTransport = this.discordTransport,
+  ): Promise<void> {
+    await this.runTurn(binding.threadId, transport, async () => {
       const executing = updateBinding(binding, "executing", this.now(), null)
       this.stateStore.saveBinding(executing)
 
       const result = await this.codexAdapter.resumeSession(binding.sessionId, prompt)
-      await this.deliverTurn({ ...executing, sessionId: result.sessionId }, result.output)
+      await this.deliverTurn({ ...executing, sessionId: result.sessionId }, result.output, transport)
     })
   }
 
-  private async deliverTurn(binding: ThreadBinding, output: string): Promise<void> {
+  private async deliverTurn(
+    binding: ThreadBinding,
+    output: string,
+    transport: DiscordTransport = this.discordTransport,
+  ): Promise<void> {
     const delivering = updateBinding(binding, "delivering", this.now(), null)
     this.stateStore.saveBinding(delivering)
 
     try {
       for (const chunk of this.replyFormatter.chunk(output || "(no output)")) {
-        await this.discordTransport.sendReply(binding.threadId, chunk)
+        await transport.sendReply(binding.threadId, chunk)
       }
       this.stateStore.saveBinding(updateBinding(delivering, "bound_idle", this.now(), null))
     } catch (error) {
@@ -128,7 +185,7 @@ export class AgentBridge {
       this.stateStore.saveBinding(updateBinding(delivering, "failed", this.now(), message))
 
       try {
-        await this.discordTransport.sendReply(
+        await transport.sendReply(
           binding.threadId,
           `Delivery failure: ${message}`,
         )
@@ -138,9 +195,13 @@ export class AgentBridge {
     }
   }
 
-  private async runTurn(threadId: string, action: () => Promise<void>): Promise<void> {
+  private async runTurn(
+    threadId: string,
+    transport: DiscordTransport,
+    action: () => Promise<void>,
+  ): Promise<void> {
     if (this.inFlightThreads.has(threadId)) {
-      await this.discordTransport.sendReply(
+      await transport.sendReply(
         threadId,
         "This Thread Binding is busy with another user turn. Try again after it completes.",
       )
@@ -155,7 +216,7 @@ export class AgentBridge {
       if (existing) {
         this.stateStore.saveBinding(updateBinding(existing, "failed", this.now(), toErrorMessage(error)))
       }
-      await this.discordTransport.sendReply(threadId, `Codex execution failed: ${toErrorMessage(error)}`)
+      await transport.sendReply(threadId, `Codex execution failed: ${toErrorMessage(error)}`)
     } finally {
       this.inFlightThreads.delete(threadId)
     }
