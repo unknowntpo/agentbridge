@@ -2,7 +2,7 @@
 
 ### Requirement: State store persists thread binding
 
-The bridge SHALL persist each Thread Binding with its Discord thread identifier, Codex session identifier, lifecycle state, timestamps, and last-known failure metadata in a local SQLite State Store. The SQLite State Store SHALL enable WAL mode before normal bridge operation so persisted state remains durable and readable during concurrent bridge activity. Persisted state SHALL survive bridge process restarts.
+The bridge SHALL persist each Thread Binding with its Discord thread identifier, Codex session identifier, lifecycle state, timestamps, last-known failure metadata, and transcript sync cursor in a local SQLite State Store. The SQLite State Store SHALL enable WAL mode before normal bridge operation so persisted state remains durable and readable during concurrent bridge activity. Persisted state SHALL survive bridge process restarts.
 
 #### Scenario: Binding survives restart
 

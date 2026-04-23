@@ -4,6 +4,7 @@ import type {
   DiscordTransport,
   InboundDiscordMessage,
   StateStore,
+  ThreadTranscriptMessage,
   ThreadBinding,
 } from "../types.js"
 
@@ -27,66 +28,67 @@ export class AgentBridge {
 
   async handleMessage(message: InboundDiscordMessage): Promise<void> {
     const command = parseCommand(message.content)
-    if (command) {
-      await this.handleCommand(message, command)
+    if (!command) {
       return
     }
 
-    const binding = this.stateStore.getBinding(message.threadId)
-    if (!binding) {
-      if (!message.content.startsWith("discord ")) {
-        await this.discordTransport.sendReply(
-          message.threadId,
-          "No active Codex session. Start one with `discord <prompt>` or `/codex new`.",
-        )
+    if (command.kind === "new") {
+      const existing = this.stateStore.getBinding(message.threadId)
+      if (existing) {
         return
       }
-
-      await this.startNewSession(message.threadId, message.content.slice("discord ".length))
+      await this.startNewSession(
+        message.threadId,
+        command.prompt,
+        this.discordTransport,
+        formatVisiblePrompt(command.prompt),
+      )
       return
     }
 
-    await this.continueSession(binding, message.content)
+    await this.handleChatPromptWithTransport(message, command.prompt, this.discordTransport)
   }
 
-  async handlePrompt(message: InboundDiscordMessage, prompt: string): Promise<void> {
-    await this.handlePromptWithTransport(message, prompt, this.discordTransport)
-  }
-
-  async handlePromptWithTransport(
+  async handleChatPromptWithTransport(
     message: InboundDiscordMessage,
     prompt: string,
     transport: DiscordTransport,
   ): Promise<void> {
     const binding = this.stateStore.getBinding(message.threadId)
     if (!binding) {
-      await this.startNewSession(message.threadId, prompt, transport)
+      await transport.sendReply(
+        message.threadId,
+        "No active Codex session for this thread. Use `/codex new <prompt>` from a parent channel first.",
+      )
       return
     }
 
-    await this.continueSession(binding, prompt, transport)
+    await this.continueSession(
+      binding,
+      buildContinuationPrompt(
+        await transport.listVisibleThreadMessages(message.threadId, binding.lastReadMessageId),
+        prompt,
+      ),
+      transport,
+      formatVisiblePrompt(prompt, message.authorId),
+    )
   }
 
-  async handleNamedCommand(
-    threadId: string,
-    command: "new" | "status" | "reset" | "stop",
-  ): Promise<void> {
-    await this.handleNamedCommandWithTransport(threadId, command, this.discordTransport)
-  }
-
-  async handleNamedCommandWithTransport(
-    threadId: string,
-    command: "new" | "status" | "reset" | "stop",
+  async startFreshPromptWithTransport(
+    message: InboundDiscordMessage,
+    prompt: string,
     transport: DiscordTransport,
   ): Promise<void> {
-    await this.handleCommand(
-      {
-        threadId,
-        messageId: `interaction:${command}`,
-        content: `/codex ${command}`,
-      },
-      command,
+    const existing = this.stateStore.getBinding(message.threadId)
+    if (existing) {
+      this.stateStore.deleteBinding(message.threadId)
+    }
+
+    await this.startNewSession(
+      message.threadId,
+      prompt,
       transport,
+      formatVisiblePrompt(prompt),
     )
   }
 
@@ -94,50 +96,11 @@ export class AgentBridge {
     return this.stateStore.recoverBindings()
   }
 
-  private async handleCommand(
-    message: InboundDiscordMessage,
-    command: Command,
-    transport: DiscordTransport = this.discordTransport,
-  ): Promise<void> {
-    const existing = this.stateStore.getBinding(message.threadId)
-
-    switch (command) {
-      case "new":
-        if (existing) {
-          this.stateStore.deleteBinding(message.threadId)
-        }
-        await this.startNewSession(message.threadId, "", transport)
-        return
-      case "status":
-        await transport.sendReply(
-          message.threadId,
-          existing
-            ? `Thread binding: ${existing.threadId} -> ${existing.sessionId} (${existing.state})`
-            : "No active Thread Binding for this thread.",
-        )
-        return
-      case "reset":
-        if (existing) {
-          this.stateStore.deleteBinding(message.threadId)
-        }
-        await this.startNewSession(message.threadId, "", transport)
-        return
-      case "stop":
-        if (existing) {
-          this.stateStore.deleteBinding(message.threadId)
-        }
-        await transport.sendReply(
-          message.threadId,
-          "Stopped the current Thread Binding. Future turns require re-activation.",
-        )
-        return
-    }
-  }
-
   private async startNewSession(
     threadId: string,
     prompt: string,
     transport: DiscordTransport = this.discordTransport,
+    visiblePrompt?: string,
   ): Promise<void> {
     await this.runTurn(threadId, transport, async () => {
       const starting = createBinding(threadId, "pending", "starting", this.now())
@@ -149,7 +112,7 @@ export class AgentBridge {
         sessionId: result.sessionId,
       }
 
-      await this.deliverTurn(bound, result.output, transport)
+      await this.deliverTurn(bound, result.output, transport, visiblePrompt)
     })
   }
 
@@ -157,13 +120,14 @@ export class AgentBridge {
     binding: ThreadBinding,
     prompt: string,
     transport: DiscordTransport = this.discordTransport,
+    visiblePrompt?: string,
   ): Promise<void> {
     await this.runTurn(binding.threadId, transport, async () => {
       const executing = updateBinding(binding, "executing", this.now(), null)
       this.stateStore.saveBinding(executing)
 
       const result = await this.codexAdapter.resumeSession(binding.sessionId, prompt)
-      await this.deliverTurn({ ...executing, sessionId: result.sessionId }, result.output, transport)
+      await this.deliverTurn({ ...executing, sessionId: result.sessionId }, result.output, transport, visiblePrompt)
     })
   }
 
@@ -171,15 +135,29 @@ export class AgentBridge {
     binding: ThreadBinding,
     output: string,
     transport: DiscordTransport = this.discordTransport,
+    visiblePrompt?: string,
   ): Promise<void> {
     const delivering = updateBinding(binding, "delivering", this.now(), null)
     this.stateStore.saveBinding(delivering)
 
     try {
-      for (const chunk of this.replyFormatter.chunk(output || "(no output)")) {
+      const renderedOutput = output || "(no output)"
+      const messageBody = visiblePrompt ? `${visiblePrompt}\n\n${renderedOutput}` : renderedOutput
+
+      for (const chunk of this.replyFormatter.chunk(messageBody)) {
         await transport.sendReply(binding.threadId, chunk)
       }
-      this.stateStore.saveBinding(updateBinding(delivering, "bound_idle", this.now(), null))
+      this.stateStore.saveBinding(
+        updateBinding(
+          {
+            ...delivering,
+            lastReadMessageId: await transport.getLatestVisibleThreadMessageId(binding.threadId),
+          },
+          "bound_idle",
+          this.now(),
+          null,
+        ),
+      )
     } catch (error) {
       const message = toErrorMessage(error)
       this.stateStore.saveBinding(updateBinding(delivering, "failed", this.now(), message))
@@ -216,28 +194,31 @@ export class AgentBridge {
       if (existing) {
         this.stateStore.saveBinding(updateBinding(existing, "failed", this.now(), toErrorMessage(error)))
       }
-      await transport.sendReply(threadId, `Codex execution failed: ${toErrorMessage(error)}`)
+      try {
+        await transport.sendReply(threadId, `Codex execution failed: ${toErrorMessage(error)}`)
+      } catch {
+        // Preserve the failed state even when the error message cannot be delivered.
+      }
     } finally {
       this.inFlightThreads.delete(threadId)
     }
   }
 }
 
-type Command = "new" | "status" | "reset" | "stop"
+function parseCommand(content: string): { kind: "new" | "chat"; prompt: string } | null {
+  const trimmed = content.trim()
 
-function parseCommand(content: string): Command | null {
-  switch (content.trim()) {
-    case "/codex new":
-      return "new"
-    case "/codex status":
-      return "status"
-    case "/codex reset":
-      return "reset"
-    case "/codex stop":
-      return "stop"
-    default:
-      return null
+  if (trimmed.startsWith("/codex new ")) {
+    const prompt = trimmed.slice("/codex new ".length).trim()
+    return prompt.length > 0 ? { kind: "new", prompt } : null
   }
+
+  if (trimmed.startsWith("/codex chat ")) {
+    const prompt = trimmed.slice("/codex chat ".length).trim()
+    return prompt.length > 0 ? { kind: "chat", prompt } : null
+  }
+
+  return null
 }
 
 function createBinding(
@@ -253,6 +234,7 @@ function createBinding(
     createdAt: now,
     updatedAt: now,
     lastError: null,
+    lastReadMessageId: null,
   }
 }
 
@@ -272,4 +254,35 @@ function updateBinding(
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function formatVisiblePrompt(prompt: string, authorId?: string): string {
+  const quotedPrompt = prompt
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => `> ${line}`)
+    .join("\n")
+
+  if (authorId) {
+    return `<@${authorId}>\n\n${quotedPrompt}`
+  }
+
+  return quotedPrompt
+}
+
+function buildContinuationPrompt(messages: ThreadTranscriptMessage[], prompt: string): string {
+  if (messages.length === 0) {
+    return prompt
+  }
+
+  const transcript = messages
+    .map((message) => `[${message.isBot ? "bot" : "user"} ${message.authorName}] ${message.content}`)
+    .join("\n")
+
+  return [
+    "Visible thread messages since the last synced point:",
+    transcript,
+    "",
+    `Current /codex chat prompt: ${prompt}`,
+  ].join("\n")
 }

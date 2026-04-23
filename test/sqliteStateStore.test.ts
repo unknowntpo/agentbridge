@@ -30,6 +30,7 @@ describe("SQLiteStateStore", () => {
       createdAt: "2026-04-23T00:00:00.000Z",
       updatedAt: "2026-04-23T00:00:00.000Z",
       lastError: null,
+      lastReadMessageId: "message-9",
     })
     const dbPath = (store as unknown as { dbPath: string }).dbPath
     store.close()
@@ -37,6 +38,7 @@ describe("SQLiteStateStore", () => {
     const reopened = new SQLiteStateStore(dbPath)
     reopened.initialize()
     expect(reopened.getBinding("thread-123")?.sessionId).toBe("session-7")
+    expect(reopened.getBinding("thread-123")?.lastReadMessageId).toBe("message-9")
     reopened.close()
   })
 
@@ -49,6 +51,7 @@ describe("SQLiteStateStore", () => {
       createdAt: "2026-04-23T00:00:00.000Z",
       updatedAt: "2026-04-23T00:00:00.000Z",
       lastError: null,
+      lastReadMessageId: null,
     })
 
     const recovered = store.recoverBindings()

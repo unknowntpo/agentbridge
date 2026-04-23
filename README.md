@@ -64,12 +64,7 @@ bun run start
 
 ## Discord Usage
 
-- Start a session: `discord summarize this repo`
-- Slash prompt: `/codex ask prompt:<your prompt>`
-- Start fresh: `/codex new`
-- Status: `/codex status`
-- Reset: `/codex reset`
-- Stop: `/codex stop`
+- Start a fresh thread-bound session from a parent channel: `/codex new prompt:<your prompt>`
 
 ## Slash Commands
 
@@ -77,13 +72,15 @@ bun run start
 - Restart the bridge with `bun run start`
 - The bridge will register `/codex`
 - In Discord, type `/codex` and choose one of:
-  - `ask`
   - `new`
-  - `status`
-  - `reset`
-  - `stop`
 
 For local testing, guild commands are preferred because they appear almost immediately. Global commands can take longer to propagate.
+
+Current slash UX:
+
+- `/codex new` only works from a parent channel. It creates a new thread, posts `> <prompt>` in that thread, and then posts the Codex reply there.
+- `/codex new` inside an existing thread is ignored.
+- Later replies in the created thread are ignored. Start another request with a fresh `/codex new` from the parent channel.
 
 ## Notes
 

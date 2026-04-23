@@ -13,12 +13,14 @@ export interface ThreadBinding {
   createdAt: string
   updatedAt: string
   lastError: string | null
+  lastReadMessageId: string | null
 }
 
 export interface InboundDiscordMessage {
   threadId: string
   messageId: string
   content: string
+  authorId?: string
 }
 
 export interface CodexTurnResult {
@@ -29,6 +31,16 @@ export interface CodexTurnResult {
 
 export interface DiscordTransport {
   sendReply(threadId: string, content: string): Promise<void>
+  listVisibleThreadMessages(threadId: string, afterMessageId?: string | null): Promise<ThreadTranscriptMessage[]>
+  getLatestVisibleThreadMessageId(threadId: string): Promise<string | null>
+}
+
+export interface ThreadTranscriptMessage {
+  id: string
+  authorId: string
+  authorName: string
+  isBot: boolean
+  content: string
 }
 
 export interface BridgeRuntime {
@@ -52,5 +64,6 @@ export interface StateStore {
 }
 
 export interface CommandResult {
-  kind: "status" | "reset" | "stop" | "new"
+  kind: "new" | "chat"
+  prompt: string
 }

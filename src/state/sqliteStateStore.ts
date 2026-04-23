@@ -25,9 +25,11 @@ export class SQLiteStateStore implements StateStore {
         state TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        last_error TEXT
+        last_error TEXT,
+        last_read_message_id TEXT
       )
     `)
+    this.ensureColumn("thread_bindings", "last_read_message_id", "TEXT")
   }
 
   getJournalMode(): string {
@@ -42,7 +44,7 @@ export class SQLiteStateStore implements StateStore {
   getBinding(threadId: string): ThreadBinding | null {
     const row = this.db
       .prepare(
-        `SELECT thread_id, session_id, state, created_at, updated_at, last_error
+        `SELECT thread_id, session_id, state, created_at, updated_at, last_error, last_read_message_id
          FROM thread_bindings WHERE thread_id = ?`,
       )
       .get(threadId) as BindingRow | undefined
@@ -53,7 +55,7 @@ export class SQLiteStateStore implements StateStore {
   listBindings(): ThreadBinding[] {
     const rows = this.db
       .prepare(
-        `SELECT thread_id, session_id, state, created_at, updated_at, last_error
+        `SELECT thread_id, session_id, state, created_at, updated_at, last_error, last_read_message_id
          FROM thread_bindings ORDER BY thread_id ASC`,
       )
       .all() as BindingRow[]
@@ -70,14 +72,16 @@ export class SQLiteStateStore implements StateStore {
           state,
           created_at,
           updated_at,
-          last_error
-        ) VALUES (?, ?, ?, ?, ?, ?)
+          last_error,
+          last_read_message_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(thread_id) DO UPDATE SET
           session_id = excluded.session_id,
           state = excluded.state,
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
-          last_error = excluded.last_error`,
+          last_error = excluded.last_error,
+          last_read_message_id = excluded.last_read_message_id`,
       )
       .run(
         binding.threadId,
@@ -86,6 +90,7 @@ export class SQLiteStateStore implements StateStore {
         binding.createdAt,
         binding.updatedAt,
         binding.lastError,
+        binding.lastReadMessageId,
       )
   }
 
@@ -111,6 +116,15 @@ export class SQLiteStateStore implements StateStore {
 
     return this.listBindings().filter((binding) => binding.state !== "stopped")
   }
+
+  private ensureColumn(tableName: string, columnName: string, columnType: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
+    if (columns.some((column) => column.name === columnName)) {
+      return
+    }
+
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`)
+  }
 }
 
 interface BindingRow {
@@ -120,6 +134,7 @@ interface BindingRow {
   created_at: string
   updated_at: string
   last_error: string | null
+  last_read_message_id: string | null
 }
 
 function mapRow(row: BindingRow): ThreadBinding {
@@ -130,5 +145,6 @@ function mapRow(row: BindingRow): ThreadBinding {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastError: row.last_error,
+    lastReadMessageId: row.last_read_message_id,
   }
 }

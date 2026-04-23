@@ -1,36 +1,25 @@
 ## ADDED Requirements
 
-### Requirement: Activation message starts bound session
+### Requirement: Slash new starts bound session in a new thread
 
-The bridge SHALL create a new Thread Binding when a Discord thread has no active binding and the inbound message matches the activation rules. The activation rules SHALL recognize a `discord ...` activation message and SHALL reject normal messages that do not match activation rules when no binding exists.
+The bridge SHALL create a new Discord thread and a new Thread Binding when a user invokes `/codex new <prompt>` from a non-thread channel. The new Thread Binding SHALL be attached to the created thread and SHALL start a fresh Codex session using the provided prompt.
 
-#### Scenario: Prefix activation creates session
+#### Scenario: Channel new command creates thread-bound session
 
-- **WHEN** a Discord thread without an active binding receives a message beginning with `discord `
-- **THEN** the bridge creates a new Thread Binding and starts a new Codex session for that thread
+- **WHEN** a non-thread Discord channel receives `/codex new <prompt>`
+- **THEN** the bridge creates a new thread, binds that thread to a fresh Codex session, and starts the session there
 
-##### Example: first thread turn
+##### Example: new thread from parent channel
 
-- **GIVEN** thread `thread-123` has no persisted binding
-- **WHEN** the user sends `discord summarize this repo`
-- **THEN** the bridge records a binding for `thread-123` and starts a Codex session
+- **GIVEN** channel `channel-123` is not a thread
+- **WHEN** the user sends `/codex new summarize this repo`
+- **THEN** the bridge creates a new thread, records a binding for that thread, and starts a Codex session there
 
-#### Scenario: Non-activation message is rejected before binding
+### Requirement: Slash new inside a thread is ignored
 
-- **WHEN** a Discord thread without an active binding receives a message that does not match the activation rules
-- **THEN** the bridge does not start a Codex session and returns an activation guidance message
+The bridge SHALL NOT create a nested thread when `/codex new <prompt>` is invoked inside an existing Discord thread. The bridge SHALL ignore the request.
 
-##### Example: plain message without activation
+#### Scenario: In-thread new command is ignored
 
-- **GIVEN** thread `thread-456` has no persisted binding
-- **WHEN** the user sends `hello there`
-- **THEN** the bridge does not create a Thread Binding and replies with activation guidance
-
-### Requirement: Bridge command starts session
-
-The bridge SHALL recognize explicit bridge commands for session startup before evaluating normal activation message routing. The `/codex new` bridge command SHALL create a new Thread Binding for the current thread when no active binding exists.
-
-#### Scenario: Explicit new command starts session
-
-- **WHEN** a Discord thread without an active binding receives `/codex new`
-- **THEN** the bridge creates a new Thread Binding and starts a new Codex session for the thread
+- **WHEN** a Discord thread receives `/codex new <prompt>`
+- **THEN** the bridge does not create another thread and does not start a new session in the current thread

@@ -2,7 +2,7 @@
 
 AgentBridge will bridge Discord conversations into a locally running Codex instance on macOS. The bridge needs a precise domain model because it spans Discord message delivery, local process execution, persistent state, and restart recovery. The repository currently has no existing implementation, so the design should establish the canonical ubiquitous language before any code lands.
 
-The agreed routing model is one Discord thread to one Codex session. Activation can happen either from a `discord ...` activation message or an explicit `/codex ...` bridge command. The MVP SHALL use `codex exec --json` and `codex exec resume ... --json` instead of trying to automate the interactive Codex TUI.
+The agreed routing model is one Discord thread to one Codex session. Session creation happens only through `/codex new <prompt>` from a non-thread channel, which creates a thread and binds a fresh Codex session to it. Continuation happens only through `/codex chat <prompt>` inside that bound thread. The MVP SHALL use `codex exec --json` and `codex exec resume ... --json` instead of trying to automate the interactive Codex TUI.
 
 ## Goals / Non-Goals
 
@@ -10,7 +10,7 @@ The agreed routing model is one Discord thread to one Codex session. Activation 
 
 - Define the bridge around a durable Thread Binding between a Discord thread and a Codex session.
 - Keep Codex integration machine-readable by using JSON event output instead of PTY scraping.
-- Support session start, session continuation, lifecycle commands, reply delivery, and restart recovery.
+- Support session start, session continuation, reply delivery, and restart recovery.
 - Keep the bridge extensible so a future adapter can replace `codex exec --json` with `codex app-server` without changing the Discord-facing behavior.
 - Make the domain terms explicit so proposal, specs, tasks, and implementation use the same vocabulary.
 
@@ -18,8 +18,9 @@ The agreed routing model is one Discord thread to one Codex session. Activation 
 
 - Supporting multiple hosts or a remote Codex deployment in the MVP.
 - Automating the full-screen interactive Codex TUI.
-- Supporting every Discord surface in the MVP; the primary routing unit is a Discord thread.
+- Supporting every Discord surface in the MVP; the primary entry point is a guild text channel and the primary routing unit is a Discord thread.
 - Designing the full production observability stack beyond basic structured logging and persisted recovery state.
+- Supporting prefix activation messages, mention commands, or lifecycle slash commands.
 
 ## Decisions
 
@@ -65,16 +66,14 @@ Alternatives considered:
 
 ### Command and Concurrency Model
 
-Bridge commands such as `/codex new`, `/codex status`, `/codex reset`, and `/codex stop` will be interpreted before normal routing. A `Concurrency Guard` will enforce that only one active turn can execute for a given thread binding at a time.
+The bridge will expose two slash commands: `/codex new <prompt>` and `/codex chat <prompt>`. `/codex new` is valid only from a non-thread channel and creates a new Discord thread plus a fresh Thread Binding. If `/codex new` is invoked inside a thread, the bridge ignores it and does not create a nested thread. `/codex chat` is valid only inside a bound thread created by `/codex new`; it resumes the session already bound to that thread.
 
 Rationale:
-- Commands need different behavior from normal user turns.
-- Rejecting overlapping turns avoids state corruption and confusing reply interleaving.
-- The separation keeps session lifecycle logic explicit and testable.
+- New-session routing needs to create a visible thread boundary for each request.
+- Continuation should be explicit and slash-driven so thread replies do not accidentally invoke Codex.
 
 Alternatives considered:
-- Queuing unlimited turns per thread was rejected for MVP because it complicates user expectations and recovery.
-- Reusing activation-message parsing for lifecycle commands was rejected because explicit commands are clearer and easier to document.
+- Prefix activation messages, mention commands, and plain-message thread continuation were rejected because slash commands are clearer and easier to document.
 
 ### Recovery and Startup Reconciliation
 
@@ -96,7 +95,7 @@ Alternatives considered:
 The bridge is composed of five core components plus the external Discord and Codex systems.
 
 - `Discord Adapter`: receives inbound Discord messages and posts replies.
-- `Session Router`: resolves whether an inbound message starts, resumes, resets, or stops a thread binding.
+- `Session Router`: resolves whether an inbound interaction starts a new thread-bound session or resumes the session already bound to a created thread.
 - `Codex Adapter`: executes Codex turns and emits normalized bridge events.
 - `State Store`: persists bindings and recovery metadata.
 - `Reply Formatter`: creates Discord-safe output and chunks long responses.
@@ -139,26 +138,20 @@ The bridge is composed of five core components plus the external Discord and Cod
 
 ### New Session Flow
 
-1. Discord sends an activation message or bridge command into a thread.
-2. `Discord Adapter` emits `DiscordMessageReceived` to `Session Router`.
-3. `Session Router` creates a new Thread Binding and asks `Codex Adapter` to start a session.
+1. Discord sends `/codex new <prompt>` from a non-thread channel.
+2. `Discord Adapter` creates a new thread for that prompt.
+3. `Session Router` creates a new Thread Binding for the new thread and asks `Codex Adapter` to start a session.
 4. `Codex Adapter` runs `codex exec --json` and streams normalized events.
-5. `Reply Formatter` builds the final assistant output and sends it back through `Discord Adapter`.
+5. `Reply Formatter` first posts the user prompt as a quote block in the thread, then posts the assistant output.
 6. `State Store` records the bound idle state once delivery completes.
 
 ### Continued Session Flow
 
-1. A later user turn arrives in a bound thread.
-2. `Session Router` resolves the existing binding.
-3. `Codex Adapter` resumes the session with `codex exec resume ... --json`.
-4. `Reply Formatter` publishes the assistant output to the same reply target.
-
-### Reset and Stop Flow
-
-1. A bridge command arrives.
-2. `Session Router` interprets the command before normal activation handling.
-3. `State Store` updates the binding state.
-4. `Discord Adapter` posts a confirmation message to the thread.
+1. A later `/codex chat <prompt>` arrives in a bound thread created by `/codex new`.
+2. `Session Router` resolves the existing binding for that thread.
+3. `Reply Formatter` posts a message beginning with the requesting user mention, followed by the quoted prompt.
+4. `Codex Adapter` resumes the session with `codex exec resume ... --json`.
+5. `Reply Formatter` publishes the assistant output to the same reply target.
 
 ### Failure and Recovery Flow
 
@@ -177,15 +170,13 @@ A Thread Binding moves through these states:
 - `Executing`: a user turn is currently running.
 - `Delivering`: assistant output is being posted back to Discord.
 - `Failed`: the most recent operation failed, but the binding still exists.
-- `Stopped`: the binding was intentionally ended or reset.
 
 Valid transitions:
 - `Unbound -> Starting -> BoundIdle`
 - `BoundIdle -> Executing -> Delivering -> BoundIdle`
 - `Executing -> Failed`
 - `Delivering -> Failed`
-- `BoundIdle -> Stopped`
-- `Failed -> Starting` for reset or `Failed -> Executing` for explicit retry/resume
+- `Failed -> Starting` for explicit fresh session or `Failed -> Executing` for explicit resume
 
 ## Risks / Trade-offs
 
@@ -200,7 +191,7 @@ Valid transitions:
 1. Create the bridge skeleton and local configuration handling.
 2. Implement the thread binding store and recovery metadata model.
 3. Implement the Codex exec adapter and normalized event pipeline.
-4. Implement Discord routing, command handling, and reply delivery.
+4. Implement Discord thread creation, in-thread chat routing, and reply delivery.
 5. Verify restart recovery locally before expanding the feature set.
 
 Rollback strategy:
@@ -211,4 +202,4 @@ Rollback strategy:
 
 - Whether MVP should support direct messages in addition to thread routing remains open for a future change.
 - Whether partial assistant output should be streamed incrementally or only posted after turn completion remains open for implementation tuning.
-- Whether the bridge should expose operator-facing admin commands beyond `/codex status` remains open.
+- Whether ignored `/codex new` requests inside a thread should remain completely silent or produce an ephemeral acknowledgement remains open for implementation tuning.
