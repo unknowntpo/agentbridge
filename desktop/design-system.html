@@ -779,85 +779,80 @@
       }
 
       .provider-mark {
-        --provider-bg: var(--ab-neutral-900);
+        --provider-bg: rgb(255 255 255 / 70%);
+        --provider-accent: var(--ab-primary-500);
         position: relative;
         display: inline-grid;
-        width: 28px;
-        height: 28px;
+        width: 34px;
+        height: 34px;
         place-items: center;
-        border: 1px solid rgb(38 42 47 / 10%);
-        border-radius: 9px;
+        border: 1px solid rgb(38 42 47 / 9%);
+        border-radius: 12px;
         background: var(--provider-bg);
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 5px 14px rgb(43 38 30 / 10%);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%), 0 8px 22px rgb(43 38 30 / 8%);
+        backdrop-filter: blur(10px);
         transition:
           transform var(--ab-motion-fast),
+          border-color var(--ab-motion-fast),
           box-shadow var(--ab-motion-fast),
+          background-color var(--ab-motion-fast),
           filter var(--ab-motion-fast);
       }
 
       .provider-mark:hover {
-        transform: translateY(-1px) scale(1.04);
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), 0 8px 20px rgb(43 38 30 / 14%);
-        filter: saturate(1.06);
+        transform: translateY(-2px);
+        border-color: color-mix(in srgb, var(--provider-accent) 54%, transparent);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%), 0 12px 26px rgb(43 38 30 / 12%);
+        filter: saturate(1.08);
       }
 
       .provider-mark.codex {
-        --provider-bg: linear-gradient(135deg, var(--ab-primary-900), var(--ab-primary-500));
+        --provider-accent: var(--ab-primary-500);
+        --provider-bg: linear-gradient(135deg, rgb(241 248 248 / 92%), rgb(223 240 241 / 76%));
       }
 
       .provider-mark.claude {
-        --provider-bg: linear-gradient(135deg, #7b4f2d, var(--ab-secondary-500));
+        --provider-accent: #a98353;
+        --provider-bg: linear-gradient(135deg, rgb(255 248 237 / 94%), rgb(245 234 213 / 78%));
       }
 
       .provider-mark.gemini {
-        --provider-bg: linear-gradient(135deg, #3566a8, #8fc5d7);
-      }
-
-      .provider-mark.openai {
-        --provider-bg: linear-gradient(135deg, #2f4a3b, #6fa37d);
-      }
-
-      .provider-mark.local {
-        --provider-bg: linear-gradient(135deg, var(--ab-neutral-700), var(--ab-neutral-500));
+        --provider-accent: #7fa8d8;
+        --provider-bg: linear-gradient(135deg, rgb(244 248 255 / 96%), rgb(224 237 252 / 78%));
       }
 
       .provider-mark::after {
         position: absolute;
-        right: 4px;
-        bottom: 3px;
-        width: 5px;
-        height: 5px;
+        right: 5px;
+        bottom: 5px;
+        width: 6px;
+        height: 6px;
         border-radius: 999px;
-        background: rgb(255 255 255 / 76%);
+        background: var(--provider-accent);
+        box-shadow: 0 0 0 2px rgb(255 255 255 / 78%);
         content: "";
       }
 
       .provider-mark img {
-        width: 15px;
-        height: 15px;
+        width: 17px;
+        height: 17px;
         display: block;
-        filter: brightness(0) invert(1);
-      }
-
-      .provider-mark.local {
-        color: white;
-        font-size: 10px;
-        font-weight: 900;
-        letter-spacing: -0.04em;
+        filter: brightness(0) saturate(0%) opacity(0.78);
       }
 
       .agent-chip {
         display: inline-flex;
         align-items: center;
         gap: 7px;
-        border: 1px solid var(--ab-neutral-300);
+        border: 1px solid rgb(38 42 47 / 9%);
         border-radius: 999px;
-        padding: 4px 9px 4px 5px;
-        background: white;
+        padding: 5px 10px 5px 5px;
+        background: rgb(255 255 255 / 68%);
         color: var(--ab-neutral-700);
         font-size: 12px;
         font-weight: 850;
-        box-shadow: 0 1px 0 rgb(43 38 30 / 8%);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 78%), 0 5px 14px rgb(43 38 30 / 6%);
+        backdrop-filter: blur(10px);
         transition:
           transform var(--ab-motion-fast),
           border-color var(--ab-motion-fast),
@@ -868,24 +863,36 @@
       .agent-chip:hover {
         transform: translateY(-1px);
         border-color: var(--ab-primary-300);
-        box-shadow: 0 7px 16px rgb(43 38 30 / 10%);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 82%), 0 10px 22px rgb(43 38 30 / 9%);
       }
 
       .agent-chip.write {
         border-color: var(--ab-primary-300);
-        background: var(--ab-primary-50);
+        background: rgb(241 248 248 / 84%);
         color: var(--ab-primary-900);
       }
 
       .agent-chip.read {
-        background: var(--ab-secondary-50);
+        background: rgb(255 248 237 / 72%);
       }
 
       .agent-chip .provider-mark {
-        width: 22px;
-        height: 22px;
-        border-radius: 8px;
-        font-size: 9px;
+        width: 24px;
+        height: 24px;
+        border-radius: 9px;
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 76%);
+      }
+
+      .agent-chip .provider-mark::after {
+        right: 3px;
+        bottom: 3px;
+        width: 4px;
+        height: 4px;
+      }
+
+      .agent-chip .provider-mark img {
+        width: 13px;
+        height: 13px;
       }
 
       @keyframes status-breathe {
@@ -1352,7 +1359,7 @@
           ["StatusDot", "Small state marker used only with text nearby.", "小型狀態標記，只能搭配文字使用。"],
           ["CodeText", "Monospace branch, path, SHA, or command text.", "等寬顯示 branch、path、SHA 或 command。"],
           ["TokenSwatch", "Color sample with a stable token name.", "附帶穩定 token 名稱的色票。"],
-          ["ProviderIcon", "Provider identity mark for Codex, Claude, Gemini, OpenAI.", "Codex、Claude、Gemini、OpenAI 的 provider 識別。"],
+          ["ProviderIcon", "Provider identity mark for Codex, Claude, and Gemini.", "Codex、Claude、Gemini 的 provider 識別。"],
           ["FocusRing", "Keyboard-visible focus treatment.", "鍵盤操作可見的 focus 樣式。"],
         ],
         molecules: [
@@ -1400,15 +1407,13 @@
         const codexIcon = '<span class="provider-mark codex" title="Codex uses OpenAI brand mark"><img src="assets/provider-icons/openai.svg" alt="OpenAI" /></span>'
         const claudeIcon = '<span class="provider-mark claude" title="Claude uses Anthropic brand mark"><img src="assets/provider-icons/anthropic.svg" alt="Anthropic" /></span>'
         const geminiIcon = '<span class="provider-mark gemini"><img src="assets/provider-icons/googlegemini.svg" alt="Google Gemini" /></span>'
-        const openaiIcon = '<span class="provider-mark openai"><img src="assets/provider-icons/openai.svg" alt="OpenAI" /></span>'
-        const localIcon = '<span class="provider-mark local">Lo</span>'
         if (name === "Button") return '<button class="mini-button primary">Deploy agent</button><button class="mini-button">Cancel</button>'
         if (name === "IconButton") return '<button class="mini-icon" aria-label="Scan">↻</button><button class="mini-icon" aria-label="Open">⌘</button>'
         if (name === "Badge" || name === "StatusBadge") return '<span class="badge success">Clean</span><span class="badge warning">Dirty</span><span class="badge danger">Approval</span>'
         if (name === "StatusDot") return '<span class="mini-status-dot"></span><span>Clean</span>'
         if (name === "CodeText") return '<code>feat/worktree-tree</code><code>e45cc99</code>'
         if (name === "TokenSwatch") return '<span class="swatch" style="background: var(--ab-primary-500)"></span><span class="swatch" style="background: var(--ab-secondary-300)"></span><span class="swatch" style="background: var(--ab-danger-500)"></span>'
-        if (name === "ProviderIcon") return `${codexIcon}${claudeIcon}${geminiIcon}${openaiIcon}${localIcon}`
+        if (name === "ProviderIcon") return `${codexIcon}${claudeIcon}${geminiIcon}`
         if (name === "FocusRing") return '<button class="mini-button primary" style="box-shadow: 0 0 0 4px rgb(79 156 164 / 18%)">Focused</button>'
         if (name === "AgentChip") return `<span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span><span class="agent-chip read">${claudeIcon}Claude read</span>`
         if (name === "LockBadge") return '<span class="badge primary">Write lock: Agent</span><span class="badge secondary">Unlocked</span>'
