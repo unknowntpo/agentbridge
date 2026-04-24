@@ -1174,6 +1174,597 @@
         width: calc(100% - 150px);
       }
 
+      .git-lane-preview,
+      .commit-graph-preview {
+        display: grid;
+        gap: 10px;
+        width: 100%;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        padding: 12px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .git-lane {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: center;
+        gap: 10px;
+      }
+
+      .git-node {
+        position: relative;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 12px;
+        padding: 9px 8px;
+        background: rgb(255 255 255 / 82%);
+        color: var(--ab-neutral-700);
+        font-size: 11px;
+        font-weight: 900;
+        text-align: center;
+        box-shadow: 0 5px 14px rgb(43 38 30 / 6%);
+      }
+
+      .git-node.active {
+        border-color: var(--ab-primary-500);
+        color: var(--ab-primary-900);
+        background: var(--ab-primary-50);
+        box-shadow: 0 0 0 3px rgb(79 156 164 / 12%), 0 5px 14px rgb(43 38 30 / 6%);
+      }
+
+      .git-node:not(:last-child)::after {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 2px);
+        width: 16px;
+        height: 2px;
+        background: var(--ab-secondary-300);
+        content: "";
+        transform: translateY(-50%);
+      }
+
+      .git-node:not(:last-child)::before {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 15px);
+        width: 7px;
+        height: 7px;
+        border-top: 2px solid var(--ab-secondary-300);
+        border-right: 2px solid var(--ab-secondary-300);
+        content: "";
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      .git-lane.focus .git-node:not(:last-child)::after {
+        background: var(--ab-primary-500);
+      }
+
+      .git-lane.focus .git-node:not(:last-child)::before {
+        border-color: var(--ab-primary-500);
+      }
+
+      .git-lane-caption {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--ab-neutral-500);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .commit-graph-preview {
+        overflow: hidden;
+      }
+
+      .commit-track {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: start;
+        min-height: 170px;
+        padding: 18px 8px 6px;
+      }
+
+      .commit-track::before {
+        position: absolute;
+        top: 30px;
+        right: 44px;
+        left: 44px;
+        height: 2px;
+        background: var(--ab-secondary-300);
+        content: "";
+      }
+
+      .commit-track::after {
+        position: absolute;
+        top: 26px;
+        right: 40px;
+        width: 8px;
+        height: 8px;
+        border-top: 2px solid var(--ab-secondary-300);
+        border-right: 2px solid var(--ab-secondary-300);
+        content: "";
+        transform: rotate(45deg);
+      }
+
+      .commit-column {
+        position: relative;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .commit-dot {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        width: 26px;
+        height: 26px;
+        place-items: center;
+        border: 2px solid var(--ab-secondary-300);
+        border-radius: 999px;
+        background: white;
+        color: var(--ab-neutral-700);
+        font-family: var(--ab-mono);
+        font-size: 9px;
+        font-weight: 900;
+      }
+
+      .commit-dot.active {
+        border-color: var(--ab-primary-500);
+        color: var(--ab-primary-900);
+        background: var(--ab-primary-50);
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 12%);
+      }
+
+      .commit-dot.muted {
+        border-color: var(--ab-neutral-300);
+        color: var(--ab-neutral-500);
+      }
+
+      .commit-ref-stack {
+        display: grid;
+        justify-items: center;
+        gap: 5px;
+        width: 100%;
+        min-width: 0;
+      }
+
+      .ref-label,
+      .worktree-ref {
+        max-width: 86px;
+        overflow: hidden;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 999px;
+        padding: 4px 7px;
+        background: rgb(255 255 255 / 82%);
+        color: var(--ab-neutral-700);
+        font-size: 10px;
+        font-weight: 850;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .ref-label {
+        color: var(--ab-primary-600);
+        background: var(--ab-primary-50);
+      }
+
+      .ref-label.local-ref {
+        color: var(--ab-secondary-900);
+        background: var(--ab-secondary-100);
+      }
+
+      .worktree-ref {
+        color: var(--ab-secondary-600);
+        background: var(--ab-secondary-50);
+      }
+
+      .worktree-ref.detached {
+        border-style: dashed;
+        color: var(--ab-neutral-500);
+        background: var(--ab-neutral-50);
+      }
+
+      .commit-pointer {
+        width: 2px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--ab-neutral-300);
+      }
+
+      .commit-legend {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--ab-neutral-500);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .worktree-graph-preview {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        width: 100%;
+        overflow: hidden;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        padding: 18px 12px 12px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .worktree-graph-preview::before {
+        position: absolute;
+        top: 42px;
+        right: 24px;
+        left: 24px;
+        height: 2px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--ab-secondary-200), var(--ab-primary-300));
+        content: "";
+        opacity: 0.72;
+      }
+
+      .worktree-graph-preview::after {
+        position: absolute;
+        top: 38px;
+        right: 20px;
+        width: 8px;
+        height: 8px;
+        border-top: 2px solid var(--ab-primary-300);
+        border-right: 2px solid var(--ab-primary-300);
+        content: "";
+        opacity: 0.78;
+        transform: rotate(45deg);
+      }
+
+      .worktree-graph-card {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 18px;
+        padding: 12px;
+        background: rgb(255 255 255 / 88%);
+        color: var(--ab-neutral-900);
+        font: inherit;
+        text-align: left;
+        box-shadow: 0 8px 22px rgb(43 38 30 / 7%);
+        cursor: pointer;
+        transition:
+          border-color 220ms ease,
+          box-shadow 220ms ease,
+          transform 220ms ease,
+          background 220ms ease;
+      }
+
+      .worktree-graph-card:hover {
+        border-color: var(--ab-primary-400);
+        background: rgb(255 255 255 / 96%);
+        box-shadow: 0 14px 30px rgb(43 38 30 / 12%), 0 0 0 4px rgb(79 156 164 / 10%);
+        transform: translateY(-3px);
+      }
+
+      .worktree-graph-card:active {
+        transform: translateY(-1px) scale(0.985);
+      }
+
+      .worktree-graph-card:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 20%), 0 14px 30px rgb(43 38 30 / 12%);
+      }
+
+      .worktree-graph-card.selected {
+        border-color: var(--ab-primary-500);
+        background: linear-gradient(145deg, rgb(255 255 255 / 96%), var(--ab-primary-50));
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 14%), 0 16px 34px rgb(43 38 30 / 13%);
+      }
+
+      .worktree-graph-card::before {
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--ab-primary-300);
+        border-radius: 999px;
+        background: white;
+        content: "";
+        box-shadow: 0 0 0 4px rgb(255 255 255 / 92%);
+      }
+
+      .worktree-graph-card.selected::before {
+        border-color: var(--ab-primary-600);
+        background: var(--ab-primary-100);
+      }
+
+      .worktree-graph-title {
+        overflow: hidden;
+        color: var(--ab-neutral-950);
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .worktree-graph-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .worktree-graph-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--ab-neutral-500);
+        font-size: 10px;
+        font-weight: 850;
+      }
+
+      .worktree-graph-status strong {
+        color: var(--ab-success-700);
+      }
+
+      .commit-hint {
+        color: var(--ab-neutral-500);
+        font-family: var(--ab-mono);
+        font-size: 10px;
+        font-weight: 850;
+      }
+
+      .worktree-agent-drawer {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          grid-template-rows 280ms ease,
+          opacity 220ms ease,
+          transform 220ms ease;
+      }
+
+      .worktree-agent-drawer > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        overflow: hidden;
+      }
+
+      .worktree-graph-card.selected .worktree-agent-drawer {
+        grid-template-rows: 1fr;
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .graph-rule-note {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--ab-neutral-500);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .connector-contract-preview {
+        display: grid;
+        gap: 12px;
+        width: 100%;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        padding: 12px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .commit-underlay {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        align-items: center;
+        gap: 8px;
+        color: var(--ab-neutral-500);
+      }
+
+      .commit-underlay span {
+        position: relative;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 999px;
+        padding: 5px 0;
+        background: rgb(255 255 255 / 72%);
+        font-family: var(--ab-mono);
+        font-size: 9px;
+        font-weight: 850;
+      }
+
+      .commit-underlay span.has-branch {
+        border-color: var(--ab-primary-400);
+        background: var(--ab-primary-50);
+        color: var(--ab-primary-900);
+        box-shadow: 0 0 0 3px rgb(79 156 164 / 11%);
+      }
+
+      .commit-underlay span.has-branch::before {
+        position: absolute;
+        top: calc(100% + 5px);
+        border-radius: 999px;
+        padding: 3px 6px;
+        background: var(--ab-primary-100);
+        color: var(--ab-primary-900);
+        content: attr(data-ref);
+        font-family: var(--ab-mono);
+        font-size: 8px;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .commit-underlay span:not(:last-child)::after {
+        position: absolute;
+        left: calc(100% + 2px);
+        width: 10px;
+        height: 1px;
+        background: var(--ab-secondary-300);
+        content: "";
+      }
+
+      .branching-graph {
+        position: relative;
+        min-height: 192px;
+        overflow: hidden;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        padding: 12px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .branching-graph svg {
+        display: block;
+        width: 100%;
+        height: 164px;
+        overflow: visible;
+      }
+
+      .branch-path-main,
+      .branch-path-feature {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 3;
+      }
+
+      .branch-path-main {
+        stroke: var(--ab-secondary-300);
+      }
+
+      .branch-path-feature {
+        stroke: var(--ab-primary-400);
+      }
+
+      .branch-node-box {
+        fill: rgb(255 255 255 / 94%);
+        stroke: var(--ab-neutral-300);
+        stroke-width: 1.4;
+      }
+
+      .branch-node-box.has-branch {
+        fill: var(--ab-primary-50);
+        stroke: var(--ab-primary-500);
+        stroke-width: 2;
+      }
+
+      .branch-node-text,
+      .branch-ref-text {
+        font-family: var(--ab-mono);
+        font-weight: 900;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+
+      .branch-node-text {
+        fill: var(--ab-neutral-600);
+        font-size: 12px;
+      }
+
+      .branch-node-text.has-branch {
+        fill: var(--ab-primary-950);
+      }
+
+      .branch-ref-box {
+        fill: var(--ab-primary-100);
+      }
+
+      .branch-ref-text {
+        fill: var(--ab-primary-900);
+        font-size: 10px;
+      }
+
+      .branch-worktree-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 160px));
+        justify-content: center;
+        gap: 24px;
+        padding-top: 4px;
+      }
+
+      .branch-worktree-row .worktree-lane-connector::before {
+        height: 16px;
+      }
+
+      .worktree-lane-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        align-items: start;
+        padding-top: 10px;
+      }
+
+      .worktree-lane-row .worktree-graph-card {
+        min-height: 118px;
+      }
+
+      .worktree-lane-row .lane-spacer {
+        min-width: 0;
+      }
+
+      .worktree-lane-connector {
+        display: grid;
+        justify-items: center;
+        gap: 6px;
+      }
+
+      .worktree-lane-connector::before {
+        width: 2px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--ab-primary-300);
+        content: "";
+      }
+
+      @media (max-width: 820px) {
+        .worktree-graph-preview {
+          grid-template-columns: 1fr;
+        }
+
+        .worktree-graph-preview::before,
+        .worktree-graph-preview::after {
+          display: none;
+        }
+
+        .worktree-lane-row {
+          grid-template-columns: 1fr;
+        }
+
+        .worktree-lane-row .lane-spacer {
+          display: none;
+        }
+
+        .commit-underlay {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .branch-worktree-row {
+          grid-template-columns: 1fr;
+          padding-top: 150px;
+        }
+      }
+
       .organism-list {
         display: grid;
         gap: 6px;
@@ -1627,6 +2218,7 @@
         <strong>AgentHub Design System</strong>
       </div>
       <nav class="nav" aria-label="Design sections">
+        <a href="/" data-i18n="navPreview">Preview</a>
         <a href="#tokens" data-i18n="navTokens">Tokens</a>
         <a href="#states" data-i18n="navStates">States</a>
         <a href="#components" data-i18n="navComponents">Components</a>
@@ -1963,8 +2555,8 @@
         if (name === "RunTimelineItem") return '<div class="run-row"><div class="molecule-row-head"><span class="molecule-row-title"><span class="row-icon"><svg viewBox="0 0 24 24"><path d="m8 5 8 7-8 7z"></path></svg></span>Command run</span><span class="badge success running">running</span></div><div class="run-command"><code class="command-block" title="bun run check"><span class="command-text">bun run check</span><span class="approval-command-copy">□</span></code></div><div class="progress-track"><div class="progress-fill"></div></div><div class="run-meta"><span>12s</span><span>typecheck</span></div></div>'
         if (name === "EmptyState") return '<div class="empty-state-preview"><div><span class="row-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"></path><path d="M7 7v10"></path><path d="M17 7v10"></path><path d="M7 17h10"></path></svg></span><strong>No active agents</strong><span>Scan worktrees or deploy an agent.</span></div></div>'
         if (name === "WorktreeCard") return `<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">feat/worktree-tree</span><span class="badge success">Clean</span></div><div class="organism-card-row"><span class="agent-chip write">${codexIcon}Codex write</span><span class="lock-badge locked">${lockIcon}Write locked</span></div></div>`
-        if (name === "WorktreeTreeCanvas") return '<div class="organism-tree"><span class="mini-node" style="left: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="right: 12px">feature</span></div>'
-        if (name === "TreeConnectorLayer") return '<div class="organism-tree"><span class="mini-node" style="left: 12px">main</span><span class="mini-connector" style="background: var(--ab-secondary-300)"></span><span class="mini-node selected" style="right: 12px">feature</span></div>'
+        if (name === "WorktreeTreeCanvas") return `<div class="worktree-graph-preview" data-worktree-graph><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main</span><span class="commit-hint">commit a1b2c3d</span><span class="worktree-graph-meta"><span class="badge secondary">no agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">ready for read-only agent</span></div></span></button><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">feat/worktree-tree</span><span class="commit-hint">commit d4e5f6a</span><span class="worktree-graph-meta"><span class="lock-badge locked">${lockIcon}write locked</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></div></span></button><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">wt/perf-proto</span><span class="commit-hint">detached c0ffee1</span><span class="worktree-graph-meta"><span class="badge warning">dirty</span><span class="badge secondary">local</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip read">${claudeIcon}Claude read</span></div></span></button><div class="graph-rule-note"><span>commit lane is ancestry context</span><span>click a worktree to reveal agents</span></div></div>`
+        if (name === "TreeConnectorLayer") return `<div class="connector-contract-preview" data-worktree-graph><div class="branching-graph"><svg viewBox="0 0 420 164" aria-hidden="true"><path class="branch-path-main" d="M70 36 H188 H350"></path><path class="branch-path-feature" d="M188 36 C226 36 236 96 278 96"></path><rect class="branch-node-box" x="28" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="70" y="36">a1b2</text><rect class="branch-node-box" x="146" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="188" y="36">d4e5</text><rect class="branch-node-box has-branch" x="308" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="350" y="36">c0ff</text><rect class="branch-ref-box" x="323" y="64" width="54" height="24" rx="12"></rect><text class="branch-ref-text" x="350" y="76">main</text><rect class="branch-node-box has-branch" x="236" y="79" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="278" y="96">b1c2</text><rect class="branch-ref-box" x="247" y="124" width="62" height="24" rx="12"></rect><text class="branch-ref-text" x="278" y="136">feat/ui</text></svg><div class="branch-worktree-row"><div class="worktree-lane-connector"><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main worktree</span><span class="commit-hint">on main @ c0ff</span><span class="worktree-graph-status"><span>0 agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">no agents</span></div></span></button></div><div class="worktree-lane-connector"><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">ui worktree</span><span class="commit-hint">on feat/ui @ b1c2</span><span class="worktree-graph-status"><span>selected</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span></div></span></button></div></div></div><div class="graph-rule-note"><span>branch heads get highlight color</span><span>only actionable worktree state appears on cards</span></div></div>`
         if (name === "ProjectSidebar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">AgentHub</span><span class="badge primary">AB</span></div><div class="organism-list"><div class="organism-list-row"><span>Tree</span><span class="mini-status-dot"></span></div><div class="organism-list-row"><span>Approvals</span><span class="badge danger">1</span></div></div></div>'
         if (name === "TopProjectBar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">agentbridge</span><span class="badge success">synced</span></div><div class="organism-card-row"><button class="mini-button">Scan</button><button class="mini-button">Open</button></div></div>'
         if (name === "InspectorPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Inspector</span><span class="badge secondary">selected</span></div><div class="organism-list"><div class="organism-list-row"><span>Writer</span><span>Codex</span></div><div class="organism-list-row"><span>Git</span><span class="badge success">Clean</span></div></div></div>'
@@ -1995,7 +2587,7 @@
         document.querySelectorAll("[data-component-group]").forEach((container) => {
           const group = container.dataset.componentGroup
           container.innerHTML = componentCatalog[group].map(([name, en, zh]) => `
-            <details class="component-item${name === "ApprovalPromptRow" ? " wide" : ""}"${componentsExpanded ? " open" : ""}>
+            <details class="component-item${["ApprovalPromptRow", "WorktreeTreeCanvas", "TreeConnectorLayer"].includes(name) ? " wide" : ""}"${componentsExpanded ? " open" : ""}>
               <summary><code>${name}</code></summary>
               <div class="component-preview">
                 <p>${locale === "zh-TW" ? zh : en}</p>
@@ -2035,9 +2627,27 @@
         })
       }
 
+      function bindWorktreeGraphControls(scope = document) {
+        scope.querySelectorAll("[data-worktree-graph]").forEach((graph) => {
+          if (graph.dataset.bound === "true") return
+          graph.dataset.bound = "true"
+          graph.querySelectorAll("[data-worktree-node]").forEach((card) => {
+            card.addEventListener("click", () => {
+              graph.querySelectorAll("[data-worktree-node]").forEach((item) => {
+                item.classList.remove("selected")
+                item.setAttribute("aria-pressed", "false")
+              })
+              card.classList.add("selected")
+              card.setAttribute("aria-pressed", "true")
+            })
+          })
+        })
+      }
+
       const messages = {
         "en-US": {
           navTokens: "Tokens",
+          navPreview: "Preview",
           navStates: "States",
           navComponents: "Components",
           navBreakpoints: "Breakpoints",
@@ -2104,6 +2714,7 @@
         },
         "zh-TW": {
           navTokens: "色彩",
+          navPreview: "預覽",
           navStates: "狀態",
           navComponents: "元件",
           navBreakpoints: "斷點",
@@ -2185,6 +2796,8 @@
             node.textContent = value
           }
         })
+        bindLiveSegmentedControls()
+        bindWorktreeGraphControls()
         syncComponentToggleLabel()
       }
 
@@ -2318,6 +2931,7 @@
       componentsExpanded = params.get("expandComponents") === "1"
       applyLocale(currentLocale)
       bindLiveSegmentedControls()
+      bindWorktreeGraphControls()
     </script>
   </body>
 </html>
