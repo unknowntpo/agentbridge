@@ -1196,6 +1196,59 @@
         background: var(--ab-neutral-200);
       }
 
+      .layout-preview {
+        display: grid;
+        width: 100%;
+        min-height: 116px;
+        gap: 7px;
+        border: 1px solid rgb(38 42 47 / 9%);
+        border-radius: 16px;
+        padding: 10px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          rgb(255 255 255 / 74%);
+        background-size: 12px 12px;
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 78%), 0 8px 22px rgb(43 38 30 / 7%);
+      }
+
+      .layout-preview.dashboard {
+        grid-template-columns: 34px 1fr 46px;
+      }
+
+      .layout-preview.detail {
+        grid-template-columns: 1fr 74px;
+      }
+
+      .layout-preview.single {
+        grid-template-columns: 1fr;
+      }
+
+      .layout-region {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 10px;
+        background: rgb(255 255 255 / 78%);
+        padding: 7px;
+        color: var(--ab-neutral-500);
+        font-size: 10px;
+        font-weight: 850;
+      }
+
+      .layout-region.primary {
+        border-color: var(--ab-primary-300);
+        background: var(--ab-primary-50);
+        color: var(--ab-primary-600);
+      }
+
+      .layout-region.danger {
+        border-color: var(--ab-danger-300);
+        background: var(--ab-danger-50);
+        color: var(--ab-danger-600);
+      }
+
+      .layout-preview .organism-line {
+        margin-top: 7px;
+      }
+
       .provider-mark {
         --provider-bg: rgb(255 255 255 / 70%);
         --provider-accent: var(--ab-primary-500);
@@ -1918,6 +1971,18 @@
         if (name === "AgentSessionPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Codex session</span><span class="badge success running">running</span></div><div class="run-command"><code class="command-block"><span class="command-text">bun run check</span><span class="approval-command-copy">□</span></code></div></div>'
         if (name === "ApprovalCenter") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Approval queue</span><span class="badge danger">1 pending</span></div><div class="organism-list-row"><span>scope: network</span><button class="mini-action approve">Approve</button></div></div>'
         if (name === "ArtifactsPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Artifacts</span><span class="badge secondary">3 files</span></div><div class="organism-list"><div class="organism-list-row"><span>screenshot.png</span><span>2m</span></div><div class="organism-list-row"><span>run.log</span><span>now</span></div></div></div>'
+        if (name === "WorktreeDashboardLayout") return '<div class="layout-preview dashboard"><div class="layout-region">side</div><div class="layout-region primary">tree<div class="organism-line"></div><div class="organism-line"></div></div><div class="layout-region">inspect</div></div>'
+        if (name === "WorktreeDetailLayout") return '<div class="layout-preview detail"><div class="layout-region primary">worktree detail<div class="organism-line"></div><div class="organism-line"></div></div><div class="layout-region">sessions</div></div>'
+        if (name === "AgentSessionDetailLayout") return '<div class="layout-preview detail"><div class="layout-region primary">conversation<div class="organism-line"></div><div class="organism-line"></div></div><div class="layout-region">runs</div></div>'
+        if (name === "ApprovalReviewLayout") return '<div class="layout-preview single"><div class="layout-region danger">approval decision<div class="organism-line"></div><div class="organism-line"></div></div></div>'
+        if (name === "ProjectOnboardingLayout") return '<div class="layout-preview single"><div class="layout-region primary">open project</div><div class="layout-region">scan worktrees</div><div class="layout-region">deploy first agent</div></div>'
+        if (name === "WorktreeTreePage") return '<div class="layout-preview dashboard"><div class="layout-region">nav</div><div class="layout-region primary">tree page<div class="organism-line"></div></div><div class="layout-region">panel</div></div>'
+        if (name === "WorktreeDetailPage") return '<div class="layout-preview detail"><div class="layout-region primary">selected worktree</div><div class="layout-region">agent list</div></div>'
+        if (name === "AgentSessionPage") return '<div class="layout-preview detail"><div class="layout-region primary">messages</div><div class="layout-region">runs</div></div>'
+        if (name === "ApprovalsPage") return '<div class="layout-preview single"><div class="layout-region danger">pending approvals</div><div class="layout-region">resolved history</div></div>'
+        if (name === "ArtifactsPage") return '<div class="layout-preview single"><div class="layout-region primary">artifact search</div><div class="layout-region">preview panel</div></div>'
+        if (name === "TrustedRootsPage") return '<div class="layout-preview single"><div class="layout-region">filesystem trust</div><div class="layout-region danger">approval policy</div></div>'
+        if (name === "DesignSystemPage") return '<div class="layout-preview single"><div class="layout-region primary">tokens</div><div class="layout-region">components</div><div class="layout-region">decisions</div></div>'
         if (name.includes("Tree")) return '<div class="mini-tree"><span class="mini-node" style="left: 0; top: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="left: 145px; top: 12px">feature</span></div>'
         if (name.includes("Panel") || name.includes("Center") || name.includes("Sidebar") || name.includes("Bar")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
         if (name.includes("Layout") || name.includes("Page")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
