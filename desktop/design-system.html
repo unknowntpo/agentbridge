@@ -1738,6 +1738,150 @@
         width: 100%;
       }
 
+      .auto-connector-stage {
+        position: relative;
+        min-height: 430px;
+        overflow: hidden;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 18px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 14px 14px;
+      }
+
+      .auto-connector-stage::before,
+      .auto-connector-stage::after {
+        position: absolute;
+        inset: 16px;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        content: "";
+        pointer-events: none;
+      }
+
+      .auto-connector-stage::after {
+        inset: 34px;
+      }
+
+      .auto-svg {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .auto-node {
+        position: absolute;
+        z-index: 2;
+        user-select: none;
+      }
+
+      .auto-node[draggable="false"] {
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .auto-node[draggable="false"]:active {
+        cursor: grabbing;
+      }
+
+      .auto-commit {
+        display: grid;
+        width: 92px;
+        height: 38px;
+        place-items: center;
+        border: 2px solid var(--ab-neutral-300);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 90%);
+        color: var(--ab-neutral-600);
+        font-family: var(--ab-mono);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .auto-commit.active {
+        border-color: var(--ab-primary-500);
+        background: var(--ab-primary-50);
+        color: var(--ab-primary-950);
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 10%);
+      }
+
+      .auto-branch {
+        display: grid;
+        min-width: 72px;
+        height: 30px;
+        place-items: center;
+        border-radius: 999px;
+        padding: 0 10px;
+        background: var(--ab-primary-100);
+        color: var(--ab-primary-900);
+        font-family: var(--ab-mono);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .auto-worktree {
+        display: grid;
+        width: 160px;
+        min-height: 128px;
+        gap: 8px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 18px;
+        padding: 14px;
+        background: rgb(255 255 255 / 88%);
+        color: var(--ab-neutral-900);
+        box-shadow: 0 12px 26px rgb(43 38 30 / 8%);
+        transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+      }
+
+      .auto-worktree.selected {
+        border-color: var(--ab-primary-500);
+        background: linear-gradient(145deg, rgb(255 255 255 / 96%), var(--ab-primary-50));
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 12%), 0 14px 30px rgb(43 38 30 / 12%);
+      }
+
+      .auto-worktree:hover {
+        transform: translateY(-2px);
+      }
+
+      .auto-worktree::before {
+        width: 18px;
+        height: 18px;
+        border: 3px solid var(--ab-primary-500);
+        border-radius: 999px;
+        background: white;
+        content: "";
+      }
+
+      .auto-worktree strong {
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .auto-worktree span {
+        color: var(--ab-neutral-500);
+        font-family: var(--ab-mono);
+        font-size: 10px;
+        font-weight: 850;
+      }
+
+      .auto-hint {
+        position: absolute;
+        bottom: 10px;
+        left: 12px;
+        z-index: 3;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: rgb(255 253 248 / 86%);
+        color: var(--ab-neutral-500);
+        font-size: 10px;
+        font-weight: 750;
+      }
+
       .worktree-lane-row {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -2551,6 +2695,7 @@
           ["WorktreeCard", "Core object: checkout directory, Git state, agents, lock.", "核心物件：checkout 目錄、Git 狀態、agent、鎖。"],
           ["WorktreeTreeCanvas", "Git tree visualization with selectable worktree cards.", "可選取 worktree card 的 Git tree 視覺化。"],
           ["TreeConnectorLayer", "Visual ancestry and focus paths.", "視覺化 ancestry 與 focus path。"],
+          ["AutoConnectorLayer", "SVG paths recomputed from real DOM node positions.", "SVG 路徑由真實 DOM node 位置自動重算。"],
           ["ProjectSidebar", "Project navigation and persistent app actions.", "專案導覽與常駐 app 操作。"],
           ["TopProjectBar", "Current project, sync, scan, and open actions.", "目前專案、同步、掃描與開啟操作。"],
           ["InspectorPanel", "Selected worktree details and accessible tree equivalent.", "選取 worktree 細節與可存取的 tree 文字等價資訊。"],
@@ -2602,6 +2747,7 @@
         if (name === "WorktreeCard") return `<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">feat/worktree-tree</span><span class="badge success">Clean</span></div><div class="organism-card-row"><span class="agent-chip write">${codexIcon}Codex write</span><span class="lock-badge locked">${lockIcon}Write locked</span></div></div>`
         if (name === "WorktreeTreeCanvas") return `<div class="worktree-graph-preview" data-worktree-graph><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main</span><span class="commit-hint">commit a1b2c3d</span><span class="worktree-graph-meta"><span class="badge secondary">no agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">ready for read-only agent</span></div></span></button><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">feat/worktree-tree</span><span class="commit-hint">commit d4e5f6a</span><span class="worktree-graph-meta"><span class="lock-badge locked">${lockIcon}write locked</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></div></span></button><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">wt/perf-proto</span><span class="commit-hint">detached c0ffee1</span><span class="worktree-graph-meta"><span class="badge warning">dirty</span><span class="badge secondary">local</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip read">${claudeIcon}Claude read</span></div></span></button><div class="graph-rule-note"><span>commit lane is ancestry context</span><span>click a worktree to reveal agents</span></div></div>`
         if (name === "TreeConnectorLayer") return `<div class="connector-contract-preview" data-worktree-graph><div class="branching-graph"><svg viewBox="0 0 420 178" aria-hidden="true"><path class="branch-path-main" d="M70 36 H188 H350"></path><path class="branch-path-feature" d="M188 36 C226 36 236 96 278 96"></path><path class="branch-path-worktree" d="M350 88 V172"></path><path class="branch-path-worktree" d="M278 148 V172"></path><rect class="branch-node-box" x="28" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="70" y="36">a1b2</text><rect class="branch-node-box" x="146" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="188" y="36">d4e5</text><rect class="branch-node-box has-branch" x="308" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="350" y="36">c0ff</text><rect class="branch-ref-box" x="323" y="64" width="54" height="24" rx="12"></rect><text class="branch-ref-text" x="350" y="76">main</text><rect class="branch-node-box has-branch" x="236" y="79" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="278" y="96">b1c2</text><rect class="branch-ref-box" x="247" y="124" width="62" height="24" rx="12"></rect><text class="branch-ref-text" x="278" y="136">feat/ui</text></svg><div class="branch-worktree-row"><div class="branch-card-slot main-wt"><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main worktree</span><span class="commit-hint">on main @ c0ff</span><span class="worktree-graph-status"><span>0 agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">no agents</span></div></span></button></div><div class="branch-card-slot feature-wt"><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">ui worktree</span><span class="commit-hint">on feat/ui @ b1c2</span><span class="worktree-graph-status"><span>selected</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span></div></span></button></div></div></div><div class="graph-rule-note"><span>branch heads get highlight color</span><span>only actionable worktree state appears on cards</span></div></div>`
+        if (name === "AutoConnectorLayer") return `<div class="auto-connector-stage" data-auto-connector><svg class="auto-svg" aria-hidden="true"></svg><div class="auto-node auto-commit" data-auto-node="a1b2" draggable="false" style="left: 8%; top: 48px;">a1b2</div><div class="auto-node auto-commit" data-auto-node="d4e5" draggable="false" style="left: 34%; top: 48px;">d4e5</div><div class="auto-node auto-commit active" data-auto-node="c0ff" draggable="false" style="left: 74%; top: 48px;">c0ff</div><div class="auto-node auto-commit active" data-auto-node="b1c2" draggable="false" style="left: 58%; top: 140px;">b1c2</div><div class="auto-node auto-branch" data-auto-node="main" draggable="false" style="left: 80%; top: 112px;">main</div><div class="auto-node auto-branch" data-auto-node="feat" draggable="false" style="left: 62%; top: 206px;">feat/ui</div><article class="auto-node auto-worktree" data-auto-node="mainWorktree" draggable="false" style="left: 27%; top: 258px;"><strong>main worktree</strong><span>on main @ c0ff</span><span>0 agents</span></article><article class="auto-node auto-worktree selected" data-auto-node="uiWorktree" draggable="false" style="left: 59%; top: 250px;"><strong>ui worktree</strong><span>on feat/ui @ b1c2</span><span>selected</span><span class="agent-chip write">${codexIcon}Codex write</span></article><span class="auto-hint">Drag nodes: SVG paths recompute from DOM bounds</span></div>`
         if (name === "ProjectSidebar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">AgentHub</span><span class="badge primary">AB</span></div><div class="organism-list"><div class="organism-list-row"><span>Tree</span><span class="mini-status-dot"></span></div><div class="organism-list-row"><span>Approvals</span><span class="badge danger">1</span></div></div></div>'
         if (name === "TopProjectBar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">agentbridge</span><span class="badge success">synced</span></div><div class="organism-card-row"><button class="mini-button">Scan</button><button class="mini-button">Open</button></div></div>'
         if (name === "InspectorPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Inspector</span><span class="badge secondary">selected</span></div><div class="organism-list"><div class="organism-list-row"><span>Writer</span><span>Codex</span></div><div class="organism-list-row"><span>Git</span><span class="badge success">Clean</span></div></div></div>'
@@ -2632,7 +2778,7 @@
         document.querySelectorAll("[data-component-group]").forEach((container) => {
           const group = container.dataset.componentGroup
           container.innerHTML = componentCatalog[group].map(([name, en, zh]) => `
-            <details class="component-item${["ApprovalPromptRow", "WorktreeTreeCanvas", "TreeConnectorLayer"].includes(name) ? " wide" : ""}"${componentsExpanded ? " open" : ""}>
+            <details class="component-item${["ApprovalPromptRow", "WorktreeTreeCanvas", "TreeConnectorLayer", "AutoConnectorLayer"].includes(name) ? " wide" : ""}"${componentsExpanded ? " open" : ""}>
               <summary><code>${name}</code></summary>
               <div class="component-preview">
                 <p>${locale === "zh-TW" ? zh : en}</p>
@@ -2686,6 +2832,93 @@
               card.setAttribute("aria-pressed", "true")
             })
           })
+        })
+      }
+
+      function bindAutoConnectorDemos(scope = document) {
+        const links = [
+          { from: "a1b2", to: "d4e5", type: "straight" },
+          { from: "d4e5", to: "c0ff", type: "straight" },
+          { from: "main", to: "c0ff", type: "vertical" },
+          { from: "feat", to: "b1c2", type: "vertical" },
+          { from: "mainWorktree", to: "main", type: "curve", dashed: true },
+          { from: "uiWorktree", to: "feat", type: "curve", dashed: true },
+        ]
+
+        scope.querySelectorAll("[data-auto-connector]").forEach((stage) => {
+          if (stage.dataset.bound === "true") return
+          stage.dataset.bound = "true"
+          const svg = stage.querySelector(".auto-svg")
+          const node = (name) => stage.querySelector(`[data-auto-node="${name}"]`)
+          const point = (element, anchor = "center") => {
+            const stageRect = stage.getBoundingClientRect()
+            const rect = element.getBoundingClientRect()
+            const x = rect.left - stageRect.left
+            const y = rect.top - stageRect.top
+            if (anchor === "left") return { x, y: y + rect.height / 2 }
+            if (anchor === "right") return { x: x + rect.width, y: y + rect.height / 2 }
+            if (anchor === "top") return { x: x + rect.width / 2, y }
+            if (anchor === "bottom") return { x: x + rect.width / 2, y: y + rect.height }
+            return { x: x + rect.width / 2, y: y + rect.height / 2 }
+          }
+          const anchors = (link) => {
+            const from = node(link.from)
+            const to = node(link.to)
+            if (!from || !to) return null
+            if (link.type === "straight") return { start: point(from, "right"), end: point(to, "left") }
+            if (link.type === "vertical") return { start: point(from, "top"), end: point(to, "bottom") }
+            return { start: point(from, "top"), end: point(to, "bottom") }
+          }
+          const pathD = (link) => {
+            const pair = anchors(link)
+            if (!pair) return ""
+            const { start, end } = pair
+            if (link.type === "curve") {
+              const midY = (start.y + end.y) / 2
+              return `M ${start.x} ${start.y} C ${start.x} ${midY}, ${end.x} ${midY}, ${end.x} ${end.y}`
+            }
+            return `M ${start.x} ${start.y} L ${end.x} ${end.y}`
+          }
+          const draw = () => {
+            svg.setAttribute("viewBox", `0 0 ${stage.clientWidth} ${stage.clientHeight}`)
+            svg.innerHTML = ""
+            links.forEach((link) => {
+              const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+              path.setAttribute("d", pathD(link))
+              path.setAttribute("fill", "none")
+              path.setAttribute("stroke", link.dashed ? "var(--ab-primary-300)" : "var(--ab-secondary-300)")
+              path.setAttribute("stroke-width", link.dashed ? "3" : "4")
+              path.setAttribute("stroke-linecap", "round")
+              path.setAttribute("stroke-linejoin", "round")
+              if (link.dashed) path.setAttribute("stroke-dasharray", "12 10")
+              svg.appendChild(path)
+            })
+          }
+          const makeDraggable = (element) => {
+            let dragging = false
+            let offsetX = 0
+            let offsetY = 0
+            element.addEventListener("pointerdown", (event) => {
+              dragging = true
+              element.setPointerCapture(event.pointerId)
+              const rect = element.getBoundingClientRect()
+              offsetX = event.clientX - rect.left
+              offsetY = event.clientY - rect.top
+            })
+            element.addEventListener("pointermove", (event) => {
+              if (!dragging) return
+              const stageRect = stage.getBoundingClientRect()
+              element.style.left = `${event.clientX - stageRect.left - offsetX}px`
+              element.style.top = `${event.clientY - stageRect.top - offsetY}px`
+              draw()
+            })
+            element.addEventListener("pointerup", () => {
+              dragging = false
+            })
+          }
+          stage.querySelectorAll(".auto-node").forEach(makeDraggable)
+          window.addEventListener("resize", draw)
+          requestAnimationFrame(draw)
         })
       }
 
@@ -2843,6 +3076,7 @@
         })
         bindLiveSegmentedControls()
         bindWorktreeGraphControls()
+        bindAutoConnectorDemos()
         syncComponentToggleLabel()
       }
 
@@ -2977,6 +3211,7 @@
       applyLocale(currentLocale)
       bindLiveSegmentedControls()
       bindWorktreeGraphControls()
+      bindAutoConnectorDemos()
     </script>
   </body>
 </html>
