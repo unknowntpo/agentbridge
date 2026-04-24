@@ -15,7 +15,9 @@ import {
 } from "discord.js"
 
 import type { AgentBridge } from "../bridge/agentBridge.js"
-import type { BridgeRuntime, DiscordTransport, InboundDiscordMessage, ThreadTranscriptMessage } from "../types.js"
+import { buildPendingApprovalMessage, createPendingApproval } from "../runtime/pendingApprovals.js"
+import { evaluateSessionPermissionRequest, parsePermissionProfile, PERMISSION_PROFILES } from "../runtime/sessionPermissions.js"
+import type { BridgeRuntime, DiscordTransport, InboundDiscordMessage, ProviderKind, StateStore, ThreadTranscriptMessage, TrustedWorkspace } from "../types.js"
 
 export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
   private readonly client: Client
@@ -28,6 +30,8 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
     private readonly guildId: string | null,
     private readonly bridge: AgentBridge,
     allowedChannelIds: string[] = [],
+    private readonly stateStore?: StateStore,
+    private readonly trustedWorkspaces: TrustedWorkspace[] = [],
   ) {
     this.allowedChannelIds = new Set(allowedChannelIds)
     this.rest = new REST({ version: "10" }).setToken(token)
@@ -56,6 +60,7 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
 
       void this.handleSlashCommand(interaction).catch((error) => {
         console.error(`[discord] slash command failed: ${toErrorMessage(error)}`)
+        void replyToFailedInteraction(interaction, toErrorMessage(error))
       })
     })
 
@@ -108,7 +113,7 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
 
     const messages = await channel.messages.fetch({ limit: 100 })
     const latest = [...messages.values()]
-      .sort((left, right) => Number(BigInt(left.id) - BigInt(right.id)))
+      .sort((left, right) => compareMessageIds(left.id, right.id))
       .filter(isVisibleTranscriptMessage)
       .at(-1)
 
@@ -128,13 +133,36 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
       return
     }
 
-    console.info(`[discord] messageCreate channel=${message.channel.id} message=${message.id} ignored`)
+    const botId = this.client.user?.id
+    if (!botId) {
+      return
+    }
+
+    const prompt = extractMentionPrompt(message.content, botId)
+    if (!prompt) {
+      console.info(`[discord] messageCreate channel=${message.channel.id} message=${message.id} ignored`)
+      return
+    }
+
+    await message.react("👍")
+    console.info(`[discord] messageCreate channel=${message.channel.id} message=${message.id} mention-routed`)
+    await this.bridge.handleBoundThreadPromptWithTransport(
+      {
+        threadId: message.channel.id,
+        messageId: message.id,
+        content: prompt,
+        authorId: message.author.id,
+      },
+      prompt,
+      this,
+    )
   }
 
   private async handleSlashCommand(interaction: ChatInputCommandInteraction): Promise<void> {
-    if (interaction.commandName !== "codex") {
+    if (interaction.commandName !== "codex" && interaction.commandName !== "gemini") {
       return
     }
+    const provider = interaction.commandName as ProviderKind
 
     if (!this.isAllowedLocation(interaction.channelId, interaction.channel?.isThread() ? interaction.channel.parentId : null)) {
       await interaction.reply({
@@ -146,12 +174,51 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
 
     const subcommand = interaction.options.getSubcommand()
     const prompt = interaction.options.getString("prompt", true)
-    console.info(`[discord] interaction command=/codex ${subcommand} channel=${interaction.channelId}`)
+    console.info(`[discord] interaction command=/${provider} ${subcommand} channel=${interaction.channelId}`)
 
     if (subcommand === "new") {
       if (interaction.channel?.isThread()) {
         await interaction.reply({
-          content: "Ignoring `/codex new` inside an existing thread.",
+          content: `Ignoring \`/${provider} new\` inside an existing thread.`,
+          flags: MessageFlags.Ephemeral,
+        })
+        return
+      }
+
+      const workspaceInput = interaction.options.getString("workspace", true)
+      const permissionProfile = parsePermissionProfile(interaction.options.getString("profile", true))
+      const permission = evaluateSessionPermissionRequest({
+        provider,
+        workspaceInput,
+        profile: permissionProfile,
+        trustedWorkspaces: this.trustedWorkspaces,
+      })
+
+      if (permission.action === "reject") {
+        await interaction.reply({
+          content: permission.reason ?? "This provider cannot satisfy that permission request.",
+          flags: MessageFlags.Ephemeral,
+        })
+        return
+      }
+
+      if (permission.action === "require_local_approval") {
+        if (!this.stateStore) {
+          throw new Error("Discord permission queue requested without an attached state store")
+        }
+
+        const approval = createPendingApproval({
+          provider,
+          requesterUserId: interaction.user.id,
+          requesterDisplayName: interaction.user.globalName ?? interaction.user.username,
+          prompt,
+          parentChannelId: interaction.channelId,
+          workspace: permission.workspace,
+          permissionProfile,
+        })
+        this.stateStore.savePendingApproval(approval)
+        await interaction.reply({
+          content: buildPendingApprovalMessage(approval),
           flags: MessageFlags.Ephemeral,
         })
         return
@@ -167,34 +234,24 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
           content: prompt,
           authorId: interaction.user.id,
         },
+        provider,
         prompt,
         transport,
+        {
+          workspaceId: permission.workspace.id,
+          workspaceLabel: permission.workspace.label,
+          workspacePath: permission.workspace.path,
+          permissionProfile,
+        },
       )
-      await transport.finishAck("Started a fresh Codex session.")
+      await transport.finishAck(`Started a fresh ${displayProvider(provider)} session.`)
       return
     }
 
-    if (!interaction.channel?.isThread()) {
-      await interaction.reply({
-        content: "Use `/codex new <prompt>` from a parent channel first.",
-        flags: MessageFlags.Ephemeral,
-      })
-      return
-    }
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral })
-    const transport = createSlashReplyTransport(this, interaction, interaction.channel.toString())
-    await this.bridge.handleChatPromptWithTransport(
-      {
-        threadId: interaction.channelId,
-        messageId: interaction.id,
-        content: prompt,
-        authorId: interaction.user.id,
-      },
-      prompt,
-      transport,
-    )
-    await transport.finishAck()
+    await interaction.reply({
+      content: `Continue this thread by mentioning the bot, for example: <@${this.client.user?.id ?? "bot"}> ${prompt}`,
+      flags: MessageFlags.Ephemeral,
+    })
   }
 
   private async createThread(channelId: string, prompt: string): Promise<{ id: string; label: string }> {
@@ -211,7 +268,7 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
     const thread = await threadManager.create({
       name: buildThreadName(prompt),
       type: ChannelType.PublicThread,
-      reason: "AgentBridge /codex new",
+      reason: "AgentBridge provider new",
     })
     return { id: thread.id, label: thread.toString() }
   }
@@ -222,29 +279,38 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
   ): Promise<Message[]> {
     const collected: Message[] = []
     let cursor = afterMessageId ?? null
+    let before: string | null = null
 
     while (true) {
-      const batch = await channel.messages.fetch(
-        cursor
-          ? { limit: 100, after: cursor }
-          : { limit: 100 },
-      )
-      const orderedBatch = [...batch.values()].sort((left, right) => compareMessageIds(left.id, right.id))
-
-      if (!cursor) {
-        return orderedBatch
+      let batch: Awaited<ReturnType<typeof channel.messages.fetch>>
+      if (cursor) {
+        batch = await channel.messages.fetch({ limit: 100, after: cursor })
+      } else if (before) {
+        batch = await channel.messages.fetch({ limit: 100, before })
+      } else {
+        batch = await channel.messages.fetch({ limit: 100 })
       }
+      const orderedBatch: Message[] = [...batch.values()].sort((left, right) => compareMessageIds(left.id, right.id))
 
       if (orderedBatch.length === 0) {
         break
       }
 
-      collected.push(...orderedBatch)
+      if (cursor) {
+        collected.push(...orderedBatch)
+      } else {
+        collected.unshift(...orderedBatch)
+      }
+
       if (orderedBatch.length < 100) {
         break
       }
 
-      cursor = orderedBatch.at(-1)?.id ?? cursor
+      if (cursor) {
+        cursor = orderedBatch.at(-1)?.id ?? cursor
+      } else {
+        before = orderedBatch.at(0)?.id ?? before
+      }
     }
 
     return collected
@@ -259,7 +325,7 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
 
   private isAllowedLocation(channelId: string, parentId: string | null): boolean {
     if (this.allowedChannelIds.size === 0) {
-      return true
+      return false
     }
 
     if (this.allowedChannelIds.has(channelId)) {
@@ -279,28 +345,30 @@ export class DiscordGatewayAdapter implements DiscordTransport, BridgeRuntime {
       return
     }
 
-    const commands = [
+    const commands = (["codex", "gemini"] as const).map((provider) =>
       new SlashCommandBuilder()
-        .setName("codex")
-        .setDescription("Interact with AgentBridge")
+        .setName(provider)
+        .setDescription(`Interact with AgentBridge-managed ${displayProvider(provider)} sessions`)
         .addSubcommand((subcommand) =>
           subcommand
             .setName("new")
-            .setDescription("Create a new Codex thread and start a fresh session")
+            .setDescription(`Create a new ${displayProvider(provider)} thread and start a fresh session`)
             .addStringOption((option) =>
-              option.setName("prompt").setDescription("Prompt to start the fresh session with").setRequired(true),
-            ),
-        )
-        .addSubcommand((subcommand) =>
-          subcommand
-            .setName("chat")
-            .setDescription("Send a prompt to the Codex session bound to this thread")
+              option.setName("prompt").setDescription(`Prompt to start the fresh ${displayProvider(provider)} session with`).setRequired(true),
+            )
             .addStringOption((option) =>
-              option.setName("prompt").setDescription("Prompt to send to Codex").setRequired(true),
+              option.setName("workspace").setDescription("Trusted workspace id or absolute path for this session").setRequired(true),
+            )
+            .addStringOption((option) =>
+              option
+                .setName("profile")
+                .setDescription("AgentBridge permission profile for the selected workspace")
+                .setRequired(true)
+                .addChoices(...PERMISSION_PROFILES.map((profile) => ({ name: profile, value: profile }))),
             ),
         )
         .toJSON(),
-    ]
+    )
 
     if (this.guildId) {
       await this.rest.put(Routes.applicationGuildCommands(this.clientId, this.guildId), {
@@ -377,6 +445,20 @@ function isVisibleTranscriptMessage(message: Message): boolean {
   return message.type === MessageType.Default || message.type === MessageType.Reply
 }
 
+function extractMentionPrompt(content: string, botId: string): string | null {
+  const mentionPattern = new RegExp(`<@!?${escapeRegExp(botId)}>`, "g")
+  if (!mentionPattern.test(content)) {
+    return null
+  }
+
+  const prompt = content.replace(mentionPattern, "").trim()
+  return prompt.length > 0 ? prompt : null
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
 function compareMessageIds(left: string, right: string): number {
   const leftId = BigInt(left)
   const rightId = BigInt(right)
@@ -393,11 +475,28 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+async function replyToFailedInteraction(
+  interaction: ChatInputCommandInteraction,
+  message: string,
+): Promise<void> {
+  const content = `AgentBridge could not process this command: ${message}`
+  if (interaction.deferred || interaction.replied) {
+    await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined)
+    return
+  }
+
+  await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined)
+}
+
+function displayProvider(provider: ProviderKind): string {
+  return provider === "gemini" ? "Gemini" : "Codex"
+}
+
 export function buildThreadName(prompt: string): string {
   const trimmed = prompt.trim().replace(/\s+/g, " ")
   const base = trimmed.length > 0 ? trimmed : "codex session"
   const sanitized = base.replace(/[\n\r#:`]/g, " ").trim()
-  return sanitized.slice(0, 90)
+  return (sanitized.length > 0 ? sanitized : "agentbridge session").slice(0, 90)
 }
 
 export function truncatePrompt(prompt: string): string {

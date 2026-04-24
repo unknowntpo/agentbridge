@@ -4,3 +4,6 @@ node_modules/
 dist/
 .agentbridge/
 .env
+.tmp/
+minishop-benchmark-swarm/
+minishop-benchmark-swarm.backup-20260424-anchor-migration/

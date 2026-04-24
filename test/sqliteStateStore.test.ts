@@ -26,6 +26,12 @@ describe("SQLiteStateStore", () => {
     store.saveBinding({
       threadId: "thread-123",
       sessionId: "session-7",
+      provider: "codex",
+      backend: "app-server",
+      workspaceId: "agentbridge",
+      workspaceLabel: "agentbridge",
+      workspacePath: "/repo/agentbridge",
+      permissionProfile: "workspace-write",
       state: "bound_idle",
       createdAt: "2026-04-23T00:00:00.000Z",
       updatedAt: "2026-04-23T00:00:00.000Z",
@@ -39,6 +45,7 @@ describe("SQLiteStateStore", () => {
     reopened.initialize()
     expect(reopened.getBinding("thread-123")?.sessionId).toBe("session-7")
     expect(reopened.getBinding("thread-123")?.lastReadMessageId).toBe("message-9")
+    expect(reopened.getBinding("thread-123")?.workspacePath).toBe("/repo/agentbridge")
     reopened.close()
   })
 
@@ -47,6 +54,12 @@ describe("SQLiteStateStore", () => {
     store.saveBinding({
       threadId: "thread-999",
       sessionId: "session-22",
+      provider: "codex",
+      backend: "app-server",
+      workspaceId: "agentbridge",
+      workspaceLabel: "agentbridge",
+      workspacePath: "/repo/agentbridge",
+      permissionProfile: "workspace-write",
       state: "executing",
       createdAt: "2026-04-23T00:00:00.000Z",
       updatedAt: "2026-04-23T00:00:00.000Z",
@@ -57,6 +70,30 @@ describe("SQLiteStateStore", () => {
     const recovered = store.recoverBindings()
     expect(recovered[0]?.state).toBe("failed")
     expect(recovered[0]?.lastError).toContain("Recovered")
+    store.close()
+  })
+
+  it("persists pending approvals", () => {
+    const store = createStore()
+    store.savePendingApproval({
+      requestId: "req-1",
+      ref: "A7K2",
+      source: "discord",
+      provider: "codex",
+      requesterUserId: "user-1",
+      requesterDisplayName: "Eric Chang",
+      prompt: "refactor deployment scripts",
+      parentChannelId: "channel-1",
+      workspaceId: "infra",
+      workspaceLabel: "infra-repo",
+      workspacePath: "/repo/infra",
+      permissionProfile: "full-access",
+      createdAt: "2026-04-24T00:00:00.000Z",
+    })
+
+    expect(store.listPendingApprovals()).toHaveLength(1)
+    expect(store.getPendingApproval("req-1")?.ref).toBe("A7K2")
+    expect(store.getPendingApproval("req-1")?.permissionProfile).toBe("full-access")
     store.close()
   })
 })

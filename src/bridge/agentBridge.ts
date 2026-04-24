@@ -1,12 +1,26 @@
 import { ReplyFormatter } from "./replyFormatter.js"
 import type {
-  CodexAdapter,
   DiscordTransport,
   InboundDiscordMessage,
+  PermissionProfile,
+  ProviderKind,
   StateStore,
   ThreadTranscriptMessage,
   ThreadBinding,
 } from "../types.js"
+
+export interface SessionContract {
+  workspaceId: string | null
+  workspaceLabel: string
+  workspacePath: string
+  permissionProfile: PermissionProfile
+}
+
+interface SessionAdapterLike {
+  readonly backendKind: ThreadBinding["backend"]
+  startSession(prompt: string): Promise<{ sessionId: string; output: string }>
+  resumeSession(sessionId: string, prompt: string): Promise<{ sessionId: string; output: string }>
+}
 
 export class AgentBridge {
   private readonly inFlightThreads = new Set<string>()
@@ -14,10 +28,16 @@ export class AgentBridge {
 
   constructor(
     private readonly stateStore: StateStore,
-    private readonly codexAdapter: CodexAdapter,
+    private readonly adapterFactory: (provider: ProviderKind, contract: SessionContract) => SessionAdapterLike,
     discordTransport: DiscordTransport,
     private readonly replyFormatter = new ReplyFormatter(),
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly defaultContract: SessionContract = {
+      workspaceId: null,
+      workspaceLabel: process.cwd(),
+      workspacePath: process.cwd(),
+      permissionProfile: "workspace-write",
+    },
   ) {
     this.discordTransport = discordTransport
   }
@@ -39,17 +59,63 @@ export class AgentBridge {
       }
       await this.startNewSession(
         message.threadId,
+        "codex",
         command.prompt,
         this.discordTransport,
         formatVisiblePrompt(command.prompt),
+        this.defaultContract,
       )
       return
     }
 
-    await this.handleChatPromptWithTransport(message, command.prompt, this.discordTransport)
+    await this.handleChatPromptWithTransport(message, "codex", command.prompt, this.discordTransport)
   }
 
   async handleChatPromptWithTransport(
+    message: InboundDiscordMessage,
+    provider: ProviderKind,
+    prompt: string,
+    transport: DiscordTransport,
+  ): Promise<void> {
+    const binding = this.stateStore.getBinding(message.threadId)
+    if (!binding) {
+      await transport.sendReply(
+        message.threadId,
+        `No active ${displayProvider(provider)} session for this thread. Use \`/${provider} new <prompt>\` from a parent channel first.`,
+      )
+      return
+    }
+
+    if (binding.provider !== provider) {
+      await transport.sendReply(
+        message.threadId,
+        `This thread is bound to ${displayProvider(binding.provider)}. Mention the bot in this thread instead.`,
+      )
+      return
+    }
+
+    const adapter = this.adapterFactory(binding.provider, bindingToContract(binding))
+    if (binding.backend !== adapter.backendKind) {
+      await transport.sendReply(
+        message.threadId,
+        `This thread is bound to a legacy ${displayProvider(binding.provider)} backend. Start a new \`/${binding.provider} new <prompt>\` thread to migrate it.`,
+      )
+      return
+    }
+
+    await this.continueSession(
+      binding,
+      buildContinuationPrompt(
+        (await transport.listVisibleThreadMessages(message.threadId, binding.lastReadMessageId))
+          .filter((candidate) => candidate.id !== message.messageId),
+        prompt,
+      ),
+      transport,
+      formatVisiblePrompt(prompt, message.authorId),
+    )
+  }
+
+  async handleBoundThreadPromptWithTransport(
     message: InboundDiscordMessage,
     prompt: string,
     transport: DiscordTransport,
@@ -58,7 +124,16 @@ export class AgentBridge {
     if (!binding) {
       await transport.sendReply(
         message.threadId,
-        "No active Codex session for this thread. Use `/codex new <prompt>` from a parent channel first.",
+        "No active session for this thread. Use `/codex new <prompt>` or `/gemini new <prompt>` from a parent channel first.",
+      )
+      return
+    }
+
+    const adapter = this.adapterFactory(binding.provider, bindingToContract(binding))
+    if (binding.backend !== adapter.backendKind) {
+      await transport.sendReply(
+        message.threadId,
+        `This thread is bound to a legacy ${displayProvider(binding.provider)} backend. Start a new \`/${binding.provider} new <prompt>\` thread to migrate it.`,
       )
       return
     }
@@ -66,7 +141,8 @@ export class AgentBridge {
     await this.continueSession(
       binding,
       buildContinuationPrompt(
-        await transport.listVisibleThreadMessages(message.threadId, binding.lastReadMessageId),
+        (await transport.listVisibleThreadMessages(message.threadId, binding.lastReadMessageId))
+          .filter((candidate) => candidate.id !== message.messageId),
         prompt,
       ),
       transport,
@@ -76,8 +152,10 @@ export class AgentBridge {
 
   async startFreshPromptWithTransport(
     message: InboundDiscordMessage,
+    provider: ProviderKind,
     prompt: string,
     transport: DiscordTransport,
+    contract: SessionContract = this.defaultContract,
   ): Promise<void> {
     const existing = this.stateStore.getBinding(message.threadId)
     if (existing) {
@@ -86,9 +164,11 @@ export class AgentBridge {
 
     await this.startNewSession(
       message.threadId,
+      provider,
       prompt,
       transport,
       formatVisiblePrompt(prompt),
+      contract,
     )
   }
 
@@ -98,15 +178,18 @@ export class AgentBridge {
 
   private async startNewSession(
     threadId: string,
+    provider: ProviderKind,
     prompt: string,
     transport: DiscordTransport = this.discordTransport,
     visiblePrompt?: string,
+    contract: SessionContract = this.defaultContract,
   ): Promise<void> {
     await this.runTurn(threadId, transport, async () => {
-      const starting = createBinding(threadId, "pending", "starting", this.now())
+      const adapter = this.adapterFactory(provider, contract)
+      const starting = createBinding(threadId, "pending", provider, adapter.backendKind, "starting", this.now(), contract)
       this.stateStore.saveBinding(starting)
 
-      const result = await this.codexAdapter.startSession(prompt)
+      const result = await adapter.startSession(prompt)
       const bound = {
         ...starting,
         sessionId: result.sessionId,
@@ -123,10 +206,11 @@ export class AgentBridge {
     visiblePrompt?: string,
   ): Promise<void> {
     await this.runTurn(binding.threadId, transport, async () => {
+      const adapter = this.adapterFactory(binding.provider, bindingToContract(binding))
       const executing = updateBinding(binding, "executing", this.now(), null)
       this.stateStore.saveBinding(executing)
 
-      const result = await this.codexAdapter.resumeSession(binding.sessionId, prompt)
+      const result = await adapter.resumeSession(binding.sessionId, prompt)
       await this.deliverTurn({ ...executing, sessionId: result.sessionId }, result.output, transport, visiblePrompt)
     })
   }
@@ -195,7 +279,7 @@ export class AgentBridge {
         this.stateStore.saveBinding(updateBinding(existing, "failed", this.now(), toErrorMessage(error)))
       }
       try {
-        await transport.sendReply(threadId, `Codex execution failed: ${toErrorMessage(error)}`)
+        await transport.sendReply(threadId, `Execution failed: ${toErrorMessage(error)}`)
       } catch {
         // Preserve the failed state even when the error message cannot be delivered.
       }
@@ -224,18 +308,31 @@ function parseCommand(content: string): { kind: "new" | "chat"; prompt: string }
 function createBinding(
   threadId: string,
   sessionId: string,
+  provider: ThreadBinding["provider"],
+  backend: ThreadBinding["backend"],
   state: ThreadBinding["state"],
   now: string,
+  contract: SessionContract,
 ): ThreadBinding {
   return {
     threadId,
     sessionId,
+    provider,
+    backend,
+    workspaceId: contract.workspaceId,
+    workspaceLabel: contract.workspaceLabel,
+    workspacePath: contract.workspacePath,
+    permissionProfile: contract.permissionProfile,
     state,
     createdAt: now,
     updatedAt: now,
     lastError: null,
     lastReadMessageId: null,
   }
+}
+
+function displayProvider(provider: ProviderKind): string {
+  return provider === "gemini" ? "Gemini" : "Codex"
 }
 
 function updateBinding(
@@ -283,6 +380,15 @@ function buildContinuationPrompt(messages: ThreadTranscriptMessage[], prompt: st
     "Visible thread messages since the last synced point:",
     transcript,
     "",
-    `Current /codex chat prompt: ${prompt}`,
+    `Current thread prompt: ${prompt}`,
   ].join("\n")
+}
+
+function bindingToContract(binding: ThreadBinding): SessionContract {
+  return {
+    workspaceId: binding.workspaceId,
+    workspaceLabel: binding.workspaceLabel,
+    workspacePath: binding.workspacePath,
+    permissionProfile: binding.permissionProfile,
+  }
 }

@@ -1,8 +1,11 @@
 import { spawn } from "node:child_process"
 
-import type { CodexAdapter, CodexTurnResult } from "../types.js"
+import type { CodexTurnResult, SessionAdapter } from "../types.js"
 
-export class CodexExecAdapter implements CodexAdapter {
+export class CodexExecAdapter implements SessionAdapter {
+  readonly provider = "codex" as const
+  readonly backendKind = "exec" as const
+
   constructor(
     private readonly command = "codex",
     private readonly extraArgs: string[] = [],

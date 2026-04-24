@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { AgentBridge } from "../src/bridge/agentBridge.js"
 import { ReplyFormatter } from "../src/bridge/replyFormatter.js"
-import type { CodexAdapter, DiscordTransport, StateStore, ThreadBinding } from "../src/types.js"
+import type { DiscordTransport, PendingApproval, SessionAdapter, StateStore, ThreadBinding } from "../src/types.js"
 
 describe("AgentBridge", () => {
   it("starts a new session from `/codex new <prompt>` and echoes the quoted prompt", async () => {
@@ -57,7 +57,7 @@ describe("AgentBridge", () => {
         "[user Eric Chang] 發票號碼 12345",
         "[bot agentbridge] 我看到了",
         "",
-        "Current /codex chat prompt: continue with the bridge design",
+        "Current thread prompt: continue with the bridge design",
       ].join("\n"),
     }])
     expect(harness.discord.messages).toEqual(["<@user-42>\n\n> continue with the bridge design\n\nok"])
@@ -77,6 +77,61 @@ describe("AgentBridge", () => {
 
     expect(harness.codex.resumeCalls).toHaveLength(0)
     expect(harness.discord.messages).toHaveLength(0)
+  })
+
+  it("resumes a bound session from a mention-routed thread prompt without provider selection", async () => {
+    const harness = createHarness()
+    harness.store.saveBinding(binding({
+      threadId: "thread-123",
+      sessionId: "session-g",
+      provider: "gemini",
+      backend: "cli",
+      state: "bound_idle",
+      lastReadMessageId: "m-1",
+    }))
+    harness.discord.transcript = [
+      { id: "m-2", authorId: "user-42", authorName: "Eric Chang", isBot: false, content: "先前背景" },
+    ]
+    harness.discord.latestVisibleMessageId = "m-7"
+
+    await harness.bridge.handleBoundThreadPromptWithTransport(
+      {
+        threadId: "thread-123",
+        messageId: "msg-mention-1",
+        content: "continue from mention",
+        authorId: "user-42",
+      },
+      "continue from mention",
+      harness.discord,
+    )
+
+    expect(harness.gemini.resumeCalls).toEqual([{
+      sessionId: "session-g",
+      prompt: [
+        "Visible thread messages since the last synced point:",
+        "[user Eric Chang] 先前背景",
+        "",
+        "Current thread prompt: continue from mention",
+      ].join("\n"),
+    }])
+    expect(harness.discord.messages).toEqual(["<@user-42>\n\n> continue from mention\n\nok-gemini"])
+  })
+
+  it("returns setup guidance when a mention arrives in an unbound thread", async () => {
+    const harness = createHarness()
+
+    await harness.bridge.handleBoundThreadPromptWithTransport(
+      {
+        threadId: "thread-unbound",
+        messageId: "msg-mention-2",
+        content: "help",
+        authorId: "user-42",
+      },
+      "help",
+      harness.discord,
+    )
+
+    expect(harness.discord.messages[0]).toContain("Use `/codex new <prompt>` or `/gemini new <prompt>`")
   })
 
   it("rejects `/codex chat` in an unbound thread", async () => {
@@ -103,6 +158,7 @@ describe("AgentBridge", () => {
         content: "show me disk usage",
         authorId: "user-1",
       },
+      "codex",
       "show me disk usage",
       harness.discord,
     )
@@ -116,6 +172,7 @@ describe("AgentBridge", () => {
         content: "another turn",
         authorId: "user-1",
       },
+      "codex",
       "another turn",
       harness.discord,
     )
@@ -138,6 +195,7 @@ describe("AgentBridge", () => {
         content: "what time is it in taiwan?",
         authorId: "user-5",
       },
+      "codex",
       "what time is it in taiwan?",
       slashTransport,
     )
@@ -156,6 +214,7 @@ describe("AgentBridge", () => {
         messageId: "interaction-1",
         content: "summarize this repo",
       },
+      "codex",
       "summarize this repo",
       harness.discord,
     )
@@ -175,6 +234,7 @@ describe("AgentBridge", () => {
         messageId: "interaction-1",
         content: "summarize this repo",
       },
+      "codex",
       "summarize this repo",
       harness.discord,
     )
@@ -198,12 +258,20 @@ function createHarness(options?: { output?: string; failDelivery?: boolean; hold
   const store = new InMemoryStateStore()
   const discord = new FakeDiscordTransport(options?.failDelivery ?? false)
   const codex = new FakeCodexAdapter(options?.output, options?.holdResume ?? false, options?.holdStart ?? false)
-  const bridge = new AgentBridge(store, codex, discord, new ReplyFormatter(2000), () => "2026-04-23T00:00:00.000Z")
-  return { bridge, store, discord, codex }
+  const gemini = new FakeGeminiAdapter()
+  const bridge = new AgentBridge(
+    store,
+    (provider) => provider === "gemini" ? gemini : codex,
+    discord,
+    new ReplyFormatter(2000),
+    () => "2026-04-23T00:00:00.000Z",
+  )
+  return { bridge, store, discord, codex, gemini }
 }
 
 class InMemoryStateStore implements StateStore {
   private readonly bindings = new Map<string, ThreadBinding>()
+  private readonly approvals = new Map<string, PendingApproval>()
 
   initialize(): void {}
   close(): void {}
@@ -222,6 +290,22 @@ class InMemoryStateStore implements StateStore {
 
   deleteBinding(threadId: string): void {
     this.bindings.delete(threadId)
+  }
+
+  getPendingApproval(requestId: string): PendingApproval | null {
+    return this.approvals.get(requestId) ?? null
+  }
+
+  listPendingApprovals(): PendingApproval[] {
+    return [...this.approvals.values()]
+  }
+
+  savePendingApproval(approval: PendingApproval): void {
+    this.approvals.set(approval.requestId, approval)
+  }
+
+  deletePendingApproval(requestId: string): void {
+    this.approvals.delete(requestId)
   }
 
   recoverBindings(): ThreadBinding[] {
@@ -266,7 +350,9 @@ class FakeDiscordTransport implements DiscordTransport {
   }
 }
 
-class FakeCodexAdapter implements CodexAdapter {
+class FakeCodexAdapter implements SessionAdapter {
+  readonly provider = "codex" as const
+  readonly backendKind = "app-server" as const
   readonly startCalls: string[] = []
   readonly resumeCalls: Array<{ sessionId: string; prompt: string }> = []
   releaseStart?: () => void
@@ -303,10 +389,31 @@ class FakeCodexAdapter implements CodexAdapter {
   }
 }
 
+class FakeGeminiAdapter implements SessionAdapter {
+  readonly provider = "gemini" as const
+  readonly backendKind = "cli" as const
+  readonly resumeCalls: Array<{ sessionId: string; prompt: string }> = []
+
+  async startSession() {
+    return { sessionId: "gemini-session-1", output: "ok-gemini", events: [] }
+  }
+
+  async resumeSession(sessionId: string, prompt: string) {
+    this.resumeCalls.push({ sessionId, prompt })
+    return { sessionId, output: "ok-gemini", events: [] }
+  }
+}
+
 function binding(overrides: Partial<ThreadBinding>): ThreadBinding {
   return {
     threadId: "thread-1",
     sessionId: "session-1",
+    provider: "codex",
+    backend: "app-server",
+    workspaceId: "agentbridge",
+    workspaceLabel: "agentbridge",
+    workspacePath: "/repo/agentbridge",
+    permissionProfile: "workspace-write",
     state: "bound_idle",
     createdAt: "2026-04-23T00:00:00.000Z",
     updatedAt: "2026-04-23T00:00:00.000Z",
