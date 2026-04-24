@@ -778,6 +778,116 @@
         animation: status-breathe 1800ms ease-in-out infinite;
       }
 
+      .provider-mark {
+        --provider-bg: var(--ab-neutral-900);
+        position: relative;
+        display: inline-grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border: 1px solid rgb(38 42 47 / 10%);
+        border-radius: 9px;
+        background: var(--provider-bg);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%), 0 5px 14px rgb(43 38 30 / 10%);
+        transition:
+          transform var(--ab-motion-fast),
+          box-shadow var(--ab-motion-fast),
+          filter var(--ab-motion-fast);
+      }
+
+      .provider-mark:hover {
+        transform: translateY(-1px) scale(1.04);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 26%), 0 8px 20px rgb(43 38 30 / 14%);
+        filter: saturate(1.06);
+      }
+
+      .provider-mark.codex {
+        --provider-bg: linear-gradient(135deg, var(--ab-primary-900), var(--ab-primary-500));
+      }
+
+      .provider-mark.claude {
+        --provider-bg: linear-gradient(135deg, #7b4f2d, var(--ab-secondary-500));
+      }
+
+      .provider-mark.gemini {
+        --provider-bg: linear-gradient(135deg, #3566a8, #8fc5d7);
+      }
+
+      .provider-mark.openai {
+        --provider-bg: linear-gradient(135deg, #2f4a3b, #6fa37d);
+      }
+
+      .provider-mark.local {
+        --provider-bg: linear-gradient(135deg, var(--ab-neutral-700), var(--ab-neutral-500));
+      }
+
+      .provider-mark::after {
+        position: absolute;
+        right: 4px;
+        bottom: 3px;
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 76%);
+        content: "";
+      }
+
+      .provider-mark img {
+        width: 15px;
+        height: 15px;
+        display: block;
+        filter: brightness(0) invert(1);
+      }
+
+      .provider-mark.local {
+        color: white;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+      }
+
+      .agent-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 999px;
+        padding: 4px 9px 4px 5px;
+        background: white;
+        color: var(--ab-neutral-700);
+        font-size: 12px;
+        font-weight: 850;
+        box-shadow: 0 1px 0 rgb(43 38 30 / 8%);
+        transition:
+          transform var(--ab-motion-fast),
+          border-color var(--ab-motion-fast),
+          box-shadow var(--ab-motion-fast),
+          background-color var(--ab-motion-fast);
+      }
+
+      .agent-chip:hover {
+        transform: translateY(-1px);
+        border-color: var(--ab-primary-300);
+        box-shadow: 0 7px 16px rgb(43 38 30 / 10%);
+      }
+
+      .agent-chip.write {
+        border-color: var(--ab-primary-300);
+        background: var(--ab-primary-50);
+        color: var(--ab-primary-900);
+      }
+
+      .agent-chip.read {
+        background: var(--ab-secondary-50);
+      }
+
+      .agent-chip .provider-mark {
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        font-size: 9px;
+      }
+
       @keyframes status-breathe {
         0%,
         100% {
@@ -1287,15 +1397,20 @@
       }
 
       function previewMarkup(name) {
+        const codexIcon = '<span class="provider-mark codex" title="Codex uses OpenAI brand mark"><img src="assets/provider-icons/openai.svg" alt="OpenAI" /></span>'
+        const claudeIcon = '<span class="provider-mark claude" title="Claude uses Anthropic brand mark"><img src="assets/provider-icons/anthropic.svg" alt="Anthropic" /></span>'
+        const geminiIcon = '<span class="provider-mark gemini"><img src="assets/provider-icons/googlegemini.svg" alt="Google Gemini" /></span>'
+        const openaiIcon = '<span class="provider-mark openai"><img src="assets/provider-icons/openai.svg" alt="OpenAI" /></span>'
+        const localIcon = '<span class="provider-mark local">Lo</span>'
         if (name === "Button") return '<button class="mini-button primary">Deploy agent</button><button class="mini-button">Cancel</button>'
         if (name === "IconButton") return '<button class="mini-icon" aria-label="Scan">↻</button><button class="mini-icon" aria-label="Open">⌘</button>'
         if (name === "Badge" || name === "StatusBadge") return '<span class="badge success">Clean</span><span class="badge warning">Dirty</span><span class="badge danger">Approval</span>'
         if (name === "StatusDot") return '<span class="mini-status-dot"></span><span>Clean</span>'
         if (name === "CodeText") return '<code>feat/worktree-tree</code><code>e45cc99</code>'
         if (name === "TokenSwatch") return '<span class="swatch" style="background: var(--ab-primary-500)"></span><span class="swatch" style="background: var(--ab-secondary-300)"></span><span class="swatch" style="background: var(--ab-danger-500)"></span>'
-        if (name === "ProviderIcon") return '<span class="brand-mark">C</span><span class="brand-mark">G</span><span class="brand-mark">O</span>'
+        if (name === "ProviderIcon") return `${codexIcon}${claudeIcon}${geminiIcon}${openaiIcon}${localIcon}`
         if (name === "FocusRing") return '<button class="mini-button primary" style="box-shadow: 0 0 0 4px rgb(79 156 164 / 18%)">Focused</button>'
-        if (name === "AgentChip") return '<span class="badge primary">Codex write</span><span class="badge secondary">Gemini read</span>'
+        if (name === "AgentChip") return `<span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span><span class="agent-chip read">${claudeIcon}Claude read</span>`
         if (name === "LockBadge") return '<span class="badge primary">Write lock: Agent</span><span class="badge secondary">Unlocked</span>'
         if (name === "BranchRefBadge") return '<span class="badge primary">origin/main</span><span class="badge secondary">local only</span>'
         if (name === "CommitPill") return '<span class="badge secondary">e45cc99</span><span class="badge secondary">2h ago</span>'
