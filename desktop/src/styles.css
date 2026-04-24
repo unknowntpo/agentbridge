@@ -185,6 +185,13 @@ nav a.active {
   text-align: left;
 }
 
+.mini-guide {
+  margin: 0;
+  color: var(--neutral-500);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .trusted-root {
   margin-top: auto;
   border: 1px solid var(--neutral-300);
@@ -208,7 +215,7 @@ nav a.active {
 
 .workspace {
   display: grid;
-  grid-template-rows: auto 1fr 96px;
+  grid-template-rows: auto auto 1fr 96px;
   min-width: 0;
 }
 
@@ -247,6 +254,49 @@ p {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.workflow-guide {
+  display: grid;
+  gap: 10px;
+  border-bottom: 1px solid var(--neutral-300);
+  padding: 12px 26px 14px;
+  background: rgb(255 253 248 / 76%);
+}
+
+.workflow-guide ol {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(94px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-guide li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--neutral-300);
+  border-radius: 999px;
+  padding: 7px 9px;
+  color: var(--neutral-700);
+  background: rgb(255 255 255 / 70%);
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.workflow-guide b {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--primary-900);
+  background: var(--primary-100);
+  font-family: var(--mono);
+  font-size: 10px;
 }
 
 .compact-input {
@@ -354,6 +404,19 @@ p {
   border: 2px solid var(--primary-500);
   border-radius: 999px;
   background: white;
+}
+
+.card-guide {
+  position: absolute;
+  top: -12px;
+  right: 16px;
+  border: 1px solid var(--primary-300);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--primary-900);
+  background: var(--primary-100);
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .preview-worktree-card strong {
@@ -700,6 +763,15 @@ button.agent-chip {
   margin-top: 16px;
 }
 
+.action-guide {
+  flex-basis: 100%;
+  color: var(--secondary-600);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .inspector-actions button {
   font-size: 12px;
 }
@@ -811,6 +883,11 @@ button.agent-chip {
   padding: 14px;
   background: rgb(255 255 255 / 64%);
   box-shadow: 0 12px 28px rgb(79 156 164 / 10%);
+}
+
+.empty-session-guide {
+  border-color: var(--secondary-300);
+  background: var(--secondary-50);
 }
 
 .session-panel > header {
