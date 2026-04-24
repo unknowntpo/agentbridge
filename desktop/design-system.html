@@ -895,6 +895,67 @@
         height: 13px;
       }
 
+      .lock-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid rgb(38 42 47 / 9%);
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: rgb(255 255 255 / 72%);
+        color: var(--ab-neutral-700);
+        font-size: 12px;
+        font-weight: 850;
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 78%), 0 5px 14px rgb(43 38 30 / 6%);
+        backdrop-filter: blur(10px);
+        transition:
+          transform var(--ab-motion-fast),
+          border-color var(--ab-motion-fast),
+          box-shadow var(--ab-motion-fast),
+          background-color var(--ab-motion-fast);
+      }
+
+      .lock-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 82%), 0 10px 22px rgb(43 38 30 / 9%);
+      }
+
+      .lock-badge.locked {
+        border-color: rgb(183 94 22 / 24%);
+        background: rgb(255 240 223 / 82%);
+        color: var(--ab-warning-600);
+      }
+
+      .lock-badge.unlocked {
+        background: rgb(255 248 237 / 72%);
+        color: var(--ab-neutral-500);
+      }
+
+      .lock-badge.readonly {
+        border-color: var(--ab-secondary-300);
+        background: rgb(255 253 248 / 78%);
+        color: var(--ab-secondary-600);
+      }
+
+      .lock-icon {
+        display: inline-grid;
+        width: 20px;
+        height: 20px;
+        place-items: center;
+        border-radius: 8px;
+        background: rgb(255 255 255 / 74%);
+      }
+
+      .lock-icon svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
       @keyframes status-breathe {
         0%,
         100% {
@@ -1407,6 +1468,8 @@
         const codexIcon = '<span class="provider-mark codex" title="Codex uses OpenAI brand mark"><img src="assets/provider-icons/openai.svg" alt="OpenAI" /></span>'
         const claudeIcon = '<span class="provider-mark claude" title="Claude uses Anthropic brand mark"><img src="assets/provider-icons/anthropic.svg" alt="Anthropic" /></span>'
         const geminiIcon = '<span class="provider-mark gemini"><img src="assets/provider-icons/googlegemini.svg" alt="Google Gemini" /></span>'
+        const lockIcon = '<span class="lock-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></span>'
+        const unlockIcon = '<span class="lock-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M16 10V7a4 4 0 0 0-7.7-1.6"></path></svg></span>'
         if (name === "Button") return '<button class="mini-button primary">Deploy agent</button><button class="mini-button">Cancel</button>'
         if (name === "IconButton") return '<button class="mini-icon" aria-label="Scan">↻</button><button class="mini-icon" aria-label="Open">⌘</button>'
         if (name === "Badge" || name === "StatusBadge") return '<span class="badge success">Clean</span><span class="badge warning">Dirty</span><span class="badge danger">Approval</span>'
@@ -1416,7 +1479,7 @@
         if (name === "ProviderIcon") return `${codexIcon}${claudeIcon}${geminiIcon}`
         if (name === "FocusRing") return '<button class="mini-button primary" style="box-shadow: 0 0 0 4px rgb(79 156 164 / 18%)">Focused</button>'
         if (name === "AgentChip") return `<span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span><span class="agent-chip read">${claudeIcon}Claude read</span>`
-        if (name === "LockBadge") return '<span class="badge primary">Write lock: Agent</span><span class="badge secondary">Unlocked</span>'
+        if (name === "LockBadge") return `<span class="lock-badge locked">${lockIcon}Write locked</span><span class="lock-badge readonly">${lockIcon}Read-only</span><span class="lock-badge unlocked">${unlockIcon}Unlocked</span>`
         if (name === "BranchRefBadge") return '<span class="badge primary">origin/main</span><span class="badge secondary">local only</span>'
         if (name === "CommitPill") return '<span class="badge secondary">e45cc99</span><span class="badge secondary">2h ago</span>'
         if (name === "SegmentedControl" || name === "LocaleToggle") return '<span class="segmented"><span class="active">Tree</span><span>List</span></span>'
