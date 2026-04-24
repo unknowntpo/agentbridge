@@ -1082,6 +1082,120 @@
         animation: status-breathe 1800ms ease-in-out infinite;
       }
 
+      .empty-state-preview {
+        display: grid;
+        width: 100%;
+        min-height: 126px;
+        place-items: center;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 16px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          rgb(255 255 255 / 72%);
+        background-size: 12px 12px;
+        text-align: center;
+      }
+
+      .empty-state-preview .row-icon {
+        margin: 0 auto 8px;
+        color: var(--ab-primary-600);
+      }
+
+      .empty-state-preview strong {
+        display: block;
+        color: var(--ab-neutral-900);
+        font-size: 14px;
+      }
+
+      .empty-state-preview span {
+        color: var(--ab-neutral-500);
+        font-size: 12px;
+      }
+
+      .organism-preview {
+        display: grid;
+        width: 100%;
+        gap: 10px;
+        border: 1px solid rgb(38 42 47 / 9%);
+        border-radius: 16px;
+        padding: 12px;
+        background: rgb(255 255 255 / 74%);
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 78%), 0 8px 22px rgb(43 38 30 / 7%);
+        backdrop-filter: blur(10px);
+      }
+
+      .organism-preview.compact {
+        min-height: 104px;
+      }
+
+      .organism-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .organism-title {
+        color: var(--ab-neutral-900);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .organism-subtitle {
+        color: var(--ab-neutral-500);
+        font-size: 11px;
+        font-weight: 750;
+      }
+
+      .organism-card-row {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+
+      .organism-tree {
+        position: relative;
+        min-height: 86px;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: 14px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .organism-tree .mini-node {
+        top: 28px;
+      }
+
+      .organism-tree .mini-connector {
+        left: 76px;
+        top: 45px;
+        width: calc(100% - 150px);
+      }
+
+      .organism-list {
+        display: grid;
+        gap: 6px;
+      }
+
+      .organism-list-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 10px;
+        padding: 7px 8px;
+        background: rgb(255 255 255 / 70%);
+      }
+
+      .organism-line {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--ab-neutral-200);
+      }
+
       .provider-mark {
         --provider-bg: rgb(255 255 255 / 70%);
         --provider-accent: var(--ab-primary-500);
@@ -1794,8 +1908,17 @@
         if (name === "LocaleToggle") return '<span class="segmented locale-toggle" data-live-segmented><span class="active" tabindex="0">EN</span><span tabindex="0">繁中</span></span>'
         if (name === "ApprovalPromptRow") return '<div class="approval-row"><div class="approval-alert"><span class="molecule-row-title"><span class="row-icon"><svg viewBox="0 0 24 24"><path d="M12 3 21 20H3z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span>Approval required</span><span class="badge danger">scope: network</span></div><div class="approval-detail"><span class="row-icon"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path><path d="M15 18h4"></path></svg></span><div><strong>Run command</strong><code class="command-block" title="bun install --frozen-lockfile --registry https://registry.npmjs.org"><span class="command-text">bun install --frozen-lockfile --registry https://registry.npmjs.org</span><span class="approval-command-copy">□</span></code></div></div><div class="approval-actions"><button class="mini-action approve">✓ Approve</button><button class="mini-action">× Reject</button></div><div class="approval-footer"><span>◷ 2m ago</span><span>◇ durable</span></div></div>'
         if (name === "RunTimelineItem") return '<div class="run-row"><div class="molecule-row-head"><span class="molecule-row-title"><span class="row-icon"><svg viewBox="0 0 24 24"><path d="m8 5 8 7-8 7z"></path></svg></span>Command run</span><span class="badge success running">running</span></div><div class="run-command"><code class="command-block" title="bun run check"><span class="command-text">bun run check</span><span class="approval-command-copy">□</span></code></div><div class="progress-track"><div class="progress-fill"></div></div><div class="run-meta"><span>12s</span><span>typecheck</span></div></div>'
-        if (name === "EmptyState") return '<div class="mini-panel"><strong>No active agents</strong><span class="muted">Scan worktrees to begin.</span></div>'
-        if (name.includes("Tree") || name === "WorktreeCard" || name === "TreeConnectorLayer") return '<div class="mini-tree"><span class="mini-node" style="left: 0; top: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="left: 145px; top: 12px">feature</span></div>'
+        if (name === "EmptyState") return '<div class="empty-state-preview"><div><span class="row-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"></path><path d="M7 7v10"></path><path d="M17 7v10"></path><path d="M7 17h10"></path></svg></span><strong>No active agents</strong><span>Scan worktrees or deploy an agent.</span></div></div>'
+        if (name === "WorktreeCard") return `<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">feat/worktree-tree</span><span class="badge success">Clean</span></div><div class="organism-card-row"><span class="agent-chip write">${codexIcon}Codex write</span><span class="lock-badge locked">${lockIcon}Write locked</span></div></div>`
+        if (name === "WorktreeTreeCanvas") return '<div class="organism-tree"><span class="mini-node" style="left: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="right: 12px">feature</span></div>'
+        if (name === "TreeConnectorLayer") return '<div class="organism-tree"><span class="mini-node" style="left: 12px">main</span><span class="mini-connector" style="background: var(--ab-secondary-300)"></span><span class="mini-node selected" style="right: 12px">feature</span></div>'
+        if (name === "ProjectSidebar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">AgentHub</span><span class="badge primary">AB</span></div><div class="organism-list"><div class="organism-list-row"><span>Tree</span><span class="mini-status-dot"></span></div><div class="organism-list-row"><span>Approvals</span><span class="badge danger">1</span></div></div></div>'
+        if (name === "TopProjectBar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">agentbridge</span><span class="badge success">synced</span></div><div class="organism-card-row"><button class="mini-button">Scan</button><button class="mini-button">Open</button></div></div>'
+        if (name === "InspectorPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Inspector</span><span class="badge secondary">selected</span></div><div class="organism-list"><div class="organism-list-row"><span>Writer</span><span>Codex</span></div><div class="organism-list-row"><span>Git</span><span class="badge success">Clean</span></div></div></div>'
+        if (name === "AgentSessionPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Codex session</span><span class="badge success running">running</span></div><div class="run-command"><code class="command-block"><span class="command-text">bun run check</span><span class="approval-command-copy">□</span></code></div></div>'
+        if (name === "ApprovalCenter") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Approval queue</span><span class="badge danger">1 pending</span></div><div class="organism-list-row"><span>scope: network</span><button class="mini-action approve">Approve</button></div></div>'
+        if (name === "ArtifactsPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Artifacts</span><span class="badge secondary">3 files</span></div><div class="organism-list"><div class="organism-list-row"><span>screenshot.png</span><span>2m</span></div><div class="organism-list-row"><span>run.log</span><span>now</span></div></div></div>'
+        if (name.includes("Tree")) return '<div class="mini-tree"><span class="mini-node" style="left: 0; top: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="left: 145px; top: 12px">feature</span></div>'
         if (name.includes("Panel") || name.includes("Center") || name.includes("Sidebar") || name.includes("Bar")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
         if (name.includes("Layout") || name.includes("Page")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
         return '<div class="mini-panel"><strong>' + name + '</strong><span class="muted">Preview contract</span></div>'
