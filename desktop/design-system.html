@@ -466,6 +466,199 @@
         padding: 14px;
       }
 
+      .component-system {
+        display: grid;
+        gap: 14px;
+      }
+
+      .component-card.featured {
+        border-color: var(--ab-primary-300);
+        background:
+          linear-gradient(135deg, rgb(79 156 164 / 9%), transparent 42%),
+          white;
+      }
+
+      .component-card h3 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .component-level {
+        color: var(--ab-secondary-600);
+        font-family: var(--ab-mono);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .component-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .component-item {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-md);
+        background: var(--ab-secondary-50);
+        overflow: hidden;
+      }
+
+      .component-item[open] {
+        border-color: var(--ab-primary-300);
+        background: white;
+        box-shadow: 0 0 0 3px rgb(79 156 164 / 10%);
+      }
+
+      .component-item summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 10px;
+        color: var(--ab-neutral-700);
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .component-item summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .component-item summary::after {
+        content: "+";
+        color: var(--ab-secondary-600);
+        font-weight: 900;
+      }
+
+      .component-item[open] summary::after {
+        content: "-";
+      }
+
+      .component-item code {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .component-preview {
+        display: grid;
+        gap: 10px;
+        border-top: 1px solid var(--ab-neutral-300);
+        padding: 10px;
+        background: white;
+      }
+
+      .component-preview p {
+        margin: 0;
+        color: var(--ab-neutral-500);
+        font-size: 13px;
+      }
+
+      .preview-surface {
+        display: flex;
+        min-height: 54px;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        border: 1px dashed var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        padding: 10px;
+        background:
+          radial-gradient(var(--ab-neutral-200) 0.75px, transparent 0.75px),
+          var(--ab-neutral-50);
+        background-size: 12px 12px;
+      }
+
+      .mini-button,
+      .mini-icon,
+      .mini-toggle {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 9px;
+        background: white;
+        color: var(--ab-neutral-900);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 7px 9px;
+      }
+
+      .mini-button.primary {
+        border-color: var(--ab-primary-600);
+        color: white;
+        background: var(--ab-primary-500);
+      }
+
+      .mini-icon {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        padding: 0;
+      }
+
+      .mini-panel {
+        width: 100%;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        background: white;
+        padding: 10px;
+      }
+
+      .mini-panel strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .mini-line {
+        height: 8px;
+        border-radius: 999px;
+        background: var(--ab-neutral-200);
+      }
+
+      .mini-line + .mini-line {
+        width: 72%;
+        margin-top: 6px;
+      }
+
+      .mini-tree {
+        position: relative;
+        width: 100%;
+        min-height: 74px;
+      }
+
+      .mini-node {
+        position: absolute;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 10px;
+        background: white;
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mini-node.selected {
+        border-color: var(--ab-primary-500);
+        background: var(--ab-primary-50);
+      }
+
+      .mini-connector {
+        position: absolute;
+        left: 62px;
+        top: 35px;
+        width: 88px;
+        height: 2px;
+        background: var(--ab-primary-500);
+      }
+
+      .mini-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--ab-success-600);
+      }
+
       .token-card {
         cursor: pointer;
         transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -831,12 +1024,41 @@
         <div>
           <p class="eyebrow" data-i18n="componentsEyebrow">Components</p>
           <h2 data-i18n="componentsTitle">Small primitives before framework commitment.</h2>
+          <p class="muted" data-i18n="componentsBody">
+            Component boundaries follow product truth: a worktree is the core object, agent UI hangs
+            from a worktree, and approvals/artifacts/runs are inspectable state rather than decoration.
+          </p>
         </div>
-        <div class="component-grid">
-          <article class="component-card"><h3>Worktree card</h3><p class="muted">One checkout directory, branch metadata, Git state, agents, lock state.</p></article>
-          <article class="component-card"><h3>Agent chip</h3><p class="muted">Provider, mode, and lifecycle state. Attached to a worktree, never standalone in tree view.</p></article>
-          <article class="component-card"><h3>Lock badge</h3><p class="muted">Product-level write lock. Not Git lock and not branch protection.</p></article>
-          <article class="component-card"><h3>Inspector panel</h3><p class="muted">Accessible textual equivalent of selected worktree card and timeline.</p></article>
+        <div class="component-system">
+          <article class="component-card">
+            <h3><span data-i18n="atomsTitle">Atoms</span><span class="component-level">01</span></h3>
+            <p class="muted" data-i18n="atomsBody">Lowest-level visual primitives. They should not know about Git, agents, or approvals.</p>
+            <div class="component-list" data-component-group="atoms" aria-label="Atom components"></div>
+          </article>
+
+          <article class="component-card">
+            <h3><span data-i18n="moleculesTitle">Molecules</span><span class="component-level">02</span></h3>
+            <p class="muted" data-i18n="moleculesBody">Small combinations that express one compact state or control.</p>
+            <div class="component-list" data-component-group="molecules" aria-label="Molecule components"></div>
+          </article>
+
+          <article class="component-card featured">
+            <h3><span data-i18n="organismsTitle">Organisms</span><span class="component-level">03</span></h3>
+            <p class="muted" data-i18n="organismsBody">Product-aware regions. Start implementation here only after the smaller contracts are stable.</p>
+            <div class="component-list" data-component-group="organisms" aria-label="Organism components"></div>
+          </article>
+
+          <article class="component-card">
+            <h3><span data-i18n="templatesTitle">Templates</span><span class="component-level">04</span></h3>
+            <p class="muted" data-i18n="templatesBody">Layout contracts for arranging product regions without binding to real data yet.</p>
+            <div class="component-list" data-component-group="templates" aria-label="Template components"></div>
+          </article>
+
+          <article class="component-card">
+            <h3><span data-i18n="pagesTitle">Pages</span><span class="component-level">05</span></h3>
+            <p class="muted" data-i18n="pagesBody">Routable surfaces that connect layout, fake data, and later AgentBridge service state.</p>
+            <div class="component-list" data-component-group="pages" aria-label="Page components"></div>
+          </article>
         </div>
       </section>
 
@@ -869,6 +1091,96 @@
       </section>
     </main>
     <script>
+      const componentCatalog = {
+        atoms: [
+          ["Button", "Primary and secondary action affordance.", "主要與次要操作按鈕。"],
+          ["IconButton", "Compact toolbar action with visible focus state.", "工具列中的緊湊圖示操作，需有明確 focus。"],
+          ["Badge", "Short semantic label for status, mode, or provider.", "狀態、模式或 provider 的短語意標籤。"],
+          ["StatusDot", "Small state marker used only with text nearby.", "小型狀態標記，只能搭配文字使用。"],
+          ["CodeText", "Monospace branch, path, SHA, or command text.", "等寬顯示 branch、path、SHA 或 command。"],
+          ["TokenSwatch", "Color sample with a stable token name.", "附帶穩定 token 名稱的色票。"],
+          ["ProviderIcon", "Provider identity mark for Codex, Claude, Gemini, OpenAI.", "Codex、Claude、Gemini、OpenAI 的 provider 識別。"],
+          ["FocusRing", "Keyboard-visible focus treatment.", "鍵盤操作可見的 focus 樣式。"],
+        ],
+        molecules: [
+          ["AgentChip", "Provider plus permission mode and lifecycle.", "Provider 加上權限模式與生命週期。"],
+          ["StatusBadge", "Git or run state with one truthful label.", "Git 或 run 狀態，只顯示一個真實標籤。"],
+          ["LockBadge", "Worktree write ownership, not Git branch protection.", "Worktree 寫入 owner，不是 Git branch protection。"],
+          ["BranchRefBadge", "Remote/local branch reference.", "遠端或本地 branch reference。"],
+          ["CommitPill", "Short SHA or latest checkpoint marker.", "短 SHA 或最新 checkpoint 標記。"],
+          ["SegmentedControl", "Two to four mutually exclusive view modes.", "二到四個互斥檢視模式。"],
+          ["LocaleToggle", "English and Traditional Chinese switch.", "英文與繁體中文切換。"],
+          ["ApprovalPromptRow", "Escalation request with durable decision state.", "權限升級請求與持久決策狀態。"],
+          ["RunTimelineItem", "Single command/run event with outcome.", "單一 command/run 事件與結果。"],
+          ["EmptyState", "Truthful absence of work or agents.", "誠實呈現沒有 work 或 agent 的狀態。"],
+        ],
+        organisms: [
+          ["WorktreeCard", "Core object: checkout directory, Git state, agents, lock.", "核心物件：checkout 目錄、Git 狀態、agent、鎖。"],
+          ["WorktreeTreeCanvas", "Git tree visualization with selectable worktree cards.", "可選取 worktree card 的 Git tree 視覺化。"],
+          ["TreeConnectorLayer", "Visual ancestry and focus paths.", "視覺化 ancestry 與 focus path。"],
+          ["ProjectSidebar", "Project navigation and persistent app actions.", "專案導覽與常駐 app 操作。"],
+          ["TopProjectBar", "Current project, sync, scan, and open actions.", "目前專案、同步、掃描與開啟操作。"],
+          ["InspectorPanel", "Selected worktree details and accessible tree equivalent.", "選取 worktree 細節與可存取的 tree 文字等價資訊。"],
+          ["AgentSessionPanel", "Messages, tasks, runs, and approvals for one agent.", "單一 agent 的 messages、tasks、runs 與 approvals。"],
+          ["ApprovalCenter", "Queue of permission requests across worktrees.", "跨 worktree 的權限請求佇列。"],
+          ["ArtifactsPanel", "Files, screenshots, logs, and run outputs.", "檔案、截圖、logs 與 run outputs。"],
+        ],
+        templates: [
+          ["WorktreeDashboardLayout", "Sidebar, tree canvas, inspector, and timeline.", "側欄、tree canvas、inspector 與 timeline。"],
+          ["WorktreeDetailLayout", "Deep view for one worktree and its sessions.", "單一 worktree 與 sessions 的細節畫面。"],
+          ["AgentSessionDetailLayout", "Conversation plus runs and artifacts.", "對話加上 runs 與 artifacts。"],
+          ["ApprovalReviewLayout", "Focused human decision surface.", "聚焦的人類決策畫面。"],
+          ["ProjectOnboardingLayout", "Open project, scan worktrees, deploy first agent.", "開啟專案、掃描 worktrees、部署第一個 agent。"],
+        ],
+        pages: [
+          ["WorktreeTreePage", "Default dashboard route.", "預設 dashboard route。"],
+          ["WorktreeDetailPage", "Selected worktree route.", "選取 worktree route。"],
+          ["AgentSessionPage", "Single agent session route.", "單一 agent session route。"],
+          ["ApprovalsPage", "All pending and resolved approvals.", "所有待處理與已處理 approvals。"],
+          ["ArtifactsPage", "Searchable generated outputs.", "可搜尋的 generated outputs。"],
+          ["TrustedRootsPage", "Permission and filesystem trust settings.", "權限與檔案系統 trust 設定。"],
+          ["DesignSystemPage", "Interactive reference page for this system.", "此系統的互動設計參考頁。"],
+        ],
+      }
+
+      function previewMarkup(name) {
+        if (name === "Button") return '<button class="mini-button primary">Deploy agent</button><button class="mini-button">Cancel</button>'
+        if (name === "IconButton") return '<button class="mini-icon" aria-label="Scan">↻</button><button class="mini-icon" aria-label="Open">⌘</button>'
+        if (name === "Badge" || name === "StatusBadge") return '<span class="badge success">Clean</span><span class="badge warning">Dirty</span><span class="badge danger">Approval</span>'
+        if (name === "StatusDot") return '<span class="mini-status-dot"></span><span>Clean</span>'
+        if (name === "CodeText") return '<code>feat/worktree-tree</code><code>e45cc99</code>'
+        if (name === "TokenSwatch") return '<span class="swatch" style="background: var(--ab-primary-500)"></span><span class="swatch" style="background: var(--ab-secondary-300)"></span><span class="swatch" style="background: var(--ab-danger-500)"></span>'
+        if (name === "ProviderIcon") return '<span class="brand-mark">C</span><span class="brand-mark">G</span><span class="brand-mark">O</span>'
+        if (name === "FocusRing") return '<button class="mini-button primary" style="box-shadow: 0 0 0 4px rgb(79 156 164 / 18%)">Focused</button>'
+        if (name === "AgentChip") return '<span class="badge primary">Codex write</span><span class="badge secondary">Gemini read</span>'
+        if (name === "LockBadge") return '<span class="badge primary">Write lock: Agent</span><span class="badge secondary">Unlocked</span>'
+        if (name === "BranchRefBadge") return '<span class="badge primary">origin/main</span><span class="badge secondary">local only</span>'
+        if (name === "CommitPill") return '<span class="badge secondary">e45cc99</span><span class="badge secondary">2h ago</span>'
+        if (name === "SegmentedControl" || name === "LocaleToggle") return '<span class="segmented"><span class="active">Tree</span><span>List</span></span>'
+        if (name === "ApprovalPromptRow") return '<div class="mini-panel"><strong>Approval required</strong><span class="badge danger">full-access</span></div>'
+        if (name === "RunTimelineItem") return '<div class="mini-panel"><strong>bun run check</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
+        if (name === "EmptyState") return '<div class="mini-panel"><strong>No active agents</strong><span class="muted">Scan worktrees to begin.</span></div>'
+        if (name.includes("Tree") || name === "WorktreeCard" || name === "TreeConnectorLayer") return '<div class="mini-tree"><span class="mini-node" style="left: 0; top: 12px">main</span><span class="mini-connector"></span><span class="mini-node selected" style="left: 145px; top: 12px">feature</span></div>'
+        if (name.includes("Panel") || name.includes("Center") || name.includes("Sidebar") || name.includes("Bar")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
+        if (name.includes("Layout") || name.includes("Page")) return '<div class="mini-panel"><strong>' + name + '</strong><div class="mini-line"></div><div class="mini-line"></div></div>'
+        return '<div class="mini-panel"><strong>' + name + '</strong><span class="muted">Preview contract</span></div>'
+      }
+
+      function renderComponentCatalog(locale) {
+        document.querySelectorAll("[data-component-group]").forEach((container) => {
+          const group = container.dataset.componentGroup
+          container.innerHTML = componentCatalog[group].map(([name, en, zh]) => `
+            <details class="component-item">
+              <summary><code>${name}</code></summary>
+              <div class="component-preview">
+                <p>${locale === "zh-TW" ? zh : en}</p>
+                <div class="preview-surface">${previewMarkup(name)}</div>
+              </div>
+            </details>
+          `).join("")
+        })
+      }
+
       const messages = {
         "en-US": {
           navTokens: "Tokens",
@@ -918,6 +1230,17 @@
           interactiveStateNote: "Interactive state note",
           componentsEyebrow: "Components",
           componentsTitle: "Small primitives before framework commitment.",
+          componentsBody: "Component boundaries follow product truth: a worktree is the core object, agent UI hangs from a worktree, and approvals/artifacts/runs are inspectable state rather than decoration.",
+          atomsTitle: "Atoms",
+          atomsBody: "Lowest-level visual primitives. They should not know about Git, agents, or approvals.",
+          moleculesTitle: "Molecules",
+          moleculesBody: "Small combinations that express one compact state or control.",
+          organismsTitle: "Organisms",
+          organismsBody: "Product-aware regions. Start implementation here only after the smaller contracts are stable.",
+          templatesTitle: "Templates",
+          templatesBody: "Layout contracts for arranging product regions without binding to real data yet.",
+          pagesTitle: "Pages",
+          pagesBody: "Routable surfaces that connect layout, fake data, and later AgentBridge service state.",
           breakpointsEyebrow: "Breakpoints",
           breakpointsTitle: "Viewport changes behavior, not truth.",
           decisionsEyebrow: "Decisions",
@@ -971,6 +1294,17 @@
           interactiveStateNote: "互動狀態說明",
           componentsEyebrow: "Components",
           componentsTitle: "先定義小型原語，再承諾框架。",
+          componentsBody: "元件邊界要跟產品真相一致：worktree 是核心物件，代理人 UI 掛在 worktree 上，核准、 artifacts 與 runs 是可檢視狀態，不是裝飾。",
+          atomsTitle: "Atoms / 原子",
+          atomsBody: "最底層視覺原語，不應知道 Git、代理人或核准流程。",
+          moleculesTitle: "Molecules / 分子",
+          moleculesBody: "小型組合元件，用來表達單一緊湊狀態或控制項。",
+          organismsTitle: "Organisms / 區塊",
+          organismsBody: "具產品語意的區域。等小型 contract 穩定後，再從這一層開始實作。",
+          templatesTitle: "Templates / 模板",
+          templatesBody: "用來排列產品區域的版型 contract，先不綁定真實資料。",
+          pagesTitle: "Pages / 頁面",
+          pagesBody: "可路由畫面，先串接 layout 與假資料，之後再接 AgentBridge service 狀態。",
           breakpointsEyebrow: "Breakpoints",
           breakpointsTitle: "視窗大小改變行為，不改變真相。",
           decisionsEyebrow: "Decisions",
@@ -983,6 +1317,7 @@
       function applyLocale(locale) {
         currentLocale = locale
         document.documentElement.lang = locale
+        renderComponentCatalog(locale)
         document.querySelectorAll("[data-locale]").forEach((button) => {
           button.classList.toggle("active", button.dataset.locale === locale)
         })
