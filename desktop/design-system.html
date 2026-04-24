@@ -1623,7 +1623,7 @@
 
       .branching-graph {
         position: relative;
-        min-height: 192px;
+        min-height: 390px;
         overflow: hidden;
         border: 1px dashed var(--ab-neutral-300);
         border-radius: 16px;
@@ -1637,7 +1637,7 @@
       .branching-graph svg {
         display: block;
         width: 100%;
-        height: 164px;
+        height: 178px;
         overflow: visible;
       }
 
@@ -1655,6 +1655,13 @@
 
       .branch-path-feature {
         stroke: var(--ab-primary-400);
+      }
+
+      .branch-path-worktree {
+        fill: none;
+        stroke: var(--ab-primary-300);
+        stroke-linecap: round;
+        stroke-width: 3;
       }
 
       .branch-node-box {
@@ -1696,15 +1703,39 @@
       }
 
       .branch-worktree-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 160px));
-        justify-content: center;
-        gap: 24px;
-        padding-top: 4px;
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
       }
 
-      .branch-worktree-row .worktree-lane-connector::before {
-        height: 16px;
+      .branch-card-slot {
+        position: absolute;
+        top: 172px;
+        display: grid;
+        width: 170px;
+        justify-items: center;
+        pointer-events: auto;
+      }
+
+      .branch-card-slot.main-wt {
+        left: calc(83.333% - 85px);
+      }
+
+      .branch-card-slot.feature-wt {
+        left: calc(66.19% - 85px);
+      }
+
+      .branch-card-slot::before {
+        width: 3px;
+        height: 18px;
+        margin-bottom: 6px;
+        border-radius: 999px;
+        background: var(--ab-primary-300);
+        content: "";
+      }
+
+      .branch-card-slot .worktree-graph-card {
+        width: 100%;
       }
 
       .worktree-lane-row {
@@ -1760,8 +1791,22 @@
         }
 
         .branch-worktree-row {
-          grid-template-columns: 1fr;
-          padding-top: 150px;
+          position: static;
+          display: grid;
+          gap: 10px;
+          padding-top: 8px;
+          pointer-events: auto;
+        }
+
+        .branch-card-slot,
+        .branch-card-slot.main-wt,
+        .branch-card-slot.feature-wt {
+          position: static;
+          width: 100%;
+        }
+
+        .branch-card-slot::before {
+          height: 14px;
         }
       }
 
@@ -2556,7 +2601,7 @@
         if (name === "EmptyState") return '<div class="empty-state-preview"><div><span class="row-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"></path><path d="M7 7v10"></path><path d="M17 7v10"></path><path d="M7 17h10"></path></svg></span><strong>No active agents</strong><span>Scan worktrees or deploy an agent.</span></div></div>'
         if (name === "WorktreeCard") return `<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">feat/worktree-tree</span><span class="badge success">Clean</span></div><div class="organism-card-row"><span class="agent-chip write">${codexIcon}Codex write</span><span class="lock-badge locked">${lockIcon}Write locked</span></div></div>`
         if (name === "WorktreeTreeCanvas") return `<div class="worktree-graph-preview" data-worktree-graph><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main</span><span class="commit-hint">commit a1b2c3d</span><span class="worktree-graph-meta"><span class="badge secondary">no agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">ready for read-only agent</span></div></span></button><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">feat/worktree-tree</span><span class="commit-hint">commit d4e5f6a</span><span class="worktree-graph-meta"><span class="lock-badge locked">${lockIcon}write locked</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></div></span></button><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">wt/perf-proto</span><span class="commit-hint">detached c0ffee1</span><span class="worktree-graph-meta"><span class="badge warning">dirty</span><span class="badge secondary">local</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip read">${claudeIcon}Claude read</span></div></span></button><div class="graph-rule-note"><span>commit lane is ancestry context</span><span>click a worktree to reveal agents</span></div></div>`
-        if (name === "TreeConnectorLayer") return `<div class="connector-contract-preview" data-worktree-graph><div class="branching-graph"><svg viewBox="0 0 420 164" aria-hidden="true"><path class="branch-path-main" d="M70 36 H188 H350"></path><path class="branch-path-feature" d="M188 36 C226 36 236 96 278 96"></path><rect class="branch-node-box" x="28" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="70" y="36">a1b2</text><rect class="branch-node-box" x="146" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="188" y="36">d4e5</text><rect class="branch-node-box has-branch" x="308" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="350" y="36">c0ff</text><rect class="branch-ref-box" x="323" y="64" width="54" height="24" rx="12"></rect><text class="branch-ref-text" x="350" y="76">main</text><rect class="branch-node-box has-branch" x="236" y="79" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="278" y="96">b1c2</text><rect class="branch-ref-box" x="247" y="124" width="62" height="24" rx="12"></rect><text class="branch-ref-text" x="278" y="136">feat/ui</text></svg><div class="branch-worktree-row"><div class="worktree-lane-connector"><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main worktree</span><span class="commit-hint">on main @ c0ff</span><span class="worktree-graph-status"><span>0 agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">no agents</span></div></span></button></div><div class="worktree-lane-connector"><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">ui worktree</span><span class="commit-hint">on feat/ui @ b1c2</span><span class="worktree-graph-status"><span>selected</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span></div></span></button></div></div></div><div class="graph-rule-note"><span>branch heads get highlight color</span><span>only actionable worktree state appears on cards</span></div></div>`
+        if (name === "TreeConnectorLayer") return `<div class="connector-contract-preview" data-worktree-graph><div class="branching-graph"><svg viewBox="0 0 420 178" aria-hidden="true"><path class="branch-path-main" d="M70 36 H188 H350"></path><path class="branch-path-feature" d="M188 36 C226 36 236 96 278 96"></path><path class="branch-path-worktree" d="M350 88 V172"></path><path class="branch-path-worktree" d="M278 148 V172"></path><rect class="branch-node-box" x="28" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="70" y="36">a1b2</text><rect class="branch-node-box" x="146" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="188" y="36">d4e5</text><rect class="branch-node-box has-branch" x="308" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="350" y="36">c0ff</text><rect class="branch-ref-box" x="323" y="64" width="54" height="24" rx="12"></rect><text class="branch-ref-text" x="350" y="76">main</text><rect class="branch-node-box has-branch" x="236" y="79" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="278" y="96">b1c2</text><rect class="branch-ref-box" x="247" y="124" width="62" height="24" rx="12"></rect><text class="branch-ref-text" x="278" y="136">feat/ui</text></svg><div class="branch-worktree-row"><div class="branch-card-slot main-wt"><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main worktree</span><span class="commit-hint">on main @ c0ff</span><span class="worktree-graph-status"><span>0 agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">no agents</span></div></span></button></div><div class="branch-card-slot feature-wt"><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">ui worktree</span><span class="commit-hint">on feat/ui @ b1c2</span><span class="worktree-graph-status"><span>selected</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span></div></span></button></div></div></div><div class="graph-rule-note"><span>branch heads get highlight color</span><span>only actionable worktree state appears on cards</span></div></div>`
         if (name === "ProjectSidebar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">AgentHub</span><span class="badge primary">AB</span></div><div class="organism-list"><div class="organism-list-row"><span>Tree</span><span class="mini-status-dot"></span></div><div class="organism-list-row"><span>Approvals</span><span class="badge danger">1</span></div></div></div>'
         if (name === "TopProjectBar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">agentbridge</span><span class="badge success">synced</span></div><div class="organism-card-row"><button class="mini-button">Scan</button><button class="mini-button">Open</button></div></div>'
         if (name === "InspectorPanel") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">Inspector</span><span class="badge secondary">selected</span></div><div class="organism-list"><div class="organism-list-row"><span>Writer</span><span>Codex</span></div><div class="organism-list-row"><span>Git</span><span class="badge success">Clean</span></div></div></div>'
