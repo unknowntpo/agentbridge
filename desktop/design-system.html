@@ -471,6 +471,13 @@
         gap: 14px;
       }
 
+      .component-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+
       .component-card.featured {
         border-color: var(--ab-primary-300);
         background:
@@ -490,6 +497,15 @@
         font-family: var(--ab-mono);
         font-size: 12px;
         font-weight: 800;
+      }
+
+      .component-card[data-component-section] {
+        cursor: pointer;
+      }
+
+      .component-card[data-component-section]:focus-visible {
+        outline: 4px solid rgb(79 156 164 / 22%);
+        outline-offset: 3px;
       }
 
       .component-list {
@@ -1028,33 +1044,36 @@
             Component boundaries follow product truth: a worktree is the core object, agent UI hangs
             from a worktree, and approvals/artifacts/runs are inspectable state rather than decoration.
           </p>
+          <div class="component-actions">
+            <button class="button secondary" type="button" id="component-toggle-all" data-i18n="componentsExpandAll">Expand all components</button>
+          </div>
         </div>
         <div class="component-system">
-          <article class="component-card">
+          <article class="component-card" data-component-section="atoms" tabindex="0">
             <h3><span data-i18n="atomsTitle">Atoms</span><span class="component-level">01</span></h3>
             <p class="muted" data-i18n="atomsBody">Lowest-level visual primitives. They should not know about Git, agents, or approvals.</p>
             <div class="component-list" data-component-group="atoms" aria-label="Atom components"></div>
           </article>
 
-          <article class="component-card">
+          <article class="component-card" data-component-section="molecules" tabindex="0">
             <h3><span data-i18n="moleculesTitle">Molecules</span><span class="component-level">02</span></h3>
             <p class="muted" data-i18n="moleculesBody">Small combinations that express one compact state or control.</p>
             <div class="component-list" data-component-group="molecules" aria-label="Molecule components"></div>
           </article>
 
-          <article class="component-card featured">
+          <article class="component-card featured" data-component-section="organisms" tabindex="0">
             <h3><span data-i18n="organismsTitle">Organisms</span><span class="component-level">03</span></h3>
             <p class="muted" data-i18n="organismsBody">Product-aware regions. Start implementation here only after the smaller contracts are stable.</p>
             <div class="component-list" data-component-group="organisms" aria-label="Organism components"></div>
           </article>
 
-          <article class="component-card">
+          <article class="component-card" data-component-section="templates" tabindex="0">
             <h3><span data-i18n="templatesTitle">Templates</span><span class="component-level">04</span></h3>
             <p class="muted" data-i18n="templatesBody">Layout contracts for arranging product regions without binding to real data yet.</p>
             <div class="component-list" data-component-group="templates" aria-label="Template components"></div>
           </article>
 
-          <article class="component-card">
+          <article class="component-card" data-component-section="pages" tabindex="0">
             <h3><span data-i18n="pagesTitle">Pages</span><span class="component-level">05</span></h3>
             <p class="muted" data-i18n="pagesBody">Routable surfaces that connect layout, fake data, and later AgentBridge service state.</p>
             <div class="component-list" data-component-group="pages" aria-label="Page components"></div>
@@ -1166,11 +1185,13 @@
         return '<div class="mini-panel"><strong>' + name + '</strong><span class="muted">Preview contract</span></div>'
       }
 
+      let componentsExpanded = false
+
       function renderComponentCatalog(locale) {
         document.querySelectorAll("[data-component-group]").forEach((container) => {
           const group = container.dataset.componentGroup
           container.innerHTML = componentCatalog[group].map(([name, en, zh]) => `
-            <details class="component-item">
+            <details class="component-item"${componentsExpanded ? " open" : ""}>
               <summary><code>${name}</code></summary>
               <div class="component-preview">
                 <p>${locale === "zh-TW" ? zh : en}</p>
@@ -1179,6 +1200,14 @@
             </details>
           `).join("")
         })
+      }
+
+      function syncComponentToggleLabel() {
+        const toggle = document.querySelector("#component-toggle-all")
+        if (!toggle) return
+        componentsExpanded = [...document.querySelectorAll(".component-item")].every((item) => item.open)
+        const key = componentsExpanded ? "componentsCollapseAll" : "componentsExpandAll"
+        toggle.textContent = messages[currentLocale]?.[key] ?? toggle.textContent
       }
 
       const messages = {
@@ -1231,6 +1260,8 @@
           componentsEyebrow: "Components",
           componentsTitle: "Small primitives before framework commitment.",
           componentsBody: "Component boundaries follow product truth: a worktree is the core object, agent UI hangs from a worktree, and approvals/artifacts/runs are inspectable state rather than decoration.",
+          componentsExpandAll: "Expand all components",
+          componentsCollapseAll: "Collapse all components",
           atomsTitle: "Atoms",
           atomsBody: "Lowest-level visual primitives. They should not know about Git, agents, or approvals.",
           moleculesTitle: "Molecules",
@@ -1295,6 +1326,8 @@
           componentsEyebrow: "Components",
           componentsTitle: "先定義小型原語，再承諾框架。",
           componentsBody: "元件邊界要跟產品真相一致：worktree 是核心物件，代理人 UI 掛在 worktree 上，核准、 artifacts 與 runs 是可檢視狀態，不是裝飾。",
+          componentsExpandAll: "展開所有元件",
+          componentsCollapseAll: "收合所有元件",
           atomsTitle: "Atoms / 原子",
           atomsBody: "最底層視覺原語，不應知道 Git、代理人或核准流程。",
           moleculesTitle: "Molecules / 分子",
@@ -1327,6 +1360,7 @@
             node.textContent = value
           }
         })
+        syncComponentToggleLabel()
       }
 
       const stateNotes = {
@@ -1413,6 +1447,35 @@
           document.body.dataset.dangerPalette = button.dataset.dangerChoice
           document.querySelectorAll("[data-danger-choice]").forEach((item) => item.classList.remove("active"))
           button.classList.add("active")
+        })
+      })
+
+      document.querySelector("#component-toggle-all")?.addEventListener("click", () => {
+        componentsExpanded = !componentsExpanded
+        document.querySelectorAll(".component-item").forEach((item) => {
+          item.open = componentsExpanded
+        })
+        syncComponentToggleLabel()
+      })
+
+      document.querySelectorAll("[data-component-section]").forEach((section) => {
+        const toggleSection = () => {
+          const group = section.dataset.componentSection
+          const items = document.querySelectorAll(`[data-component-group="${group}"] .component-item`)
+          const shouldOpen = ![...items].every((item) => item.open)
+          items.forEach((item) => {
+            item.open = shouldOpen
+          })
+          syncComponentToggleLabel()
+        }
+        section.addEventListener("click", (event) => {
+          if (event.target.closest(".component-item")) return
+          toggleSection()
+        })
+        section.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return
+          event.preventDefault()
+          toggleSection()
         })
       })
 
