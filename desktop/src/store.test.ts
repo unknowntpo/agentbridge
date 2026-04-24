@@ -1,0 +1,136 @@
+import { describe, expect, it } from "vitest"
+
+import {
+  createInitialState,
+  deployAgent,
+  lockStateForWorktree,
+  normalizeProjectScan,
+  resolveApproval,
+  selectInitialWorktree,
+  sendAgentMessage,
+  type ProjectScan,
+} from "./store.js"
+
+const scan: ProjectScan = {
+  id: "minishop",
+  label: "minishop demo",
+  rootPath: "/Users/unknowntpo/repo/unknowntpo/minishop",
+  anchorPath: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
+  github: {
+    provider: "GitHub",
+    auth: "unavailable",
+    pr: null,
+    prUrl: null,
+    checks: "mocked",
+    review: "mocked",
+    message: "auth invalid",
+    mocked: true,
+  },
+  worktrees: [
+    {
+      id: "feature",
+      name: "feature",
+      path: "/Users/unknowntpo/repo/unknowntpo/minishop/feature",
+      branch: "feat/demo",
+      upstream: null,
+      head: "b1c2d3e",
+      status: "dirty",
+      ahead: 1,
+      behind: 0,
+      remote: {
+        provider: "GitHub",
+        auth: "unavailable",
+        pr: null,
+        prUrl: null,
+        checks: "mocked",
+        review: "mocked",
+        message: "auth invalid",
+        mocked: true,
+      },
+    },
+    {
+      id: "main",
+      name: "main",
+      path: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
+      branch: "main",
+      upstream: "origin/main",
+      head: "a1b2c3d",
+      status: "clean",
+      ahead: 0,
+      behind: 0,
+      remote: {
+        provider: "GitHub",
+        auth: "unavailable",
+        pr: null,
+        prUrl: null,
+        checks: "mocked",
+        review: "mocked",
+        message: "auth invalid",
+        mocked: true,
+      },
+    },
+  ],
+}
+
+describe("AgentHub store", () => {
+  it("normalizes project scan and selects main first", () => {
+    const normalized = normalizeProjectScan(scan)
+    expect(normalized.worktrees[0]?.name).toBe("main")
+    expect(selectInitialWorktree(normalized)).toBe("main")
+  })
+
+  it("enforces one write agent per worktree", () => {
+    const first = deployAgent(createInitialState(), {
+      worktreeId: "main",
+      provider: "Codex",
+      mode: "write",
+      profile: "workspace-write",
+      prompt: "work",
+    })
+    const second = deployAgent(first, {
+      worktreeId: "main",
+      provider: "Gemini",
+      mode: "write",
+      profile: "workspace-write",
+      prompt: "also work",
+    })
+    expect(second.sessions).toHaveLength(1)
+    expect(second.approvals).toHaveLength(1)
+    expect(lockStateForWorktree(second, "main").state).toBe("approval-required")
+  })
+
+  it("allows read-only agents on a write-locked worktree", () => {
+    const first = deployAgent(createInitialState(), {
+      worktreeId: "main",
+      provider: "Codex",
+      mode: "write",
+      profile: "workspace-write",
+      prompt: "work",
+    })
+    const second = deployAgent(first, {
+      worktreeId: "main",
+      provider: "Gemini",
+      mode: "read",
+      profile: "workspace-read",
+      prompt: "review",
+    })
+    expect(second.sessions).toHaveLength(2)
+    expect(lockStateForWorktree(second, "main")).toMatchObject({ state: "write-locked", writer: "Codex" })
+  })
+
+  it("creates and resolves approval requests from risky chat", () => {
+    const state = deployAgent(createInitialState(), {
+      worktreeId: "main",
+      provider: "Codex",
+      mode: "write",
+      profile: "workspace-write",
+      prompt: "work",
+    })
+    const sessionId = state.selectedSessionId!
+    const pending = sendAgentMessage(state, sessionId, "please push and open pr")
+    expect(pending.approvals).toHaveLength(1)
+    const resolved = resolveApproval(pending, pending.approvals[0]!.id, "approved")
+    expect(resolved.approvals[0]?.state).toBe("approved")
+    expect(resolved.sessions[0]?.state).toBe("running")
+  })
+})

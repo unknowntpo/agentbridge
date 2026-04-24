@@ -46,16 +46,19 @@
     "test:watch": "bunx vitest --config vitest.config.ts"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
     "better-sqlite3": "^11.8.1",
     "commander": "^14.0.1",
     "discord.js": "^14.19.3",
     "dotenv": "^16.4.7",
+    "vue": "^3.5.33",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.14.1",
+    "@vitejs/plugin-vue": "^6.0.6",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vite": "^6.0.0",
