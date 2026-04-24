@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AgentHub Design System</title>
+    <style>
+      :root {
+        --ab-neutral-50: #fffdf8;
+        --ab-neutral-100: #f7f2e8;
+        --ab-neutral-200: #eee7db;
+        --ab-neutral-300: #d8d0c3;
+        --ab-neutral-500: #74706a;
+        --ab-neutral-700: #3e4146;
+        --ab-neutral-900: #262a2f;
+        --ab-primary-50: #f1f8f8;
+        --ab-primary-100: #dff0f1;
+        --ab-primary-300: #9ccfd2;
+        --ab-primary-500: #4f9ca4;
+        --ab-primary-600: #3f7f87;
+        --ab-primary-900: #23454a;
+        --ab-secondary-50: #fff8ed;
+        --ab-secondary-100: #f5ead5;
+        --ab-secondary-300: #d9c29c;
+        --ab-secondary-500: #a98353;
+        --ab-secondary-600: #80633d;
+        --ab-secondary-900: #3c2c1d;
+        --ab-success-50: #e8f6ec;
+        --ab-success-600: #247a45;
+        --ab-warning-50: #fff0df;
+        --ab-warning-600: #b75e16;
+        --ab-danger-50: #fff0f0;
+        --ab-danger-600: #984d4d;
+        --ab-danger-100: #f7dddd;
+        --ab-danger-300: #e2a5a5;
+        --ab-danger-500: #bd6868;
+        --ab-danger-900: #552727;
+        --ab-shadow: 0 18px 50px rgb(43 38 30 / 12%);
+        --ab-radius-sm: 8px;
+        --ab-radius-md: 14px;
+        --ab-radius-lg: 22px;
+        --ab-font:
+          "Noto Sans TC", "PingFang TC", "Hiragino Sans", "Microsoft JhengHei",
+          "Avenir Next", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        --ab-mono: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ab-neutral-900);
+        background:
+          radial-gradient(circle at 18% 0%, rgb(79 156 164 / 13%), transparent 30rem),
+          radial-gradient(circle at 82% 8%, rgb(169 131 83 / 10%), transparent 28rem),
+          var(--ab-neutral-100);
+        font-family: var(--ab-font);
+        line-height: 1.55;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      code {
+        font-family: var(--ab-mono);
+        font-size: 0.92em;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 14px clamp(18px, 4vw, 56px);
+        border-bottom: 1px solid rgb(216 208 195 / 70%);
+        background: rgb(247 242 232 / 88%);
+        backdrop-filter: blur(14px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 10px;
+        color: white;
+        background: linear-gradient(135deg, var(--ab-secondary-900), var(--ab-primary-500));
+        font-weight: 800;
+        letter-spacing: -0.08em;
+      }
+
+      .brand strong {
+        white-space: nowrap;
+      }
+
+      .nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .nav a {
+        padding: 8px 10px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        color: var(--ab-neutral-700);
+        background: var(--ab-neutral-50);
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .locale-toggle {
+        display: inline-flex;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        background: var(--ab-neutral-50);
+        overflow: hidden;
+      }
+
+      .locale-toggle button {
+        border: 0;
+        padding: 8px 10px;
+        color: var(--ab-neutral-500);
+        background: transparent;
+        font: inherit;
+        font-weight: 800;
+      }
+
+      .locale-toggle button.active {
+        color: var(--ab-primary-600);
+        background: var(--ab-primary-100);
+      }
+
+      .shell {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 44px clamp(18px, 4vw, 32px) 72px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+        gap: 28px;
+        align-items: stretch;
+        margin-bottom: 28px;
+      }
+
+      .hero-copy,
+      .panel {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-lg);
+        background: rgb(255 253 248 / 84%);
+        box-shadow: var(--ab-shadow);
+      }
+
+      .hero-copy {
+        padding: clamp(28px, 5vw, 54px);
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        color: var(--ab-secondary-600);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 700px;
+        margin-bottom: 18px;
+        font-size: clamp(42px, 6vw, 68px);
+        line-height: 0.98;
+        letter-spacing: -0.06em;
+      }
+
+      html[lang="zh-TW"] h1 {
+        max-width: 680px;
+        font-size: clamp(36px, 4.6vw, 58px);
+        line-height: 1.12;
+        letter-spacing: -0.02em;
+        font-weight: 700;
+      }
+
+      html[lang="zh-TW"] .lead {
+        max-width: 620px;
+        font-size: 17px;
+        line-height: 1.78;
+        letter-spacing: 0.005em;
+      }
+
+      html[lang="zh-TW"] .button,
+      html[lang="zh-TW"] .badge,
+      html[lang="zh-TW"] .segmented span,
+      html[lang="zh-TW"] .lock-row {
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 12px;
+        font-size: clamp(26px, 3vw, 38px);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+
+      .lead,
+      .muted {
+        color: var(--ab-neutral-500);
+      }
+
+      .lead {
+        max-width: 700px;
+        font-size: 18px;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        padding: 10px 14px;
+        color: var(--ab-neutral-900);
+        background: var(--ab-neutral-50);
+        font-weight: 800;
+        text-decoration: none;
+      }
+
+      .button.primary {
+        border-color: var(--ab-primary-600);
+        color: white;
+        background: var(--ab-primary-500);
+      }
+
+      .button.secondary {
+        border-color: var(--ab-secondary-300);
+        background: var(--ab-secondary-100);
+      }
+
+      .preview {
+        min-height: 440px;
+        padding: 22px;
+        background-image:
+          radial-gradient(var(--ab-neutral-300) 0.75px, transparent 0.75px);
+        background-size: 14px 14px;
+        overflow: hidden;
+      }
+
+      .preview-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+      }
+
+      .segmented {
+        display: inline-flex;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 10px;
+        background: var(--ab-neutral-50);
+        overflow: hidden;
+      }
+
+      .segmented span {
+        padding: 9px 12px;
+        color: var(--ab-neutral-500);
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .segmented span.active {
+        color: var(--ab-primary-600);
+        background: var(--ab-primary-100);
+      }
+
+      .tree {
+        position: relative;
+        height: 310px;
+      }
+
+      .tree svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .tree path {
+        fill: none;
+        stroke: var(--ab-secondary-300);
+        stroke-width: 3;
+        stroke-linecap: round;
+      }
+
+      .tree path.active {
+        stroke: var(--ab-primary-500);
+      }
+
+      .worktree-card {
+        position: absolute;
+        width: 220px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: 16px;
+        background: rgb(255 255 255 / 94%);
+        box-shadow: 0 12px 34px rgb(43 38 30 / 10%);
+        overflow: hidden;
+        cursor: pointer;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .worktree-card:hover {
+        transform: translateY(-2px);
+      }
+
+      .worktree-card.selected {
+        border-color: var(--ab-primary-500);
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 14%), 0 12px 34px rgb(43 38 30 / 10%);
+      }
+
+      .worktree-card header {
+        padding: 14px;
+      }
+
+      .worktree-card strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .badge-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 5px 8px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .badge.primary {
+        color: var(--ab-primary-600);
+        background: var(--ab-primary-100);
+      }
+
+      .badge.secondary {
+        color: var(--ab-secondary-600);
+        background: var(--ab-secondary-100);
+      }
+
+      .badge.success {
+        color: var(--ab-success-600);
+        background: var(--ab-success-50);
+      }
+
+      .badge.warning {
+        color: var(--ab-warning-600);
+        background: var(--ab-warning-50);
+      }
+
+      .badge.danger {
+        color: var(--ab-danger-600);
+        background: var(--ab-danger-50);
+      }
+
+      body[data-danger-palette="persimmon"] {
+        --ab-danger-50: #fff1ec;
+        --ab-danger-100: #f9ded5;
+        --ab-danger-300: #e7a08d;
+        --ab-danger-500: #c96750;
+        --ab-danger-600: #a84f3d;
+        --ab-danger-900: #5b2a22;
+      }
+
+      body[data-danger-palette="kurenai"] {
+        --ab-danger-50: #fff0f0;
+        --ab-danger-100: #f7dddd;
+        --ab-danger-300: #e2a5a5;
+        --ab-danger-500: #bd6868;
+        --ab-danger-600: #984d4d;
+        --ab-danger-900: #552727;
+      }
+
+      .lock-row {
+        border-top: 1px solid var(--ab-neutral-300);
+        padding: 10px 14px;
+        color: var(--ab-primary-600);
+        background: var(--ab-primary-50);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .section {
+        margin-top: 28px;
+      }
+
+      .section-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+
+      .panel {
+        padding: clamp(22px, 4vw, 34px);
+      }
+
+      .token-grid,
+      .rule-grid,
+      .component-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .token-card,
+      .rule-card,
+      .component-card {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-md);
+        background: white;
+        padding: 14px;
+      }
+
+      .token-card {
+        cursor: pointer;
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+
+      .token-card.active {
+        border-color: var(--ab-primary-500);
+        box-shadow: 0 0 0 4px rgb(79 156 164 / 12%);
+        transform: translateY(-2px);
+      }
+
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
+        margin: 12px 0;
+      }
+
+      .swatch {
+        height: 42px;
+        border: 1px solid rgb(38 42 47 / 10%);
+        border-radius: 10px;
+      }
+
+      .token-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--ab-neutral-500);
+        font-size: 13px;
+      }
+
+      .state-table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-md);
+        background: white;
+      }
+
+      .state-table th,
+      .state-table td {
+        padding: 12px;
+        border-bottom: 1px solid var(--ab-neutral-300);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .state-table th {
+        color: var(--ab-neutral-500);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .state-table tr.active-state td {
+        background: var(--ab-primary-50);
+      }
+
+      .playground {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-md);
+        background: white;
+        padding: 14px;
+      }
+
+      .playground-output {
+        min-height: 72px;
+        border-radius: var(--ab-radius-sm);
+        padding: 14px;
+        background: var(--ab-secondary-50);
+      }
+
+      .palette-switcher {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .palette-switcher button {
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-sm);
+        background: white;
+        color: var(--ab-neutral-700);
+        padding: 9px 11px;
+        font: inherit;
+        font-weight: 800;
+      }
+
+      .palette-switcher button.active {
+        border-color: var(--ab-danger-300);
+        color: var(--ab-danger-600);
+        background: var(--ab-danger-50);
+      }
+
+      .danger-swatch-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 6px;
+        margin-top: 12px;
+      }
+
+      .empty-panel {
+        display: grid;
+        min-height: 220px;
+        place-items: center;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-lg);
+        background: rgb(255 255 255 / 90%);
+        color: var(--ab-neutral-500);
+        text-align: center;
+      }
+
+      .empty-panel strong {
+        display: block;
+        color: var(--ab-neutral-900);
+        margin-bottom: 6px;
+      }
+
+      .decision-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .decision {
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 12px;
+        border: 1px solid var(--ab-neutral-300);
+        border-radius: var(--ab-radius-md);
+        background: white;
+        padding: 14px;
+      }
+
+      .do {
+        color: var(--ab-success-600);
+        font-weight: 900;
+      }
+
+      .dont {
+        color: var(--ab-danger-600);
+        font-weight: 900;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .section-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .token-grid,
+        .rule-grid,
+        .component-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body data-danger-palette="kurenai">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">AB</span>
+        <strong>AgentHub Design System</strong>
+      </div>
+      <nav class="nav" aria-label="Design sections">
+        <a href="#tokens" data-i18n="navTokens">Tokens</a>
+        <a href="#states" data-i18n="navStates">States</a>
+        <a href="#components" data-i18n="navComponents">Components</a>
+        <a href="#breakpoints" data-i18n="navBreakpoints">Breakpoints</a>
+        <a href="#decisions" data-i18n="navDecisions">Decisions</a>
+      </nav>
+      <div class="locale-toggle" aria-label="Language">
+        <button class="active" type="button" data-locale="en-US">EN</button>
+        <button type="button" data-locale="zh-TW">繁中</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="heroEyebrow">Design system before implementation</p>
+          <h1 data-i18n="heroTitle">Worktree-first dashboard for local agent control.</h1>
+          <p class="lead" data-i18n="heroBody">
+            A concrete reference for AgentHub color roles, typography, component primitives,
+            lock states, agent states, and responsive behavior. The product truth is Git worktrees;
+            agents attach to worktrees and cannot hide filesystem state.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#preview" data-i18n="heroPrimaryAction">Preview worktree tree</a>
+            <a class="button secondary" href="#tokens" data-i18n="heroSecondaryAction">Inspect tokens</a>
+          </div>
+        </div>
+
+        <section class="panel preview" id="preview" aria-label="Worktree tree preview">
+          <div class="preview-top">
+            <div class="segmented" aria-label="View mode" data-segment-group="view">
+              <span class="active" data-preview-mode="tree" data-i18n="previewTree">Tree</span>
+              <span data-preview-mode="empty" data-i18n="previewEmpty">Empty</span>
+            </div>
+            <div class="segmented" aria-label="Activity filter" data-segment-group="scenario">
+              <span class="active" data-scenario="active" data-i18n="scenarioActive">Active</span>
+              <span data-scenario="approval" data-i18n="scenarioApproval">Approval</span>
+            </div>
+          </div>
+          <div class="tree" data-preview="tree">
+            <svg viewBox="0 0 620 300" aria-hidden="true">
+              <path class="active" d="M 190 84 C 260 84, 260 62, 330 62" />
+              <path d="M 190 84 C 260 84, 260 210, 330 210" />
+              <path class="active" d="M 548 62 C 582 62, 582 132, 604 132" />
+            </svg>
+            <article class="worktree-card" data-card="main" style="left: 0; top: 24px">
+              <header>
+                <strong>main</strong>
+                <div class="badge-row">
+                  <span class="badge success" data-i18n="stateClean">Clean</span>
+                  <span class="badge secondary">a1b2c3d</span>
+                </div>
+              </header>
+              <div class="lock-row" style="color: var(--ab-neutral-500); background: var(--ab-secondary-50)" data-i18n="lockUnlocked">Unlocked</div>
+            </article>
+            <article class="worktree-card selected" data-card="feature" style="left: 330px; top: 0">
+              <header>
+                <strong>feat/worktree-tree</strong>
+                <div class="badge-row">
+                  <span class="badge primary" data-i18n="agentCodexWrite">Codex write</span>
+                  <span class="badge success" data-i18n="stateClean">Clean</span>
+                </div>
+              </header>
+              <div class="lock-row" data-i18n="lockAgent">Write lock: Agent</div>
+            </article>
+            <article class="worktree-card" data-card="docs" style="left: 330px; top: 158px">
+              <header>
+                <strong>docs/permissions</strong>
+                <div class="badge-row">
+                  <span class="badge warning" data-i18n="stateDirty">Dirty</span>
+                  <span class="badge secondary" data-i18n="agentGeminiRead">Gemini read</span>
+                </div>
+              </header>
+              <div class="lock-row" style="color: var(--ab-neutral-500); background: var(--ab-secondary-50)" data-i18n="lockUnlocked">Unlocked</div>
+            </article>
+          </div>
+          <div class="empty-panel" data-preview="empty" hidden>
+            <div>
+              <strong data-i18n="emptyTitle">No active agents in this project.</strong>
+              <span data-i18n="emptyBody">Scan worktrees or deploy an agent to create a source-backed state.</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="section section-grid" id="tokens">
+        <div>
+          <p class="eyebrow" data-i18n="tokensEyebrow">Tokens</p>
+          <h2 data-i18n="tokensTitle">Sora primary, warm sand secondary.</h2>
+          <p class="muted" data-i18n="tokensBody">
+            <strong>Sora / 空色</strong> is the calm focus color for selected worktrees and primary
+            actions. <strong>Warm Sand / 砂色</strong> is the supporting structure color for Git
+            connectors, quiet navigation, and empty surfaces. Status colors stay separate so
+            dirty/conflict states remain truthful.
+          </p>
+        </div>
+        <div class="token-grid">
+          <article class="token-card active" data-token-family="primary">
+            <h3 data-i18n="soraTitle">Sora / 空色 primary</h3>
+            <p class="muted" data-i18n="soraBody">
+              Bright, soft, and hopeful. Use for selected card, active ancestry path, primary
+              action, and active write lock.
+            </p>
+            <div class="swatches">
+              <span class="swatch" style="background: var(--ab-primary-50)"></span>
+              <span class="swatch" style="background: var(--ab-primary-100)"></span>
+              <span class="swatch" style="background: var(--ab-primary-300)"></span>
+              <span class="swatch" style="background: var(--ab-primary-500)"></span>
+              <span class="swatch" style="background: var(--ab-primary-600)"></span>
+              <span class="swatch" style="background: var(--ab-primary-900)"></span>
+            </div>
+            <div class="token-row"><code>50/100</code><span>soft fills</span></div>
+            <div class="token-row"><code>500/600</code><span>controls and focus</span></div>
+          </article>
+          <article class="token-card" data-token-family="secondary">
+            <h3 data-i18n="sandTitle">Warm Sand / 砂色 secondary</h3>
+            <p class="muted" data-i18n="sandBody">
+              Warm, quiet, and structural. Use for tree connectors, selected nav fill, empty drop
+              zones, and low-risk secondary controls.
+            </p>
+            <div class="swatches">
+              <span class="swatch" style="background: var(--ab-secondary-50)"></span>
+              <span class="swatch" style="background: var(--ab-secondary-100)"></span>
+              <span class="swatch" style="background: var(--ab-secondary-300)"></span>
+              <span class="swatch" style="background: var(--ab-secondary-500)"></span>
+              <span class="swatch" style="background: var(--ab-secondary-600)"></span>
+              <span class="swatch" style="background: var(--ab-secondary-900)"></span>
+            </div>
+            <div class="token-row"><code>300</code><span>structure lines</span></div>
+            <div class="token-row"><code>900</code><span>brand mark</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section-grid">
+        <div>
+          <p class="eyebrow" data-i18n="typeEyebrow">Typography</p>
+          <h2 data-i18n="typeTitle">Compact UI type, not chat prose.</h2>
+        </div>
+        <div class="rule-grid">
+          <article class="rule-card"><h3>Font stack</h3><code>Inter, system-ui, Segoe UI, Noto Sans TC, PingFang TC</code></article>
+          <article class="rule-card"><h3>Hero</h3><p class="muted">Large only on design/reference pages. Dashboard screen uses compact headings.</p></article>
+          <article class="rule-card"><h3>Card labels</h3><p class="muted">Short, direct, monospace for paths, branch refs, and SHAs.</p></article>
+          <article class="rule-card"><h3 data-i18n="localizationTitle">Localization</h3><p class="muted" data-i18n="localizationBody">Traditional Chinese must not break badges, status rows, or toolbar density.</p></article>
+        </div>
+      </section>
+
+      <section class="section section-grid" id="states">
+        <div>
+          <p class="eyebrow" data-i18n="stateEyebrow">State model</p>
+          <h2 data-i18n="stateTitle">Truth before optimism.</h2>
+          <p class="muted" data-i18n="stateBody">
+            Try the danger palette against approval state. Kurenai is calmer and more serious;
+            Persimmon is warmer and more action-oriented.
+          </p>
+          <div class="palette-switcher" aria-label="Danger palette switcher">
+            <button class="active" type="button" data-danger-choice="kurenai">Kurenai Muted / 淡紅</button>
+            <button type="button" data-danger-choice="persimmon">Soft Persimmon / 柿色</button>
+          </div>
+          <div class="danger-swatch-grid" aria-label="Current danger palette swatches">
+            <span class="swatch" style="background: var(--ab-danger-50)"></span>
+            <span class="swatch" style="background: var(--ab-danger-100)"></span>
+            <span class="swatch" style="background: var(--ab-danger-300)"></span>
+            <span class="swatch" style="background: var(--ab-danger-500)"></span>
+            <span class="swatch" style="background: var(--ab-danger-600)"></span>
+            <span class="swatch" style="background: var(--ab-danger-900)"></span>
+          </div>
+        </div>
+        <table class="state-table">
+          <thead><tr><th>State</th><th>Visual</th><th>Truth rule</th></tr></thead>
+          <tbody>
+            <tr class="active-state" data-state="clean"><td data-i18n="stateClean">Clean</td><td><span class="badge success" data-i18n="stateClean">Clean</span></td><td data-i18n="stateCleanRule">Git status has no local changes.</td></tr>
+            <tr data-state="dirty"><td data-i18n="stateDirty">Dirty</td><td><span class="badge warning" data-i18n="stateDirty">Dirty</span></td><td data-i18n="stateDirtyRule">Show dirty state until Git confirms otherwise.</td></tr>
+            <tr data-state="conflict"><td data-i18n="stateConflict">Conflict</td><td><span class="badge danger" data-i18n="stateConflict">Conflict</span></td><td data-i18n="stateConflictRule">Never hide merge/rebase conflicts behind agent progress.</td></tr>
+            <tr data-state="locked"><td data-i18n="stateWriteLock">Write lock</td><td><span class="badge primary" data-i18n="lockAgent">Write lock: Agent</span></td><td data-i18n="stateLockRule">Only one write-mode owner per worktree.</td></tr>
+            <tr data-state="approval"><td data-i18n="scenarioApproval">Approval</td><td><span class="badge danger" data-i18n="approvalRequired">Approval required</span></td><td data-i18n="stateApprovalRule">Permission escalation is explicit and durable until resolved.</td></tr>
+          </tbody>
+        </table>
+        <div class="playground">
+          <strong data-i18n="interactiveStateNote">Interactive state note</strong>
+          <div class="playground-output" id="state-output">
+            Clean means Git has confirmed there are no local file changes. Do not infer clean from agent completion alone.
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-grid" id="components">
+        <div>
+          <p class="eyebrow" data-i18n="componentsEyebrow">Components</p>
+          <h2 data-i18n="componentsTitle">Small primitives before framework commitment.</h2>
+        </div>
+        <div class="component-grid">
+          <article class="component-card"><h3>Worktree card</h3><p class="muted">One checkout directory, branch metadata, Git state, agents, lock state.</p></article>
+          <article class="component-card"><h3>Agent chip</h3><p class="muted">Provider, mode, and lifecycle state. Attached to a worktree, never standalone in tree view.</p></article>
+          <article class="component-card"><h3>Lock badge</h3><p class="muted">Product-level write lock. Not Git lock and not branch protection.</p></article>
+          <article class="component-card"><h3>Inspector panel</h3><p class="muted">Accessible textual equivalent of selected worktree card and timeline.</p></article>
+        </div>
+      </section>
+
+      <section class="section section-grid" id="breakpoints">
+        <div>
+          <p class="eyebrow" data-i18n="breakpointsEyebrow">Breakpoints</p>
+          <h2 data-i18n="breakpointsTitle">Viewport changes behavior, not truth.</h2>
+        </div>
+        <div class="rule-grid">
+          <article class="rule-card"><h3>Phone</h3><p class="muted">Tree becomes list; inspector moves below selected card; no drag-only actions.</p></article>
+          <article class="rule-card"><h3>Tablet</h3><p class="muted">Sidebar collapses; canvas remains scrollable; inspector can become drawer.</p></article>
+          <article class="rule-card"><h3>Desktop</h3><p class="muted">Full sidebar, tree canvas, right inspector, bottom timeline.</p></article>
+          <article class="rule-card"><h3>Wide desktop</h3><p class="muted">More canvas space and denser comparison, not viewport-scaled typography.</p></article>
+        </div>
+      </section>
+
+      <section class="section section-grid" id="decisions">
+        <div>
+          <p class="eyebrow" data-i18n="decisionsEyebrow">Decisions</p>
+          <h2 data-i18n="decisionsTitle">Rules that keep the dashboard honest.</h2>
+        </div>
+        <div class="decision-list">
+          <div class="decision"><span class="do">Do</span><span>Use Sora primary for the selected worktree and active write/focus path.</span></div>
+          <div class="decision"><span class="dont">Don't</span><span>Use primary color to decorate every panel; it weakens selection meaning.</span></div>
+          <div class="decision"><span class="do">Do</span><span>Use Warm Sand secondary for Git structure and quiet operations.</span></div>
+          <div class="decision"><span class="dont">Don't</span><span>Use secondary color for dirty, conflict, or approval states.</span></div>
+          <div class="decision"><span class="do">Do</span><span>Show empty states truthfully, like Spectra's no-active-changes panel.</span></div>
+          <div class="decision"><span class="dont">Don't</span><span>Imply an agent is running, writing, or approved without source-backed state.</span></div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const messages = {
+        "en-US": {
+          navTokens: "Tokens",
+          navStates: "States",
+          navComponents: "Components",
+          navBreakpoints: "Breakpoints",
+          navDecisions: "Decisions",
+          heroEyebrow: "Design system before implementation",
+          heroTitle: "Worktree-first dashboard for local agent control.",
+          heroBody: "A concrete reference for AgentHub color roles, typography, component primitives, lock states, agent states, and responsive behavior. The product truth is Git worktrees; agents attach to worktrees and cannot hide filesystem state.",
+          heroPrimaryAction: "Preview worktree tree",
+          heroSecondaryAction: "Inspect tokens",
+          previewTree: "Tree",
+          previewEmpty: "Empty",
+          scenarioActive: "Active",
+          scenarioApproval: "Approval",
+          stateClean: "Clean",
+          stateDirty: "Dirty",
+          stateConflict: "Conflict",
+          stateWriteLock: "Write lock",
+          lockUnlocked: "Unlocked",
+          lockAgent: "Write lock: Agent",
+          approvalRequired: "Approval required",
+          agentCodexWrite: "Codex write",
+          agentGeminiRead: "Gemini read",
+          emptyTitle: "No active agents in this project.",
+          emptyBody: "Scan worktrees or deploy an agent to create a source-backed state.",
+          tokensEyebrow: "Tokens",
+          tokensTitle: "Sora primary, warm sand secondary.",
+          tokensBody: "Sora / 空色 is the calm focus color for selected worktrees and primary actions. Warm Sand / 砂色 is the supporting structure color for Git connectors, quiet navigation, and empty surfaces. Status colors stay separate so dirty/conflict states remain truthful.",
+          soraTitle: "Sora / 空色 primary",
+          soraBody: "Bright, soft, and hopeful. Use for selected card, active ancestry path, primary action, and active write lock.",
+          sandTitle: "Warm Sand / 砂色 secondary",
+          sandBody: "Warm, quiet, and structural. Use for tree connectors, selected nav fill, empty drop zones, and low-risk secondary controls.",
+          typeEyebrow: "Typography",
+          typeTitle: "Compact UI type, not chat prose.",
+          localizationTitle: "Localization",
+          localizationBody: "Traditional Chinese must not break badges, status rows, or toolbar density.",
+          stateEyebrow: "State model",
+          stateTitle: "Truth before optimism.",
+          stateBody: "Try the danger palette against approval state. Kurenai is calmer and more serious; Persimmon is warmer and more action-oriented.",
+          stateCleanRule: "Git status has no local changes.",
+          stateDirtyRule: "Show dirty state until Git confirms otherwise.",
+          stateConflictRule: "Never hide merge/rebase conflicts behind agent progress.",
+          stateLockRule: "Only one write-mode owner per worktree.",
+          stateApprovalRule: "Permission escalation is explicit and durable until resolved.",
+          interactiveStateNote: "Interactive state note",
+          componentsEyebrow: "Components",
+          componentsTitle: "Small primitives before framework commitment.",
+          breakpointsEyebrow: "Breakpoints",
+          breakpointsTitle: "Viewport changes behavior, not truth.",
+          decisionsEyebrow: "Decisions",
+          decisionsTitle: "Rules that keep the dashboard honest.",
+        },
+        "zh-TW": {
+          navTokens: "色彩",
+          navStates: "狀態",
+          navComponents: "元件",
+          navBreakpoints: "斷點",
+          navDecisions: "決策",
+          heroEyebrow: "先定義設計系統，再進入實作",
+          heroTitle: "以工作樹為核心的本地代理人控制台。",
+          heroBody: "這是 AgentHub 的工程設計參考，定義色彩角色、字體、元件原語、鎖定狀態、代理人狀態與響應式行為。產品真相來自 Git worktree；代理人只能掛在 worktree 上，不能遮蔽檔案系統狀態。",
+          heroPrimaryAction: "預覽 Worktree 樹",
+          heroSecondaryAction: "檢視 Tokens",
+          previewTree: "樹狀",
+          previewEmpty: "空狀態",
+          scenarioActive: "進行中",
+          scenarioApproval: "核准",
+          stateClean: "乾淨",
+          stateDirty: "有變更",
+          stateConflict: "衝突",
+          stateWriteLock: "寫入鎖",
+          lockUnlocked: "未鎖定",
+          lockAgent: "寫入鎖定：代理人",
+          approvalRequired: "需要核准",
+          agentCodexWrite: "Codex 寫入",
+          agentGeminiRead: "Gemini 讀取",
+          emptyTitle: "這個專案目前沒有進行中的代理人。",
+          emptyBody: "掃描 worktree 或部署代理人，建立有來源依據的狀態。",
+          tokensEyebrow: "Tokens",
+          tokensTitle: "空色作為主色，砂色作為輔色。",
+          tokensBody: "Sora / 空色是平靜的焦點色，用於選取的 worktree 與主要操作。Warm Sand / 砂色是支撐結構的輔色，用於 Git 連線、低調導覽與空狀態表面。狀態色保持獨立，避免有變更或衝突的語意被混淆。",
+          soraTitle: "Sora / 空色主色",
+          soraBody: "明亮、柔和、有希望。用於選取卡片、作用中的祖先路徑、主要操作與寫入鎖定。",
+          sandTitle: "Warm Sand / 砂色輔色",
+          sandBody: "溫暖、安定、偏結構。用於樹狀連線、選取導覽、空狀態區域與低風險次要操作。",
+          typeEyebrow: "Typography",
+          typeTitle: "精簡 UI 字體，不做聊天式長文。",
+          localizationTitle: "在地化",
+          localizationBody: "繁體中文不能撐爆 badge、狀態列或工具列密度。",
+          stateEyebrow: "狀態模型",
+          stateTitle: "真實狀態優先於樂觀表現。",
+          stateBody: "用 approval 狀態比較 danger palette。淡紅較平靜且嚴肅；柿色較溫暖且偏行動導向。",
+          stateCleanRule: "Git status 已確認沒有本地變更。",
+          stateDirtyRule: "在 Git 確認前，持續顯示有變更狀態。",
+          stateConflictRule: "不可用代理人進度遮蔽 merge 或 rebase 衝突。",
+          stateLockRule: "同一個 worktree 只能有一個寫入模式 owner。",
+          stateApprovalRule: "權限升級必須明確且持續顯示，直到被處理。",
+          interactiveStateNote: "互動狀態說明",
+          componentsEyebrow: "Components",
+          componentsTitle: "先定義小型原語，再承諾框架。",
+          breakpointsEyebrow: "Breakpoints",
+          breakpointsTitle: "視窗大小改變行為，不改變真相。",
+          decisionsEyebrow: "Decisions",
+          decisionsTitle: "讓 dashboard 保持誠實的規則。",
+        },
+      }
+
+      let currentLocale = "en-US"
+
+      function applyLocale(locale) {
+        currentLocale = locale
+        document.documentElement.lang = locale
+        document.querySelectorAll("[data-locale]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.locale === locale)
+        })
+        document.querySelectorAll("[data-i18n]").forEach((node) => {
+          const value = messages[locale][node.dataset.i18n]
+          if (value) {
+            node.textContent = value
+          }
+        })
+      }
+
+      const stateNotes = {
+        "en-US": {
+          clean: "Clean means Git has confirmed there are no local file changes. Do not infer clean from agent completion alone.",
+          dirty: "Dirty means local changes exist. Keep this visible until Git status confirms cleanup or commit.",
+          conflict: "Conflict is blocking truth. Never hide merge/rebase conflicts behind a progress spinner.",
+          locked: "Write lock means one owner can mutate this worktree. Read-only agents can still inspect it.",
+          approval: "Approval required is durable UI state. It must stay visible until the human approves or rejects it.",
+        },
+        "zh-TW": {
+          clean: "乾淨表示 Git 已確認沒有本地檔案變更，不能只因代理人完成就推論為乾淨。",
+          dirty: "有變更表示存在本地修改；在 Git status 確認清理或提交前都要保持可見。",
+          conflict: "衝突是阻塞狀態，不可用進度動畫或代理人訊息把它藏起來。",
+          locked: "寫入鎖表示只有一個 owner 可以修改此 worktree；唯讀代理人仍可檢視。",
+          approval: "需要核准是持久 UI 狀態；必須顯示到使用者核准或拒絕為止。",
+        },
+      }
+
+      document.querySelectorAll("[data-locale]").forEach((button) => {
+        button.addEventListener("click", () => {
+          applyLocale(button.dataset.locale)
+          const activeState = document.querySelector("[data-state].active-state")?.dataset.state ?? "clean"
+          document.querySelector("#state-output").textContent = stateNotes[currentLocale][activeState]
+        })
+      })
+
+      document.querySelectorAll("[data-preview-mode]").forEach((control) => {
+        control.addEventListener("click", () => {
+          document.querySelectorAll("[data-preview-mode]").forEach((item) => item.classList.remove("active"))
+          control.classList.add("active")
+          document.querySelectorAll("[data-preview]").forEach((preview) => {
+            preview.hidden = preview.dataset.preview !== control.dataset.previewMode
+          })
+        })
+      })
+
+      document.querySelectorAll("[data-scenario]").forEach((control) => {
+        control.addEventListener("click", () => {
+          document.querySelectorAll("[data-scenario]").forEach((item) => item.classList.remove("active"))
+          control.classList.add("active")
+          const featureLock = document.querySelector('[data-card="feature"] .lock-row')
+          const featureAgent = document.querySelector('[data-card="feature"] .badge.primary')
+          if (control.dataset.scenario === "approval") {
+            featureLock.textContent = messages[currentLocale].approvalRequired
+            featureLock.style.color = "var(--ab-danger-600)"
+            featureLock.style.background = "var(--ab-danger-50)"
+            featureAgent.textContent = currentLocale === "zh-TW" ? "OpenAI 完整權限" : "OpenAI full-access"
+            featureAgent.className = "badge danger"
+          } else {
+            featureLock.textContent = messages[currentLocale].lockAgent
+            featureLock.style.color = "var(--ab-primary-600)"
+            featureLock.style.background = "var(--ab-primary-50)"
+            featureAgent.textContent = messages[currentLocale].agentCodexWrite
+            featureAgent.className = "badge primary"
+          }
+        })
+      })
+
+      document.querySelectorAll(".worktree-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".worktree-card").forEach((item) => item.classList.remove("selected"))
+          card.classList.add("selected")
+        })
+      })
+
+      document.querySelectorAll(".token-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          document.querySelectorAll(".token-card").forEach((item) => item.classList.remove("active"))
+          card.classList.add("active")
+        })
+      })
+
+      document.querySelectorAll("[data-state]").forEach((row) => {
+        row.addEventListener("click", () => {
+          document.querySelectorAll("[data-state]").forEach((item) => item.classList.remove("active-state"))
+          row.classList.add("active-state")
+          document.querySelector("#state-output").textContent = stateNotes[currentLocale][row.dataset.state]
+        })
+      })
+
+      document.querySelectorAll("[data-danger-choice]").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.body.dataset.dangerPalette = button.dataset.dangerChoice
+          document.querySelectorAll("[data-danger-choice]").forEach((item) => item.classList.remove("active"))
+          button.classList.add("active")
+        })
+      })
+
+      const initialLocale = new URLSearchParams(window.location.search).get("locale")
+      if (initialLocale === "zh-TW" || initialLocale === "en-US") {
+        currentLocale = initialLocale
+      }
+      applyLocale(currentLocale)
+    </script>
+  </body>
+</html>

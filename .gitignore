@@ -5,5 +5,8 @@ dist/
 .agentbridge/
 .env
 .tmp/
+screenshots/
+.DS_Store
+src-tauri/target/
 minishop-benchmark-swarm/
 minishop-benchmark-swarm.backup-20260424-anchor-migration/

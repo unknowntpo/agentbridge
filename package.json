@@ -36,6 +36,10 @@
   "scripts": {
     "build": "rm -rf dist && bun build ./src/index.ts ./src/cli.ts --outdir dist --target bun --format esm",
     "check": "bunx tsc --noEmit -p tsconfig.json",
+    "desktop:dev": "bunx vite --host 127.0.0.1",
+    "desktop:build": "bunx vite build",
+    "tauri:dev": "bunx tauri dev",
+    "tauri:build": "bunx tauri build",
     "start": "bunx tsx src/cli.ts",
     "dev": "bunx tsx watch src/cli.ts",
     "test": "bunx vitest run --config vitest.config.ts",
@@ -49,10 +53,12 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.14.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "vite": "^6.0.0",
     "vitest": "^3.1.2"
   }
 }
