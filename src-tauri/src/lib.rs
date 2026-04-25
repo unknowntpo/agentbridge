@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const MINISHOP_CONTAINER: &str = "/Users/unknowntpo/repo/unknowntpo/minishop";
+const DUMMY_CONTAINER: &str = "/Users/unknowntpo/repo/unknowntpo/agentbridge/agenthub-workflow-dummy";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,7 +66,7 @@ struct CommandOutcome {
 
 #[tauri::command]
 fn allowed_projects() -> Result<Vec<AllowedProject>, String> {
-  Ok(vec![
+  let mut projects = vec![
     AllowedProject {
       id: "agentbridge".to_string(),
       label: "agentbridge".to_string(),
@@ -76,7 +77,15 @@ fn allowed_projects() -> Result<Vec<AllowedProject>, String> {
       label: "minishop demo".to_string(),
       path: display_path(&canonical_or_existing(Path::new(MINISHOP_CONTAINER))?),
     },
-  ])
+  ];
+  if let Ok(dummy) = canonical_or_existing(Path::new(DUMMY_CONTAINER)) {
+    projects.push(AllowedProject {
+      id: "agenthub-workflow-dummy".to_string(),
+      label: "AgentHub workflow dummy".to_string(),
+      path: display_path(&dummy),
+    });
+  }
+  Ok(projects)
 }
 
 #[tauri::command]
@@ -85,9 +94,12 @@ fn scan_project(path: String) -> Result<ProjectScan, String> {
   ensure_allowed_project_path(&requested)?;
 
   let minishop = canonical_or_existing(Path::new(MINISHOP_CONTAINER))?;
+  let dummy = canonical_or_existing(Path::new(DUMMY_CONTAINER)).ok();
   let is_minishop_project = requested == minishop || requested.starts_with(&minishop);
+  let is_dummy_project = dummy.as_ref().is_some_and(|path| requested == *path || requested.starts_with(path));
   let is_minishop_container = requested == minishop;
-  let anchor = if is_minishop_container {
+  let is_dummy_container = dummy.as_ref().is_some_and(|path| requested == *path);
+  let anchor = if is_minishop_container || is_dummy_container {
     find_git_child(&requested).ok_or_else(|| format!("No Git worktree found under {}", display_path(&requested)))?
   } else {
     requested.clone()
@@ -95,6 +107,8 @@ fn scan_project(path: String) -> Result<ProjectScan, String> {
 
   let root_path = if is_minishop_project {
     minishop
+  } else if is_dummy_project {
+    dummy.ok_or_else(|| "Dummy project path is unavailable.".to_string())?
   } else {
     current_repo_root()?
   };
@@ -111,8 +125,20 @@ fn scan_project(path: String) -> Result<ProjectScan, String> {
   worktrees.sort_by(|left, right| left.name.cmp(&right.name));
 
   Ok(ProjectScan {
-    id: if is_minishop_container { "minishop" } else { "agentbridge" }.to_string(),
-    label: if is_minishop_container { "minishop demo" } else { "agentbridge" }.to_string(),
+    id: if is_minishop_container {
+      "minishop"
+    } else if is_dummy_container {
+      "agenthub-workflow-dummy"
+    } else {
+      "agentbridge"
+    }.to_string(),
+    label: if is_minishop_container {
+      "minishop demo"
+    } else if is_dummy_container {
+      "AgentHub workflow dummy"
+    } else {
+      "agentbridge"
+    }.to_string(),
     root_path: display_path(&root_path),
     anchor_path: display_path(&anchor),
     github: github_state_for_path(&anchor),
@@ -131,8 +157,9 @@ fn scan_github(worktree_path: String) -> Result<GithubState, String> {
 fn create_worktree(project_root: String, branch_name: String, base_ref: String) -> Result<CommandOutcome, String> {
   let root = canonical_or_existing(Path::new(&project_root))?;
   let minishop = canonical_or_existing(Path::new(MINISHOP_CONTAINER))?;
-  if root != minishop {
-    return Err("Creating sibling worktrees is enabled only for the minishop demo container in this MVP.".to_string());
+  let dummy = canonical_or_existing(Path::new(DUMMY_CONTAINER)).ok();
+  if root != minishop && !dummy.as_ref().is_some_and(|path| root == *path) {
+    return Err("Creating sibling worktrees is enabled only for allowed demo containers in this MVP.".to_string());
   }
 
   let branch = branch_name.trim();
@@ -411,7 +438,8 @@ fn canonical_or_existing(path: &Path) -> Result<PathBuf, String> {
 fn ensure_allowed_project_path(path: &Path) -> Result<(), String> {
   let current = current_repo_root()?;
   let minishop = canonical_or_existing(Path::new(MINISHOP_CONTAINER))?;
-  if path == current || path == minishop || path.starts_with(&minishop) {
+  let dummy = canonical_or_existing(Path::new(DUMMY_CONTAINER)).ok();
+  if path == current || path == minishop || path.starts_with(&minishop) || dummy.as_ref().is_some_and(|dummy| path == dummy || path.starts_with(dummy)) {
     return Ok(());
   }
   Err(format!("Path is outside AgentHub allowlist: {}", display_path(path)))
@@ -431,7 +459,8 @@ fn is_allowed_worktree_path(path: &Path) -> bool {
   let Ok(minishop) = canonical_or_existing(Path::new(MINISHOP_CONTAINER)) else {
     return false;
   };
-  path == current || path.starts_with(minishop)
+  let dummy = canonical_or_existing(Path::new(DUMMY_CONTAINER)).ok();
+  path == current || path.starts_with(minishop) || dummy.as_ref().is_some_and(|dummy| path.starts_with(dummy))
 }
 
 fn find_git_child(container: &Path) -> Option<PathBuf> {

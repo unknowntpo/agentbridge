@@ -160,6 +160,10 @@ function defaultProjectsFromEnv(): AgentHubProject[] {
   if (fs.existsSync(minishop)) {
     projects.push({ id: "minishop", label: "minishop demo", path: minishop })
   }
+  const dummy = "/Users/unknowntpo/repo/unknowntpo/agentbridge/agenthub-workflow-dummy"
+  if (fs.existsSync(dummy)) {
+    projects.push({ id: "agenthub-workflow-dummy", label: "AgentHub workflow dummy", path: dummy })
+  }
   return projects
 }
 
