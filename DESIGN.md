@@ -136,6 +136,39 @@ Anti-clone transform:
 - Do not copy Spectra's logo, icon shape, tab bar, or exact spacing.
 - Translate the pattern into AgentHub-owned Sora / 空色 primary, Warm Sand / 砂色 secondary, and worktree-tree semantics.
 
+### Captured Reference: Clarc
+
+Reference:
+
+- https://github.com/ttnear/Clarc
+- Public project discussion: https://www.reddit.com/r/SwiftUI/comments/1su9t5n/i_built_a_native_macos_gui_for_claude_code/
+
+Clarc is a useful reference for wrapping Claude Code CLI without rebuilding the agent runtime.
+
+Observed source facts:
+
+- It spawns the real `claude` CLI under the hood.
+- Existing `CLAUDE.md`, skills, MCP, and slash commands continue to work unchanged.
+- It adds a native macOS GUI around the CLI.
+- It exposes native approval modals with actual diffs before tools run.
+- It supports per-project windows for parallel sessions.
+- It includes project-centric affordances such as drag-and-drop attachments, GitHub OAuth, automatic SSH key setup, file explorer with Git status, memo pad, embedded terminal, shortcut buttons, and custom slash commands.
+
+Transferable patterns for AgentHub:
+
+- Treat provider CLIs as authoritative runtimes. AgentHub should wrap Codex, Claude Code, Gemini, and OpenAI provider surfaces instead of rebuilding their tool execution loops.
+- Preserve each provider's native project files and conventions: `AGENTS.md`, `CLAUDE.md`, skills, MCP config, slash commands, and provider-specific session state.
+- Put safety and clarity in the wrapper layer: preview diffs, explain permissions, show the exact command/tool request, and make approvals durable.
+- Use project/worktree windows or tabs as the main isolation boundary for parallel sessions.
+- Keep GitHub setup and repo onboarding as first-class UX, not an afterthought.
+- Provide an embedded terminal and file/status explorer for cases where the user needs to inspect or override agent behavior.
+
+Anti-clone transform:
+
+- Do not copy Clarc's visual design or feature order directly.
+- AgentHub's core remains `Project -> Worktree -> Agent Session`; Clarc informs provider wrapping and permission UX, not the product model.
+- AgentHub should stay provider-neutral. Claude Code is one backend, not the only runtime.
+
 Color semantics:
 
 - Sora / 空色 primary: selected worktree, active path, focus, primary actions, active write lock. It should feel bright, soft, calm, and hopeful without becoming electric blue.
