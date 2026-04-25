@@ -5,7 +5,7 @@ export type CommitNodeKind = "normal" | "head" | "merge"
 
 export interface CommitRefBadge {
   label: string
-  tone: "head" | "branch" | "experiment" | "version"
+  tone: "head" | "branch" | "docs" | "experiment" | "version"
 }
 
 export interface CommitGraphPoint {
@@ -95,7 +95,7 @@ export function buildCommitLogRows(
       sha: shortSha(docs?.head, "e7fa89b"),
       message: "Document permission model",
       detail: "docs branch checked out",
-      refs: [{ label: docs?.branch ?? "docs/permissions", tone: "branch" }],
+      refs: [{ label: docs?.branch ?? "docs/permissions", tone: "docs" }],
       worktreeId: docs?.id ?? null,
       worktreeName: worktreeLabel(docs, "wt/docs-permissions"),
       agents: agentsFor(docs, [{ provider: "Claude", mode: "read" }, { provider: "Gemini", mode: "read" }]),
