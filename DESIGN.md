@@ -22,6 +22,15 @@ Project
 
 A worktree is the primary visual and operational unit. A branch is metadata on a worktree, not the top-level product object.
 
+Git truth constraints:
+
+- One worktree maps to one checkout directory.
+- One worktree has exactly one current `HEAD`.
+- `HEAD` is either attached to one branch ref or is detached at a commit.
+- A worktree does not contain multiple branches. Do not draw `feat/` or `docs/` as parent folders with multiple worktree rows beneath them.
+- Branch refs point to commits; worktrees attach to commits through their current `HEAD`.
+- The UI may group or filter by branch prefix, but the row/card identity must still be the worktree path/name.
+
 ## Information Architecture
 
 The desktop shell uses four stable regions:
@@ -32,6 +41,13 @@ The desktop shell uses four stable regions:
 - Bottom timeline drawer: selected agent session messages, tool runs, approvals, and artifacts.
 
 The center canvas is the product's primary surface. Other regions explain or operate on the selected worktree.
+
+Project switching:
+
+- The top project selector is the canonical control for switching repositories/projects.
+- Switching project changes the entire worktree/log/session context.
+- The selector should show current project name, trusted root path, and recent projects.
+- The left sidebar should not mix worktrees from multiple projects unless the user explicitly chooses an all-projects overview.
 
 ## Worktree Tree
 
@@ -235,6 +251,7 @@ Drag-and-drop may be supported, but every drag action must have a menu or keyboa
 When implementing from Figma:
 
 - Preserve the product model: cards are worktrees, connectors are Git ancestry, agents are chips/details attached to worktrees.
+- Never implement a branch-folder tree that implies one worktree contains many branches.
 - Treat generated Figma output as visual structure, not final code style.
 - Translate Figma styling into existing CSS token names where possible.
 - Do not import random icon packages from generated Figma output.

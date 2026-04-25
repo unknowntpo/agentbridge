@@ -33,6 +33,7 @@ The AgentHub desktop app design system lives in `DESIGN.md`.
 
 - Follow `DESIGN.md` for all dashboard UI, Figma-to-code, and Tauri mock work.
 - The central product model is `Project -> Worktree -> Agent Session`; branch is worktree metadata.
+- A worktree maps to one checkout directory and one current `HEAD`; never draw branch folders as if one worktree contains multiple branches.
 - The main visual is a Git worktree tree with cards, not a generic graph or chat-first UI.
 - Validate dashboard changes with `bun run desktop:build` and `bun run check`.
 
