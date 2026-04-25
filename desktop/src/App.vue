@@ -3,7 +3,10 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { computed, onMounted, reactive, ref, watch } from "vue"
 
+import CommitLogPanel from "./components/CommitLogPanel.vue"
+import DesignSystemView from "./views/DesignSystemView.vue"
 import { buildCommitLogRows, commitGraphSvgPath } from "./commit-log"
+import { resolveRoute } from "./route"
 import {
   addAgentSession,
   createApproval,
@@ -48,6 +51,7 @@ const DEFAULT_AGENTBRIDGE = "/Users/unknowntpo/repo/unknowntpo/agentbridge/main"
 
 const projectPath = ref(DEFAULT_MINISHOP)
 const state = reactive<AppState>(restoreState())
+const route = ref(resolveRoute(window.location.pathname))
 const chatDraft = ref("")
 const newWorktreeBranch = ref("feat/agenthub-demo")
 const newWorktreeBase = ref("HEAD")
@@ -83,6 +87,10 @@ watch(
 )
 
 onMounted(async () => {
+  window.addEventListener("popstate", () => {
+    route.value = resolveRoute(window.location.pathname)
+  })
+  if (route.value === "design-system") return
   await listen<ProjectChangedEvent>("project_changed", async (event) => {
     if (!state.project || event.payload.path !== state.project.rootPath) return
     state.notice = `Project changed (${event.payload.reason}). Reloading local worktrees.`
@@ -466,7 +474,8 @@ function mockProject(path: string): ProjectScan {
 </script>
 
 <template>
-  <main class="app-shell">
+  <DesignSystemView v-if="route === 'design-system'" />
+  <main v-else class="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">AB</span>
@@ -503,7 +512,7 @@ function mockProject(path: string): ProjectScan {
         <a>Agents <b>{{ state.sessions.length }}</b></a>
         <a>Approvals <b>{{ pendingApprovals.length }}</b></a>
         <a>Artifacts</a>
-        <a href="/desktop/design-system.html">Design System</a>
+        <a href="/design-system">Design System</a>
       </nav>
 
       <section class="trusted-root">
@@ -559,93 +568,13 @@ function mockProject(path: string): ProjectScan {
             </button>
           </aside>
 
-          <section class="commit-log-panel" data-testid="commit-log-panel">
-            <header class="commit-log-titlebar">
-              <div>
-                <span class="eyebrow">Git graph</span>
-                <h2>Commit log</h2>
-              </div>
-              <div class="commit-log-legend" aria-label="Graph lanes">
-                <span class="main">main</span>
-                <span class="feature">feat</span>
-                <span class="docs">docs</span>
-                <span class="experiment">exp</span>
-              </div>
-            </header>
-
-            <div class="commit-log-table">
-              <div class="commit-log-header-row">
-                <span>Graph</span>
-                <span>Commit</span>
-                <span>Worktree</span>
-                <span>Agent</span>
-                <span>Status</span>
-              </div>
-              <div class="commit-log-rows">
-                <svg
-                  class="commit-log-svg"
-                  :viewBox="commitGraph.viewBox"
-                  preserveAspectRatio="xMinYMin meet"
-                  aria-hidden="true"
-                >
-                  <path class="line main" :d="commitGraph.main" />
-                  <path class="line feature" :d="commitGraph.feature" />
-                  <path class="line docs" :d="commitGraph.docs" />
-                  <path class="line experiment" :d="commitGraph.experiment" />
-                  <g v-for="point in commitGraph.points" :key="point.id" :class="['node', point.lane, point.kind]">
-                    <circle v-if="point.kind === 'merge'" class="halo" :cx="point.x" :cy="point.y" r="9" />
-                    <circle v-if="point.kind === 'head'" class="halo" :cx="point.x" :cy="point.y" r="13" />
-                    <circle class="core" :cx="point.x" :cy="point.y" :r="point.kind === 'merge' ? 3.5 : point.kind === 'head' ? 6.5 : 4.5" />
-                  </g>
-                </svg>
-
-                <button
-                  v-for="row in commitRows"
-                  :key="row.id"
-                  type="button"
-                  class="commit-log-row"
-                  :class="{ active: row.worktreeId === state.selectedWorktreeId, dirty: row.status === 'dirty' }"
-                  @click="row.worktreeId && selectWorktree(row.worktreeId)"
-                >
-                  <span class="graph-spacer" aria-hidden="true"></span>
-                  <span class="commit-message-cell">
-                    <span class="commit-title-line">
-                      <strong>{{ row.message }}</strong>
-                      <span
-                        v-for="ref in row.refs"
-                        :key="`${row.id}-${ref.label}`"
-                        class="commit-ref-badge"
-                        :class="ref.tone"
-                      >
-                        {{ ref.label }}
-                      </span>
-                    </span>
-                    <code>{{ row.sha }} · {{ row.detail }}</code>
-                  </span>
-                  <span class="commit-worktree-cell">{{ row.worktreeName }}</span>
-                  <span class="commit-agent-cell">
-                    <template v-if="row.agents.length">
-                      <button
-                        v-for="session in row.agents"
-                        :key="session.id"
-                        type="button"
-                        class="agent-chip"
-                        :class="session.mode"
-                        @click.stop="selectAgent(session.id)"
-                      >
-                        <span class="provider-mark">
-                          <img :src="providerIcon(session.provider)" :alt="session.provider" />
-                        </span>
-                        {{ session.provider }} {{ session.mode }}
-                      </button>
-                    </template>
-                    <span v-else class="muted-dash">—</span>
-                  </span>
-                  <span class="badge" :class="badgeClass(row.status)">{{ row.status }}</span>
-                </button>
-              </div>
-            </div>
-          </section>
+          <CommitLogPanel
+            :rows="commitRows"
+            :graph="commitGraph"
+            :selected-worktree-id="state.selectedWorktreeId"
+            @select-worktree="selectWorktree"
+            @select-agent="selectAgent"
+          />
         </div>
       </section>
 
