@@ -2,6 +2,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core"
 import { computed, onMounted, reactive, ref, watch } from "vue"
 
+import { buildCommitLogRows, commitGraphSvgPath } from "./commit-log"
 import {
   createApproval,
   createInitialState,
@@ -18,6 +19,7 @@ import {
   sessionsForWorktree,
   updateAgentDraft,
   withRemoteLoading,
+  type AgentSession,
   type AllowedProject,
   type AppState,
   type GithubState,
@@ -25,14 +27,6 @@ import {
   type Provider,
   type TabId,
 } from "./store"
-
-interface GraphNode {
-  id: string
-  label: string
-  x: number
-  y: number
-  hasRef: boolean
-}
 
 interface CommandOutcome {
   ok: boolean
@@ -58,9 +52,9 @@ const currentWorktreeSessions = computed(() => (
   currentWorktree.value ? sessionsForWorktree(state, currentWorktree.value.id) : []
 ))
 const pendingApprovals = computed(() => state.approvals.filter((approval) => approval.state === "pending"))
-const graph = computed(() => buildGraph(state.project?.worktrees ?? []))
-const graphWidth = computed(() => Math.max(1040, graph.value.commitNodes.length * 168 + 180))
-const graphHeight = computed(() => Math.max(640, Math.ceil(graph.value.cards.length / 4) * 252 + 520))
+const visibleSessions = computed(() => state.sessions.length ? state.sessions : demoSessionsForProject(state.project?.worktrees ?? []))
+const commitRows = computed(() => buildCommitLogRows(state.project?.worktrees ?? [], visibleSessions.value))
+const commitGraph = computed(() => commitGraphSvgPath(commitRows.value.length))
 
 watch(
   () => ({
@@ -263,6 +257,42 @@ function providerIcon(provider: Provider): string {
   return "/desktop/assets/provider-icons/openai.svg"
 }
 
+function demoSessionsForProject(worktrees: WorktreeScan[]): AgentSession[] {
+  const feature = worktrees.find((worktree) => /agent|drawer|feature|workflow/i.test(`${worktree.name} ${worktree.branch ?? ""}`)) ?? worktrees[1]
+  const docs = worktrees.find((worktree) => /docs|permission/i.test(`${worktree.name} ${worktree.branch ?? ""}`)) ?? worktrees[2]
+  const experiment = worktrees.find((worktree) => /exp|cache|experiment/i.test(`${worktree.name} ${worktree.branch ?? ""}`)) ?? worktrees[3]
+  return [
+    feature && demoSession(feature.id, "Codex", "write", "running"),
+    feature && demoSession(feature.id, "Gemini", "read", "idle"),
+    docs && demoSession(docs.id, "Claude", "read", "idle"),
+    docs && demoSession(docs.id, "Gemini", "read", "idle"),
+    experiment && demoSession(experiment.id, "Codex", "write", "blocked"),
+  ].filter(Boolean) as AgentSession[]
+}
+
+function demoSession(worktreeId: string, provider: Provider, mode: "write" | "read", agentState: "running" | "blocked" | "idle"): AgentSession {
+  return {
+    id: `demo-${worktreeId}-${provider}-${mode}`,
+    worktreeId,
+    provider,
+    mode,
+    profile: mode === "read" ? "workspace-read" : "workspace-write",
+    state: agentState,
+    prompt: `Demo ${provider} ${mode} agent`,
+    workingDirectory: "",
+    mocked: true,
+    messages: [],
+    runs: [],
+    artifacts: [],
+    skills: {
+      loaded: ["frontend-feedback-loop"],
+      suggested: ["git-worktree-sop"],
+      blocked: [],
+      events: ["Demo session for preview layout."],
+    },
+  }
+}
+
 function worktreeLockLabel(worktree: WorktreeScan): string {
   const lock = lockStateForWorktree(state, worktree.id)
   if (lock.state === "approval-required") return "Approval required"
@@ -275,41 +305,6 @@ function worktreeLockClass(worktree: WorktreeScan): string {
   if (lock.state === "approval-required") return "danger"
   if (lock.state === "write-locked") return "warning"
   return "unlocked"
-}
-
-function buildGraph(worktrees: WorktreeScan[]): {
-  commitNodes: GraphNode[]
-  cards: Array<{ worktree: WorktreeScan; x: number; y: number; commitId: string }>
-  ancestryPaths: string[]
-  attachmentPaths: string[]
-} {
-  const heads = [...new Map(worktrees.map((worktree) => [worktree.head, worktree])).values()]
-  const commitNodes = heads.map((worktree, index) => ({
-    id: worktree.head,
-    label: worktree.head,
-    x: 90 + index * 158,
-    y: index % 3 === 2 ? 118 : 58,
-    hasRef: Boolean(worktree.branch),
-  }))
-  const nodeByHead = new Map(commitNodes.map((node) => [node.id, node]))
-  const cards = worktrees.map((worktree, index) => {
-    const node = nodeByHead.get(worktree.head) ?? commitNodes[0] ?? { x: 90, y: 58, id: worktree.head }
-    return {
-      worktree,
-      commitId: node.id,
-      x: 48 + (index % 4) * 252,
-      y: 230 + Math.floor(index / 4) * 252,
-    }
-  })
-  const ancestryPaths = commitNodes.slice(1).map((node, index) => {
-    const prev = commitNodes[index]!
-    return `M ${prev.x + 112} ${prev.y + 22} L ${node.x} ${node.y + 22}`
-  })
-  const attachmentPaths = cards.map((card) => {
-    const node = nodeByHead.get(card.commitId)!
-    return `M ${node.x + 56} ${node.y + 44} L ${card.x + 105} ${card.y}`
-  })
-  return { commitNodes, cards, ancestryPaths, attachmentPaths }
 }
 
 async function invokeCommand<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -370,15 +365,39 @@ function mockProject(path: string): ProjectScan {
       },
       {
         id: "mock-feature",
-        name: "feat/workflow-demo",
-        path: `${path}/feat-workflow-demo`,
-        branch: "feat/workflow-demo",
+        name: "agent-drawer",
+        path: `${path}/wt/agent-drawer`,
+        branch: "feat/agent-drawer",
+        upstream: null,
+        head: "d4e5f6a",
+        status: "clean",
+        ahead: 5,
+        behind: 0,
+        remote: { ...github, pr: "#42" },
+      },
+      {
+        id: "mock-docs",
+        name: "docs-permissions",
+        path: `${path}/wt/docs-permissions`,
+        branch: "docs/permissions",
+        upstream: null,
+        head: "e7fa89b",
+        status: "clean",
+        ahead: 2,
+        behind: 0,
+        remote: { ...github, pr: "#39" },
+      },
+      {
+        id: "mock-exp",
+        name: "experiment-cache",
+        path: `${path}/wt/experiment-cache`,
+        branch: "exp/cache",
         upstream: null,
         head: "b1c2d3e",
         status: "dirty",
-        ahead: 2,
+        ahead: 0,
         behind: 0,
-        remote: { ...github, pr: "#42" },
+        remote: { ...github, pr: null },
       },
     ],
   }
@@ -436,7 +455,7 @@ function mockProject(path: string): ProjectScan {
       <header class="topbar">
         <div>
           <span class="eyebrow">{{ state.project?.id ?? "Project" }} dashboard</span>
-          <h1>Worktree Tree</h1>
+          <h1>Commit Workflow</h1>
         </div>
         <div class="topbar-actions">
           <span v-if="state.projectLoading !== 'idle'" class="loading-pill">
@@ -454,64 +473,117 @@ function mockProject(path: string): ProjectScan {
       </header>
 
       <section class="canvas">
-        <div class="graph-stage" :style="{ width: `${graphWidth}px`, height: `${graphHeight}px` }">
-          <svg class="tree-lines" :viewBox="`0 0 ${graphWidth} ${graphHeight}`" aria-hidden="true">
-            <path v-for="path in graph.ancestryPaths" :key="path" class="connector ancestry" :d="path" />
-            <path v-for="path in graph.attachmentPaths" :key="path" class="connector attachment dashed" :d="path" />
-          </svg>
-
-          <div
-            v-for="node in graph.commitNodes"
-            :key="node.id"
-            class="commit-node"
-            :class="{ 'has-ref': node.hasRef }"
-            :style="{ left: `${node.x}px`, top: `${node.y}px` }"
-          >
-            {{ node.label }}
-          </div>
-
-          <article
-            v-for="card in graph.cards"
-            :key="card.worktree.id"
-            class="preview-worktree-card"
-            :class="{ selected: card.worktree.id === state.selectedWorktreeId }"
-            :style="{ left: `${card.x}px`, top: `${card.y}px` }"
-            @click="selectWorktree(card.worktree.id)"
-          >
-            <span class="card-state-dot" aria-hidden="true"></span>
-            <strong>{{ card.worktree.name }}</strong>
-            <span class="worktree-ref">{{ card.worktree.upstream ?? card.worktree.branch ?? "detached HEAD" }}</span>
-            <div class="card-badges">
-              <span class="badge badge-muted">{{ card.worktree.remote.pr ?? "local" }}</span>
-              <span class="badge badge-muted">{{ card.worktree.head }}</span>
-              <span v-if="card.worktree.status !== 'clean'" class="badge badge-dirty">{{ card.worktree.status }}</span>
-              <span v-if="card.worktree.remote.auth !== 'ok'" class="badge badge-danger">GitHub mocked</span>
-            </div>
-            <span class="sync-row">↑ {{ card.worktree.ahead }} ↓ {{ card.worktree.behind }} GitHub</span>
-            <div class="agent-drawer">
+        <div class="workflow-preview">
+          <aside class="worktree-list-panel">
+            <header>
               <div>
-                <button
-                  v-for="session in sessionsForWorktree(state, card.worktree.id)"
-                  :key="session.id"
-                  type="button"
-                  class="agent-chip"
-                  :class="session.mode"
-                  @click.stop="selectAgent(session.id)"
+                <span class="eyebrow">Local worktrees</span>
+                <strong>{{ state.project?.worktrees.length ?? 0 }} checked out</strong>
+              </div>
+              <button type="button" @click="createWorktree">+</button>
+            </header>
+            <button
+              v-for="worktree in state.project?.worktrees ?? []"
+              :key="worktree.id"
+              type="button"
+              class="worktree-list-row"
+              :class="{ active: worktree.id === state.selectedWorktreeId }"
+              @click="selectWorktree(worktree.id)"
+            >
+              <span>
+                <strong>{{ worktree.name }}</strong>
+                <code>{{ worktree.branch ?? "detached HEAD" }}</code>
+              </span>
+              <span class="badge" :class="badgeClass(worktree.status)">{{ worktree.status }}</span>
+            </button>
+          </aside>
+
+          <section class="commit-log-panel" data-testid="commit-log-panel">
+            <header class="commit-log-titlebar">
+              <div>
+                <span class="eyebrow">Git graph</span>
+                <h2>Commit log</h2>
+              </div>
+              <div class="commit-log-legend" aria-label="Graph lanes">
+                <span class="main">main</span>
+                <span class="feature">feat</span>
+                <span class="docs">docs</span>
+                <span class="experiment">exp</span>
+              </div>
+            </header>
+
+            <div class="commit-log-table">
+              <div class="commit-log-header-row">
+                <span>Graph</span>
+                <span>Commit</span>
+                <span>Worktree</span>
+                <span>Agent</span>
+                <span>Status</span>
+              </div>
+              <div class="commit-log-rows">
+                <svg
+                  class="commit-log-svg"
+                  :viewBox="commitGraph.viewBox"
+                  preserveAspectRatio="xMinYMin meet"
+                  aria-hidden="true"
                 >
-                  <span class="provider-mark">
-                    <img :src="providerIcon(session.provider)" :alt="session.provider" />
+                  <path class="line main" :d="commitGraph.main" />
+                  <path class="line feature" :d="commitGraph.feature" />
+                  <path class="line docs" :d="commitGraph.docs" />
+                  <path class="line experiment" :d="commitGraph.experiment" />
+                  <g v-for="point in commitGraph.points" :key="point.id" :class="['node', point.lane, point.kind]">
+                    <circle v-if="point.kind === 'merge'" class="halo" :cx="point.x" :cy="point.y" r="9" />
+                    <circle class="core" :cx="point.x" :cy="point.y" :r="point.kind === 'head' ? 7 : 5" />
+                  </g>
+                </svg>
+
+                <button
+                  v-for="row in commitRows"
+                  :key="row.id"
+                  type="button"
+                  class="commit-log-row"
+                  :class="{ active: row.worktreeId === state.selectedWorktreeId }"
+                  @click="row.worktreeId && selectWorktree(row.worktreeId)"
+                >
+                  <span class="graph-spacer" aria-hidden="true"></span>
+                  <span class="commit-message-cell">
+                    <span class="commit-title-line">
+                      <strong>{{ row.message }}</strong>
+                      <span
+                        v-for="ref in row.refs"
+                        :key="`${row.id}-${ref.label}`"
+                        class="commit-ref-badge"
+                        :class="ref.tone"
+                      >
+                        {{ ref.label }}
+                      </span>
+                    </span>
+                    <code>{{ row.sha }} · {{ row.detail }}</code>
                   </span>
-                  {{ session.provider }} {{ session.mode }}
+                  <span class="commit-worktree-cell">{{ row.worktreeName }}</span>
+                  <span class="commit-agent-cell">
+                    <template v-if="row.agents.length">
+                      <button
+                        v-for="session in row.agents"
+                        :key="session.id"
+                        type="button"
+                        class="agent-chip"
+                        :class="session.mode"
+                        @click.stop="selectAgent(session.id)"
+                      >
+                        <span class="provider-mark">
+                          <img :src="providerIcon(session.provider)" :alt="session.provider" />
+                        </span>
+                        {{ session.provider }} {{ session.mode }}
+                      </button>
+                    </template>
+                    <span v-else class="muted-dash">—</span>
+                  </span>
+                  <span class="badge" :class="badgeClass(row.status)">{{ row.status }}</span>
                 </button>
-                <span v-if="!sessionsForWorktree(state, card.worktree.id).length" class="badge badge-muted">No active agents</span>
               </div>
             </div>
-            <span class="worktree-footer" :class="worktreeLockClass(card.worktree)">
-              {{ worktreeLockLabel(card.worktree) }}
-            </span>
-          </article>
-
-          <div class="canvas-legend"><span>commit ancestry</span><span>worktree attachment</span></div>
+          </section>
         </div>
       </section>
 

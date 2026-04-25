@@ -105,7 +105,7 @@ code {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 238px minmax(720px, 1fr) 360px;
+  grid-template-columns: 200px minmax(760px, 1fr) 280px;
   height: 100vh;
   overflow: hidden;
   position: relative;
@@ -123,7 +123,7 @@ code {
   flex-direction: column;
   gap: 22px;
   min-width: 0;
-  padding: 22px;
+  padding: 18px;
   border-right: 1px solid var(--neutral-300);
   overflow: hidden;
 }
@@ -327,9 +327,412 @@ p {
   position: relative;
   overflow: auto;
   min-height: 0;
+  padding: 16px;
   background-image:
     radial-gradient(var(--neutral-300) 0.75px, transparent 0.75px);
   background-size: 14px 14px;
+}
+
+.workflow-preview {
+  display: grid;
+  grid-template-columns: 198px minmax(520px, 1fr);
+  gap: 12px;
+  min-width: 730px;
+}
+
+.worktree-list-panel,
+.commit-log-panel {
+  border: 1px solid var(--neutral-300);
+  border-radius: 24px;
+  background: rgb(255 253 248 / 86%);
+  box-shadow: 0 16px 42px rgb(43 38 30 / 10%);
+  overflow: hidden;
+}
+
+.worktree-list-panel {
+  align-self: start;
+  padding: 12px;
+}
+
+.worktree-list-panel header,
+.commit-log-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.worktree-list-panel header {
+  margin-bottom: 12px;
+}
+
+.worktree-list-panel header strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.worktree-list-panel header button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 20px;
+}
+
+.worktree-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 16px;
+  padding: 10px;
+  text-align: left;
+}
+
+.worktree-list-row.active {
+  border-color: var(--primary-300);
+  background: var(--primary-100);
+  box-shadow: 0 0 0 4px rgb(79 156 164 / 10%);
+}
+
+.worktree-list-row span:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.worktree-list-row strong,
+.worktree-list-row code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktree-list-row code {
+  color: var(--primary-600);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.commit-log-panel {
+  min-width: 0;
+}
+
+.commit-log-titlebar {
+  border-bottom: 1px solid var(--neutral-300);
+  padding: 16px 18px;
+}
+
+.commit-log-titlebar h2 {
+  margin: 3px 0 0;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+
+.commit-log-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--neutral-500);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.commit-log-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.commit-log-legend span::before {
+  width: 16px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--lane-color);
+  content: "";
+}
+
+.commit-log-legend .main {
+  --lane-color: var(--primary-500);
+}
+
+.commit-log-legend .feature {
+  --lane-color: var(--secondary-300);
+}
+
+.commit-log-legend .docs {
+  --lane-color: #8fb6db;
+}
+
+.commit-log-legend .experiment {
+  --lane-color: var(--danger-300);
+}
+
+.commit-log-table {
+  min-width: 0;
+}
+
+.commit-log-header-row,
+.commit-log-row {
+  display: grid;
+  grid-template-columns: 80px minmax(190px, 1.5fr) minmax(76px, 0.65fr) minmax(126px, 0.95fr) 60px;
+  align-items: center;
+}
+
+.commit-log-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  border-bottom: 1px solid var(--neutral-300);
+  background: rgb(255 253 248 / 94%);
+  backdrop-filter: blur(10px);
+}
+
+.commit-log-header-row span {
+  padding: 10px;
+  color: var(--neutral-500);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.commit-log-rows {
+  position: relative;
+  max-height: 590px;
+  overflow-y: auto;
+  scrollbar-color: var(--primary-300) transparent;
+  scrollbar-width: thin;
+}
+
+.commit-log-rows::-webkit-scrollbar {
+  width: 10px;
+}
+
+.commit-log-rows::-webkit-scrollbar-thumb {
+  border: 2px solid rgb(255 255 255 / 80%);
+  border-radius: 999px;
+  background: var(--primary-300);
+}
+
+.commit-log-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 80px;
+  height: 644px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.commit-log-svg .line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.commit-log-svg .main {
+  stroke: var(--primary-500);
+}
+
+.commit-log-svg .feature {
+  stroke: var(--secondary-300);
+}
+
+.commit-log-svg .docs {
+  stroke: #8fb6db;
+}
+
+.commit-log-svg .experiment {
+  stroke: var(--danger-300);
+}
+
+.commit-log-svg .core {
+  fill: white;
+  stroke-width: 4;
+}
+
+.commit-log-svg .head .core {
+  fill: var(--primary-50);
+}
+
+.commit-log-svg .merge .halo {
+  fill: rgb(255 253 248 / 92%);
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.commit-log-svg .merge .core {
+  fill: currentColor;
+  stroke: white;
+  stroke-width: 1.5;
+}
+
+.commit-log-svg .main {
+  color: var(--primary-600);
+}
+
+.commit-log-svg .feature {
+  color: var(--secondary-600);
+}
+
+.commit-log-svg .docs {
+  color: #4e759b;
+}
+
+.commit-log-svg .experiment {
+  color: var(--danger-600);
+}
+
+.commit-log-svg .node.main .core {
+  stroke: var(--primary-600);
+}
+
+.commit-log-svg .node.feature .core {
+  stroke: var(--secondary-600);
+}
+
+.commit-log-svg .node.docs .core {
+  stroke: #4e759b;
+}
+
+.commit-log-svg .node.experiment .core {
+  stroke: var(--danger-600);
+}
+
+.commit-log-row {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  min-height: 92px;
+  border: 0;
+  border-bottom: 1px solid var(--neutral-200);
+  border-radius: 0;
+  background: rgb(255 255 255 / 62%);
+  box-shadow: none;
+  text-align: left;
+}
+
+.commit-log-row:hover,
+.commit-log-row.active {
+  transform: none;
+  background:
+    linear-gradient(90deg, rgb(79 156 164 / 12%), transparent 34%),
+    rgb(255 255 255 / 76%);
+  box-shadow: inset 4px 0 0 var(--primary-500);
+}
+
+.commit-log-row > span {
+  min-width: 0;
+  padding: 12px 10px;
+}
+
+.graph-spacer {
+  min-height: 92px;
+}
+
+.commit-message-cell {
+  display: grid;
+  gap: 7px;
+}
+
+.commit-title-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.commit-title-line strong {
+  min-width: 0;
+  max-width: 26ch;
+  overflow: hidden;
+  color: var(--neutral-900);
+  font-size: 15px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-message-cell code,
+.commit-worktree-cell,
+.muted-dash {
+  overflow: hidden;
+  color: var(--neutral-500);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-ref-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 132px;
+  border: 1px solid var(--neutral-300);
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: rgb(255 253 248 / 90%);
+  color: var(--neutral-600);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-ref-badge.head {
+  border-color: var(--primary-200, var(--primary-300));
+  background: var(--primary-100);
+  color: var(--primary-900);
+}
+
+.commit-ref-badge.branch {
+  border-color: var(--secondary-300);
+  background: var(--secondary-50);
+  color: var(--secondary-600);
+}
+
+.commit-ref-badge.experiment {
+  border-color: var(--danger-300);
+  background: var(--danger-50);
+  color: var(--danger-600);
+}
+
+.commit-ref-badge.version {
+  border-color: var(--secondary-300);
+  background: var(--secondary-100);
+  color: var(--secondary-600);
+}
+
+.commit-agent-cell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.commit-agent-cell .agent-chip {
+  max-width: 122px;
+  padding-right: 7px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-agent-cell .provider-mark {
+  width: 21px;
+  height: 21px;
+  border-radius: 8px;
 }
 
 .graph-stage {
