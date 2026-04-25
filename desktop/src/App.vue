@@ -60,15 +60,6 @@ const pendingApprovals = computed(() => state.approvals.filter((approval) => app
 const graph = computed(() => buildGraph(state.project?.worktrees ?? []))
 const graphWidth = computed(() => Math.max(1040, graph.value.commitNodes.length * 168 + 180))
 const graphHeight = computed(() => Math.max(640, Math.ceil(graph.value.cards.length / 4) * 252 + 520))
-const workflowSteps = [
-  "Open project",
-  "Scan worktrees",
-  "Select worktree",
-  "Deploy agents",
-  "Chat + skills",
-  "Approve permissions",
-  "Push / PR",
-]
 
 watch(
   () => ({
@@ -380,7 +371,7 @@ function mockProject(path: string): ProjectScan {
       </button>
 
       <section class="project-picker">
-        <span>1. Open project</span>
+        <span>Open project</span>
         <button
           v-for="project in state.projects"
           :key="project.id"
@@ -391,7 +382,6 @@ function mockProject(path: string): ProjectScan {
         </button>
         <input v-model="projectPath" aria-label="Project path" />
         <button type="button" @click="scanProject(projectPath)">Scan path</button>
-        <p class="mini-guide">Use only agentbridge or minishop. Other repos are rejected by Tauri.</p>
       </section>
 
       <nav>
@@ -423,16 +413,6 @@ function mockProject(path: string): ProjectScan {
         </div>
       </header>
 
-      <section class="workflow-guide" aria-label="Workflow guide">
-        <span class="eyebrow">How to use</span>
-        <ol>
-          <li v-for="(step, index) in workflowSteps" :key="step">
-            <b>{{ index + 1 }}</b>
-            <span>{{ step }}</span>
-          </li>
-        </ol>
-      </section>
-
       <section class="canvas">
         <div class="graph-stage" :style="{ width: `${graphWidth}px`, height: `${graphHeight}px` }">
           <svg class="tree-lines" :viewBox="`0 0 ${graphWidth} ${graphHeight}`" aria-hidden="true">
@@ -458,7 +438,6 @@ function mockProject(path: string): ProjectScan {
             :style="{ left: `${card.x}px`, top: `${card.y}px` }"
             @click="selectWorktree(card.worktree.id)"
           >
-            <span v-if="card.worktree.id === state.selectedWorktreeId" class="card-guide">3. selected</span>
             <span class="card-state-dot" aria-hidden="true"></span>
             <strong>{{ card.worktree.name }}</strong>
             <span class="worktree-ref">{{ card.worktree.upstream ?? card.worktree.branch ?? "detached HEAD" }}</span>
@@ -492,7 +471,6 @@ function mockProject(path: string): ProjectScan {
             </span>
           </article>
 
-          <div class="canvas-hint">3. Click a worktree to focus it; deployed agents appear inside the selected card.</div>
           <div class="canvas-legend"><span>commit ancestry</span><span>worktree attachment</span></div>
         </div>
       </section>
@@ -512,11 +490,9 @@ function mockProject(path: string): ProjectScan {
         </section>
 
         <section class="inspector-actions">
-          <span class="action-guide">4. Deploy agents here</span>
           <button type="button" @click="deploy('Codex', 'write', 'workspace-write')">Codex write</button>
           <button type="button" @click="deploy('Gemini', 'read', 'workspace-read')">Gemini read</button>
           <button type="button" @click="deploy('Claude', 'read', 'workspace-read')">Claude read</button>
-          <span class="action-guide">7. Finish through GitHub</span>
           <button type="button" @click="pushBranch">Push</button>
           <button type="button" @click="openPr">Open PR</button>
         </section>
@@ -543,7 +519,7 @@ function mockProject(path: string): ProjectScan {
         </section>
 
         <section class="inspector-section">
-          <h3>6. Approvals</h3>
+          <h3>Approvals</h3>
           <section
             v-for="approval in state.approvals.filter((item) => item.worktreeId === currentWorktree?.id)"
             :key="approval.id"
@@ -568,7 +544,7 @@ function mockProject(path: string): ProjectScan {
 
         <section class="session-panel" v-if="currentSession">
           <header>
-            <strong>5. Chat with {{ currentSession.provider }} {{ currentSession.mode }}</strong>
+            <strong>{{ currentSession.provider }} {{ currentSession.mode }}</strong>
             <span class="badge" :class="badgeClass(currentSession.state)">{{ currentSession.state }}</span>
           </header>
           <div class="tabs">
@@ -628,12 +604,12 @@ function mockProject(path: string): ProjectScan {
             <div class="empty-note">Tasks are represented by chat turns and runs in this MVP.</div>
           </div>
         </section>
-        <section v-else class="session-panel empty-session-guide">
+        <section v-else class="session-panel empty-session-state">
           <header>
-            <strong>5. Chat + skills appear after deployment</strong>
+            <strong>No agent session selected</strong>
             <span class="badge badge-muted">waiting</span>
           </header>
-          <p class="small-note">Click `Codex write`, then click the agent chip on the worktree card. The session detail shows chat, tasks, runs, artifacts, skills, and permissions.</p>
+          <p class="small-note">Deploy or select an agent to inspect session details.</p>
         </section>
       </template>
     </aside>

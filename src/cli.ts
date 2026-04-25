@@ -17,6 +17,7 @@ import { DiscordGatewayAdapter } from "./discord/discordGatewayAdapter.js"
 import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
+import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { attachLocalSession } from "./local/sessionAttach.js"
 import { resolveManagedBinding as selectManagedBinding } from "./local/sessionBindingResolver.js"
 import { createManagedLocalSession } from "./local/sessionNew.js"
@@ -41,6 +42,12 @@ interface SessionCommandOptions {
   workspace?: string
   profile?: string
   ref?: string
+  json?: boolean
+  path?: string
+  repo?: string
+  branch?: string
+  base?: string
+  project?: string
 }
 
 async function main(): Promise<void> {
@@ -58,6 +65,71 @@ async function main(): Promise<void> {
     .showHelpAfterError()
     .action(() => {
       session.help()
+    })
+
+  const project = program
+    .command("project")
+    .description("Manage AgentHub projects backed by Git worktree containers.")
+    .showHelpAfterError()
+    .action(() => {
+      project.help()
+    })
+
+  project
+    .command("list")
+    .description("List AgentHub projects.")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runProjectList(options)
+    })
+
+  project
+    .command("scan")
+    .description("Scan one AgentHub project and its worktrees.")
+    .requiredOption("--path <path>", "Project container or worktree path to scan.")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runProjectScan(options)
+    })
+
+  project
+    .command("create")
+    .description("Create a plain worktree project with main/ as the anchor checkout.")
+    .argument("<plainDir>", "Plain project container directory.")
+    .requiredOption("--repo <url-or-path>", "Git repository URL or local path.")
+    .option("--branch <branch>", "Initial branch to clone.", "main")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (plainDir: string, options: SessionCommandOptions) => {
+      await runProjectCreate(plainDir, options)
+    })
+
+  const worktree = program
+    .command("worktree")
+    .description("Manage AgentHub sibling Git worktrees.")
+    .showHelpAfterError()
+    .action(() => {
+      worktree.help()
+    })
+
+  worktree
+    .command("list")
+    .description("List worktrees for a project.")
+    .requiredOption("--project <path>", "Project container path.")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runWorktreeList(options)
+    })
+
+  worktree
+    .command("create")
+    .description("Create a sibling worktree under an AgentHub project.")
+    .argument("<slug>", "Sibling worktree directory name.")
+    .requiredOption("--project <path>", "Project container path.")
+    .requiredOption("--branch <branch>", "Branch name for the new worktree.")
+    .option("--base <ref>", "Base ref for the new worktree.", "HEAD")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (slug: string, options: SessionCommandOptions) => {
+      await runWorktreeCreate(slug, options)
     })
 
   session
@@ -255,6 +327,87 @@ async function runSessionSummaryThread(options: SessionCommandOptions): Promise<
     threadId: thread.id,
     threadLabel: thread.label,
   }))
+}
+
+async function runProjectList(options: SessionCommandOptions): Promise<void> {
+  const service = createAgentHubProjectServiceFromEnv()
+  const projects = service.listProjects()
+  if (options.json) {
+    writeJson(projects)
+    return
+  }
+  for (const project of projects) {
+    console.log(`${project.id}\t${project.label}\t${project.path}`)
+  }
+}
+
+async function runProjectScan(options: SessionCommandOptions): Promise<void> {
+  if (!options.path) {
+    throw new Error("`agentbridge project scan` requires `--path <path>`.")
+  }
+  const service = createAgentHubProjectServiceFromEnv()
+  const scan = await service.scanProject(options.path)
+  if (options.json) {
+    writeJson(scan)
+    return
+  }
+  console.log(`${scan.label}\t${scan.rootPath}`)
+  for (const worktree of scan.worktrees) {
+    console.log(`${worktree.name}\t${worktree.branch ?? "detached"}\t${worktree.status}\t${worktree.path}`)
+  }
+}
+
+async function runProjectCreate(plainDir: string, options: SessionCommandOptions): Promise<void> {
+  if (!options.repo) {
+    throw new Error("`agentbridge project create` requires `--repo <url-or-path>`.")
+  }
+  const service = createAgentHubProjectServiceFromEnv()
+  const outcome = await service.createProject({
+    plainDir,
+    repo: options.repo,
+    branch: options.branch,
+  })
+  if (options.json) {
+    writeJson(outcome)
+    return
+  }
+  console.log(outcome.message)
+}
+
+async function runWorktreeList(options: SessionCommandOptions): Promise<void> {
+  if (!options.project) {
+    throw new Error("`agentbridge worktree list` requires `--project <path>`.")
+  }
+  const service = createAgentHubProjectServiceFromEnv()
+  const scan = await service.scanProject(options.project)
+  if (options.json) {
+    writeJson(scan.worktrees)
+    return
+  }
+  for (const worktree of scan.worktrees) {
+    console.log(`${worktree.name}\t${worktree.branch ?? "detached"}\t${worktree.status}\t${worktree.path}`)
+  }
+}
+
+async function runWorktreeCreate(slug: string, options: SessionCommandOptions): Promise<void> {
+  if (!options.project) {
+    throw new Error("`agentbridge worktree create` requires `--project <path>`.")
+  }
+  if (!options.branch) {
+    throw new Error("`agentbridge worktree create` requires `--branch <branch>`.")
+  }
+  const service = createAgentHubProjectServiceFromEnv()
+  const outcome = await service.createWorktree({
+    projectPath: options.project,
+    slug,
+    branch: options.branch,
+    base: options.base,
+  })
+  if (options.json) {
+    writeJson(outcome)
+    return
+  }
+  console.log(outcome.message)
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {
@@ -599,4 +752,8 @@ function resolveProvider(value: string | undefined, fallback: ProviderKind | nul
 
 function displayProvider(provider: ProviderKind): string {
   return provider === "gemini" ? "Gemini" : "Codex"
+}
+
+function writeJson(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2))
 }
