@@ -21,7 +21,7 @@ AgentBridge is Bun-first. The supported public entrypoint is the `agentbridge` C
 
 Core repo commands:
 
-- test: `bun test` is not used here; run `bun run test`
+- test: `bun run test` runs Bun's native test runner over AgentBridge-owned tests
 - typecheck: `bun run check`
 - build: `bun run build`
 - start: `bun run start`

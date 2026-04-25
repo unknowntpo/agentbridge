@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "bun"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "desktop/src/**/*.ts", "desktop/src/**/*.vue"]
 }

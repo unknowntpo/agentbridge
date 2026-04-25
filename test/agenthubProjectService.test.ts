@@ -3,7 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { GitCommandRunner } from "../src/agenthub/gitRunner.js"
 import { AgentHubProjectService } from "../src/agenthub/projectService.js"

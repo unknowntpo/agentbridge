@@ -8,7 +8,7 @@ if [[ -f "$SCRIPT_DIR/../dist/cli.js" ]]; then
 fi
 
 if [[ -f "$SCRIPT_DIR/../src/cli.ts" ]]; then
-  exec bunx tsx "$SCRIPT_DIR/../src/cli.ts" "$@"
+  exec bun "$SCRIPT_DIR/../src/cli.ts" "$@"
 fi
 
 echo "agentbridge: built CLI not found. Reinstall the package or run 'bun run build' in a source checkout." >&2

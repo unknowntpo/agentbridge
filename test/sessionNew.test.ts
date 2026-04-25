@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { createManagedLocalSession, formatQuotedNewPrompt } from "../src/local/sessionNew.js"
 import type { SessionAdapter, StateStore, ThreadBinding } from "../src/types.js"

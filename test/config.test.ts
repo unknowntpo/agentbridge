@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, spyOn } from "bun:test"
 
 import { loadConfig } from "../src/config/config.js"
 
 describe("loadConfig", () => {
   it("warns and defaults Discord channel handling to deny when no allowlist is configured", () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    const warn = spyOn(console, "warn").mockImplementation(() => undefined)
 
     const config = loadConfig({ DISCORD_TOKEN: "token" } as NodeJS.ProcessEnv)
 

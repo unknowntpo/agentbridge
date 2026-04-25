@@ -5,9 +5,10 @@ import path from "node:path"
 import { promisify } from "node:util"
 import WebSocket, { WebSocketServer } from "ws"
 
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 const execFileAsync = promisify(execFile)
+const loopbackIt = canListenOnLoopback() ? it : it.skip
 
 describe("AgentHub CLI e2e", () => {
   it("creates and scans a project through CLI JSON contracts", () => {
@@ -51,7 +52,7 @@ describe("AgentHub CLI e2e", () => {
     expect(after.map((entry: { name: string }) => entry.name).sort()).toEqual(["feature-a", "main"])
   })
 
-  it("deploys a Codex agent through the CLI JSON contract", async () => {
+  loopbackIt("deploys a Codex agent through the CLI JSON contract", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-cli-deploy-"))
     const server = await startFakeCodexAppServer("agenthub cli deploy ok")
     try {
@@ -129,9 +130,25 @@ function git(cwd: string, args: string[]): void {
   })
 }
 
+function canListenOnLoopback(): boolean {
+  try {
+    const server = Bun.listen({
+      hostname: "127.0.0.1",
+      port: 0,
+      socket: {
+        data() {},
+      },
+    })
+    server.stop()
+    return true
+  } catch {
+    return false
+  }
+}
+
 function startFakeCodexAppServer(output: string): Promise<{ port: number; close: () => Promise<void> }> {
-  return new Promise((resolve, reject) => {
-    const server = new WebSocketServer({ host: "127.0.0.1", port: 0 })
+  return getFreePort().then((port) => new Promise((resolve, reject) => {
+    const server = new WebSocketServer({ host: "127.0.0.1", port })
     const sockets = new Set<WebSocket>()
     server.on("connection", (socket) => {
       sockets.add(socket)
@@ -166,12 +183,31 @@ function startFakeCodexAppServer(output: string): Promise<{ port: number; close:
         return
       }
       resolve({
-        port: address.port,
+        port,
         close: () => new Promise((closeResolve, closeReject) => {
           for (const socket of sockets) socket.close()
           server.close((error) => error ? closeReject(error) : closeResolve())
         }),
       })
     })
+  }))
+}
+
+function getFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = Bun.listen({
+      hostname: "127.0.0.1",
+      port: 0,
+      socket: {
+        data() {},
+      },
+    })
+    const port = server.port
+    server.stop()
+    if (port) {
+      resolve(port)
+      return
+    }
+    reject(new Error("No free port available"))
   })
 }

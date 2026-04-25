@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { AgentBridge } from "../src/bridge/agentBridge.js"
 import { ReplyFormatter } from "../src/bridge/replyFormatter.js"

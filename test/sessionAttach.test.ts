@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { attachLocalSession, buildAttachPrompt, formatQuotedAttachPrompt } from "../src/local/sessionAttach.js"
 import type { SessionAdapter, StateStore, ThreadBinding } from "../src/types.js"

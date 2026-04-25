@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { deployAgent } from "../src/agenthub/agentDeploy.js"
 import type { BridgeConfig } from "../src/config/config.js"

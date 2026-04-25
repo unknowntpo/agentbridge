@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, mock } from "bun:test"
 
 import { buildThreadName, DiscordGatewayAdapter, truncatePrompt } from "../src/discord/discordGatewayAdapter.js"
 
@@ -23,19 +23,19 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("creates a new thread for `/codex new` from a parent channel", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleChatPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleChatPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["channel-1"], undefined, [
       { id: "agentbridge", label: "agentbridge", path: "/repo/agentbridge" },
     ])
 
-    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof vi.fn> } } }).client = {
+    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof mock> } } }).client = {
       channels: {
-        fetch: vi.fn().mockResolvedValue({
+        fetch: mock().mockResolvedValue({
           isTextBased: () => true,
           threads: {
-            create: vi.fn().mockResolvedValue({
+            create: mock().mockResolvedValue({
               id: "thread-1",
               toString: () => "<#thread-1>",
             }),
@@ -58,10 +58,10 @@ describe("discordGatewayAdapter helpers", () => {
         },
       },
       user: { id: "user-1" },
-      deferReply: vi.fn().mockResolvedValue(undefined),
-      editReply: vi.fn().mockResolvedValue(undefined),
-      reply: vi.fn().mockResolvedValue(undefined),
-      followUp: vi.fn().mockResolvedValue(undefined),
+      deferReply: mock().mockResolvedValue(undefined),
+      editReply: mock().mockResolvedValue(undefined),
+      reply: mock().mockResolvedValue(undefined),
+      followUp: mock().mockResolvedValue(undefined),
     }
 
     await (adapter as unknown as { handleSlashCommand: (interaction: unknown) => Promise<void> }).handleSlashCommand(interaction)
@@ -88,8 +88,8 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("ignores `/codex new` inside a thread", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleChatPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleChatPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["parent-1"])
 
@@ -106,7 +106,7 @@ describe("discordGatewayAdapter helpers", () => {
           return null
         },
       },
-      reply: vi.fn().mockResolvedValue(undefined),
+      reply: mock().mockResolvedValue(undefined),
     }
 
     await (adapter as unknown as { handleSlashCommand: (interaction: unknown) => Promise<void> }).handleSlashCommand(interaction)
@@ -121,8 +121,8 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("routes `/codex chat` inside a thread to the bridge", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleChatPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleChatPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["parent-1"])
 
@@ -135,10 +135,10 @@ describe("discordGatewayAdapter helpers", () => {
         getString: () => "continue",
       },
       user: { id: "user-1" },
-      deferReply: vi.fn().mockResolvedValue(undefined),
-      editReply: vi.fn().mockResolvedValue(undefined),
-      reply: vi.fn().mockResolvedValue(undefined),
-      followUp: vi.fn().mockResolvedValue(undefined),
+      deferReply: mock().mockResolvedValue(undefined),
+      editReply: mock().mockResolvedValue(undefined),
+      reply: mock().mockResolvedValue(undefined),
+      followUp: mock().mockResolvedValue(undefined),
     }
 
     await (adapter as unknown as { handleSlashCommand: (interaction: unknown) => Promise<void> }).handleSlashCommand(interaction)
@@ -153,8 +153,8 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("routes `@bot ...` inside a thread to the bridge", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleBoundThreadPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleBoundThreadPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["parent-1"])
     ;(adapter as unknown as { client: { user: { id: string } } }).client = {
@@ -166,7 +166,7 @@ describe("discordGatewayAdapter helpers", () => {
       inGuild: () => true,
       content: "<@bot-1> continue with gemini",
       id: "msg-1",
-      react: vi.fn().mockResolvedValue(undefined),
+      react: mock().mockResolvedValue(undefined),
       channel: { type: 11, isThread: () => true, id: "thread-1", parentId: "parent-1" },
     }
 
@@ -187,11 +187,11 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("queues high-risk `/codex new` requests for local approval", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleBoundThreadPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleBoundThreadPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const stateStore = {
-      savePendingApproval: vi.fn(),
+      savePendingApproval: mock(),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["channel-1"], stateStore as never, [
       { id: "agentbridge", label: "agentbridge", path: "/repo/agentbridge" },
@@ -211,7 +211,7 @@ describe("discordGatewayAdapter helpers", () => {
         },
       },
       user: { id: "user-1", username: "Eric", globalName: "Eric Chang" },
-      reply: vi.fn().mockResolvedValue(undefined),
+      reply: mock().mockResolvedValue(undefined),
     }
 
     await (adapter as unknown as { handleSlashCommand: (interaction: unknown) => Promise<void> }).handleSlashCommand(interaction)
@@ -227,8 +227,8 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("does not route plain thread messages into the bridge", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleBoundThreadPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleBoundThreadPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, ["parent-1"])
     ;(adapter as unknown as { client: { user: { id: string } } }).client = {
@@ -239,7 +239,7 @@ describe("discordGatewayAdapter helpers", () => {
       author: { bot: false, id: "user-1" },
       inGuild: () => true,
       content: "follow-up",
-      react: vi.fn().mockResolvedValue(undefined),
+      react: mock().mockResolvedValue(undefined),
       channel: { type: 11, isThread: () => true, id: "thread-1", parentId: "parent-1" },
     }
 
@@ -252,8 +252,8 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("denies discord traffic when no allowed channels are configured", async () => {
     const bridge = {
-      startFreshPromptWithTransport: vi.fn().mockResolvedValue(undefined),
-      handleBoundThreadPromptWithTransport: vi.fn().mockResolvedValue(undefined),
+      startFreshPromptWithTransport: mock().mockResolvedValue(undefined),
+      handleBoundThreadPromptWithTransport: mock().mockResolvedValue(undefined),
     }
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", bridge as never, [], undefined, [
       { id: "agentbridge", label: "agentbridge", path: "/repo/agentbridge" },
@@ -273,7 +273,7 @@ describe("discordGatewayAdapter helpers", () => {
         },
       },
       user: { id: "user-1" },
-      reply: vi.fn().mockResolvedValue(undefined),
+      reply: mock().mockResolvedValue(undefined),
     }
 
     await (adapter as unknown as { handleSlashCommand: (interaction: unknown) => Promise<void> }).handleSlashCommand(interaction)
@@ -288,13 +288,13 @@ describe("discordGatewayAdapter helpers", () => {
 
   it("sorts latest visible message ids without lossy number conversion", async () => {
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", {} as never, ["parent-1"])
-    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof vi.fn> } } }).client = {
+    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof mock> } } }).client = {
       channels: {
-        fetch: vi.fn().mockResolvedValue({
+        fetch: mock().mockResolvedValue({
           isTextBased: () => true,
           isThread: () => true,
           messages: {
-            fetch: vi.fn().mockResolvedValue(new Map([
+            fetch: mock().mockResolvedValue(new Map([
               ["9223372036854775808", visibleMessage("9223372036854775808", "older")],
               ["9223372036854775810", visibleMessage("9223372036854775810", "newer")],
               ["9223372036854775809", visibleMessage("9223372036854775809", "middle")],
@@ -315,14 +315,14 @@ describe("discordGatewayAdapter helpers", () => {
     const secondPage = [
       visibleMessage("100", "oldest"),
     ]
-    const fetch = vi.fn()
+    const fetch = mock()
       .mockResolvedValueOnce(new Map(firstPage.map((message) => [message.id, message])))
       .mockResolvedValueOnce(new Map(secondPage.map((message) => [message.id, message])))
 
     const adapter = new DiscordGatewayAdapter("token", "client", "guild", {} as never, ["parent-1"])
-    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof vi.fn> } } }).client = {
+    ;(adapter as unknown as { client: { channels: { fetch: ReturnType<typeof mock> } } }).client = {
       channels: {
-        fetch: vi.fn().mockResolvedValue({
+        fetch: mock().mockResolvedValue({
           isTextBased: () => true,
           isThread: () => true,
           messages: { fetch },

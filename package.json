@@ -40,14 +40,13 @@
     "desktop:build": "bunx vite build",
     "tauri:dev": "bunx tauri dev",
     "tauri:build": "bunx tauri build",
-    "start": "bunx tsx src/cli.ts",
-    "dev": "bunx tsx watch src/cli.ts",
-    "test": "bunx vitest run --config vitest.config.ts",
-    "test:watch": "bunx vitest --config vitest.config.ts"
+    "start": "bun src/cli.ts",
+    "dev": "bun --watch src/cli.ts",
+    "test": "bun test test/*.test.ts desktop/src/*.test.ts",
+    "test:watch": "bun test --watch test/*.test.ts desktop/src/*.test.ts"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
-    "better-sqlite3": "^11.8.1",
     "commander": "^14.0.1",
     "discord.js": "^14.19.3",
     "dotenv": "^16.4.7",
@@ -56,12 +55,10 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/bun": "^1.3.13",
     "@types/node": "^22.14.1",
     "@vitejs/plugin-vue": "^6.0.6",
-    "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "vite": "^6.0.0",
-    "vitest": "^3.1.2"
+    "vite": "^6.0.0"
   }
 }

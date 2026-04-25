@@ -53,7 +53,6 @@ Then implement the minimum repo changes needed to make the package publishable a
 - Affected code:
   - New:
     - `.github/workflows/ci.yml`
-    - `vitest.config.ts`
     - `LICENSE`
     - `openspec/changes/open-source-self-hosting/design.md`
     - `openspec/changes/open-source-self-hosting/specs/public-self-hosting-contract/spec.md`

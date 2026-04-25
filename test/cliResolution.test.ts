@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { resolveManagedBinding } from "../src/local/sessionBindingResolver.js"
 import type { ThreadBinding } from "../src/types.js"

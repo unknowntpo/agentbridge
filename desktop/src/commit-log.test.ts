@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "bun:test"
 
 import { buildCommitLogRows, commitGraphSvgPath } from "./commit-log.js"
 import type { AgentSession, GithubState, WorktreeScan } from "./store.js"

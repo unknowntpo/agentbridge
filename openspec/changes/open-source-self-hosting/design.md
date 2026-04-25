@@ -49,11 +49,11 @@ The public entrypoint should be `agentbridge`, not a repo-local shell snippet.
 
 This keeps one public command while preserving local development ergonomics.
 
-### Why not keep the current tsx launcher
+### Why not keep a TypeScript runtime shim
 
-The current `bin/agentbridge` shells into `bunx tsx src/cli.ts`, which depends on development-only setup and a cloned worktree. That is appropriate for contributors but not for package consumers.
+The previous `bin/agentbridge` shell path depended on a separate TypeScript runtime shim, which creates a second backend runtime path beside Bun. That is not appropriate for a Bun-owned CLI and daemon.
 
-The bin should instead prefer `dist/cli.js`, falling back to `src/cli.ts` only inside the repo.
+The bin should instead prefer `dist/cli.js`, falling back to `bun src/cli.ts` only inside the repo.
 
 If neither exists, it should fail with a direct reinstall/build message.
 
@@ -63,7 +63,7 @@ The repository contains unrelated local side-project directories such as `minish
 
 The fix should be explicit:
 
-- add a repo-owned `vitest.config.ts`
+- run tests through Bun's native test runner
 - include only `test/**/*.test.ts`
 - exclude side-project directories, `dist/`, `openspec/`, and other non-runtime paths
 

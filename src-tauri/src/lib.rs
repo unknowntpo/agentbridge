@@ -249,8 +249,7 @@ fn deploy_agent(worktree_id: String, worktree_path: String, provider: String, mo
 
   let repo_root = current_repo_root()?;
   let path_arg = display_path(&path);
-  let tsx = repo_root.join("node_modules/.bin/tsx");
-  let mut command = Command::new(tsx);
+  let mut command = Command::new("bun");
   command
     .args([
       "src/cli.ts",
@@ -270,8 +269,7 @@ fn deploy_agent(worktree_id: String, worktree_path: String, provider: String, mo
       &prompt,
       "--json",
     ])
-    .current_dir(&repo_root)
-    .env("PATH", node24_path());
+    .current_dir(&repo_root);
 
   let output = command
     .output()
@@ -636,15 +634,6 @@ fn worktree_id(path: &Path) -> String {
 
 fn display_path(path: &Path) -> String {
   path.to_string_lossy().to_string()
-}
-
-fn node24_path() -> String {
-  let existing = std::env::var("PATH").unwrap_or_default();
-  let node24 = "/Users/unknowntpo/.nvm/versions/node/v24.15.0/bin";
-  if Path::new(node24).exists() && !existing.split(':').any(|part| part == node24) {
-    return format!("{node24}:{existing}");
-  }
-  existing
 }
 
 #[cfg(test)]

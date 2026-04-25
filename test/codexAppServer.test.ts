@@ -3,7 +3,7 @@ import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "bun:test"
 import { WebSocketServer } from "ws"
 
 import { CodexAppServerAdapter } from "../src/codex/codexAppServerAdapter.js"

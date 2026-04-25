@@ -1,14 +1,14 @@
 import fs from "node:fs"
 import path from "node:path"
 
-import Database from "better-sqlite3"
+import { Database } from "bun:sqlite"
 
 import type { PendingApproval, PermissionProfile, StateStore, ThreadBinding, ThreadBindingState } from "../types.js"
 
 const RECOVERABLE_STATES = new Set<ThreadBindingState>(["starting", "executing", "delivering"])
 
 export class SQLiteStateStore implements StateStore {
-  private readonly db: Database.Database
+  private readonly db: Database
 
   constructor(private readonly dbPath: string) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true })
@@ -16,8 +16,8 @@ export class SQLiteStateStore implements StateStore {
   }
 
   initialize(): void {
-    this.db.pragma("journal_mode = WAL")
-    this.db.pragma("synchronous = NORMAL")
+    this.db.exec("PRAGMA journal_mode = WAL")
+    this.db.exec("PRAGMA synchronous = NORMAL")
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS thread_bindings (
         thread_id TEXT PRIMARY KEY,

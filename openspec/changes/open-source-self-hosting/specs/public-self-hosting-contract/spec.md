@@ -41,5 +41,6 @@ AgentBridge SHALL expose `agentbridge` as the supported public CLI entrypoint fo
 - **WHEN** a user installs AgentBridge as a package
 - **THEN** package metadata is publishable
 - **AND** the package exposes an `agentbridge` bin
-- **AND** the bin prefers built runtime artifacts instead of assuming a development-only `tsx` source launcher
+- **AND** the bin prefers built runtime artifacts instead of assuming a development-only TypeScript runtime shim
+- **AND** the source fallback runs through Bun, not Node or another TypeScript runtime shim
 - **AND** the package exposes no public library API until one is intentionally designed

@@ -1,5 +1,5 @@
 import net from "node:net"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "bun:test"
 
 import { CodexAppServerAdapter } from "../src/codex/codexAppServerAdapter.js"
 import { CodexAppServerSupervisor } from "../src/codex/appServerSupervisor.js"
@@ -14,8 +14,13 @@ afterEach(async () => {
   }
 })
 
-describe.runIf(runRealCodex)("real Codex app-server e2e", () => {
-  it("starts codex app-server and completes one AgentBridge turn", { timeout: 180_000 }, async () => {
+const describeRealCodex = runRealCodex ? describe : describe.skip
+const describeRealCodexSkipped = runRealCodex ? describe.skip : describe
+const describeExistingServer = runExistingServer ? describe : describe.skip
+const describeExistingServerSkipped = runExistingServer ? describe.skip : describe
+
+describeRealCodex("real Codex app-server e2e", () => {
+  it("starts codex app-server and completes one AgentBridge turn", async () => {
     const port = await getFreePort()
     const supervisor = new CodexAppServerSupervisor(
       process.env.AGENTBRIDGE_CODEX_COMMAND ?? "codex",
@@ -41,14 +46,14 @@ describe.runIf(runRealCodex)("real Codex app-server e2e", () => {
   })
 })
 
-describe.skipIf(runRealCodex)("real Codex app-server e2e", () => {
+describeRealCodexSkipped("real Codex app-server e2e", () => {
   it("is skipped unless AGENTBRIDGE_RUN_REAL_CODEX_E2E=1", () => {
     expect(runRealCodex).toBe(false)
   })
 })
 
-describe.runIf(runExistingServer)("existing Codex app-server e2e", () => {
-  it("completes one turn through an already-running daemon app-server", { timeout: 180_000 }, async () => {
+describeExistingServer("existing Codex app-server e2e", () => {
+  it("completes one turn through an already-running daemon app-server", async () => {
     const host = process.env.AGENTBRIDGE_CODEX_APP_SERVER_HOST ?? "127.0.0.1"
     const port = process.env.AGENTBRIDGE_CODEX_APP_SERVER_PORT ?? "4591"
     const adapter = new CodexAppServerAdapter(
@@ -65,7 +70,7 @@ describe.runIf(runExistingServer)("existing Codex app-server e2e", () => {
   })
 })
 
-describe.skipIf(runExistingServer)("existing Codex app-server e2e", () => {
+describeExistingServerSkipped("existing Codex app-server e2e", () => {
   it("is skipped unless AGENTBRIDGE_RUN_EXISTING_CODEX_APP_SERVER_E2E=1", () => {
     expect(runExistingServer).toBe(false)
   })

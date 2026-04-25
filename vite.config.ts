@@ -1,5 +1,16 @@
+import crypto from "node:crypto"
 import { defineConfig } from "vite"
-import vue from "@vitejs/plugin-vue"
+
+type HashEncoding = "hex" | "base64" | "base64url" | "latin1"
+
+const cryptoWithHash = crypto as typeof crypto & {
+  hash?: (algorithm: string, data: crypto.BinaryLike, outputEncoding: HashEncoding) => string
+}
+cryptoWithHash.hash ??= (algorithm, data, outputEncoding) => (
+  crypto.createHash(algorithm).update(data).digest(outputEncoding)
+)
+
+const { default: vue } = await import("@vitejs/plugin-vue")
 
 export default defineConfig({
   root: ".",
