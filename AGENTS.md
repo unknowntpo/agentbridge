@@ -35,3 +35,8 @@ The AgentHub desktop app design system lives in `DESIGN.md`.
 - The central product model is `Project -> Worktree -> Agent Session`; branch is worktree metadata.
 - The main visual is a Git worktree tree with cards, not a generic graph or chat-first UI.
 - Validate dashboard changes with `bun run desktop:build` and `bun run check`.
+
+# Communication
+
+- Always answer the user in Traditional Chinese by default.
+- Keep code identifiers, CLI commands, file paths, and API names in their original language.
