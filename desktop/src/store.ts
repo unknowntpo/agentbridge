@@ -3,6 +3,7 @@ export type AgentMode = "write" | "read"
 export type AgentState = "running" | "blocked" | "idle"
 export type PermissionProfile = "workspace-read" | "workspace-write" | "full-access"
 export type TabId = "chat" | "tasks" | "runs" | "artifacts" | "skills" | "permissions"
+export type ProjectLoadingState = "idle" | "local-scanning" | "remote-refreshing"
 
 export interface AllowedProject {
   id: string
@@ -32,6 +33,7 @@ export interface WorktreeScan {
   ahead: number
   behind: number
   remote: GithubState
+  remoteLoading?: boolean
 }
 
 export interface ProjectScan {
@@ -91,6 +93,7 @@ export interface AgentSession {
   profile: PermissionProfile
   state: AgentState
   prompt: string
+  workingDirectory: string
   mocked: boolean
   messages: ChatMessage[]
   runs: RunRecord[]
@@ -107,6 +110,18 @@ export interface AppState {
   sessions: AgentSession[]
   approvals: ApprovalRequest[]
   notice: string | null
+  projectLoading: ProjectLoadingState
+  agentDrawerOpen: boolean
+  agentDraft: AgentDraft | null
+}
+
+export interface AgentDraft {
+  worktreeId: string
+  provider: Provider
+  mode: AgentMode
+  profile: PermissionProfile
+  workingDirectory: string
+  prompt: string
 }
 
 export function createInitialState(): AppState {
@@ -119,6 +134,9 @@ export function createInitialState(): AppState {
     sessions: [],
     approvals: [],
     notice: null,
+    projectLoading: "idle",
+    agentDrawerOpen: false,
+    agentDraft: null,
   }
 }
 
@@ -156,6 +174,7 @@ export function deployAgent(
     provider: Provider
     mode: AgentMode
     profile: PermissionProfile
+    workingDirectory: string
     prompt: string
     mocked?: boolean
   },
@@ -189,6 +208,7 @@ export function deployAgent(
     profile: options.profile,
     state: "running",
     prompt: options.prompt,
+    workingDirectory: options.workingDirectory,
     mocked: options.mocked ?? true,
     messages: [
       message("system", `${options.provider} ${options.mode} session started on this worktree.`),
@@ -214,6 +234,75 @@ export function deployAgent(
     activeTab: "chat",
     sessions: [...state.sessions, session],
     notice: session.mocked ? `${options.provider} session is mocked until provider launch is wired.` : null,
+  }
+}
+
+export function createAgentDraft(worktree: WorktreeScan): AgentDraft {
+  return {
+    worktreeId: worktree.id,
+    provider: "Codex",
+    mode: "write",
+    profile: "workspace-write",
+    workingDirectory: worktree.path,
+    prompt: `Work on ${worktree.name}`,
+  }
+}
+
+export function updateAgentDraft(state: AppState, patch: Partial<AgentDraft>): AppState {
+  if (!state.agentDraft) return state
+  const next = { ...state.agentDraft, ...patch }
+  if (next.mode === "read" && next.profile !== "workspace-read") {
+    next.profile = "workspace-read"
+  }
+  if (next.mode === "write" && next.profile === "workspace-read") {
+    next.profile = "workspace-write"
+  }
+  return { ...state, agentDraft: next }
+}
+
+export function openAgentDrawer(state: AppState, worktree: WorktreeScan): AppState {
+  return {
+    ...state,
+    agentDrawerOpen: true,
+    agentDraft: createAgentDraft(worktree),
+  }
+}
+
+export function closeAgentDrawer(state: AppState): AppState {
+  return {
+    ...state,
+    agentDrawerOpen: false,
+  }
+}
+
+export function deployAgentFromDraft(state: AppState): AppState {
+  const draft = state.agentDraft
+  if (!draft) return state
+  const next = deployAgent(state, {
+    worktreeId: draft.worktreeId,
+    provider: draft.provider,
+    mode: draft.mode,
+    profile: draft.profile,
+    workingDirectory: draft.workingDirectory,
+    prompt: draft.prompt,
+  })
+  return {
+    ...next,
+    agentDrawerOpen: false,
+  }
+}
+
+export function withProjectLoading(state: AppState, projectLoading: ProjectLoadingState): AppState {
+  return { ...state, projectLoading }
+}
+
+export function withRemoteLoading(scan: ProjectScan, loading: boolean): ProjectScan {
+  return {
+    ...scan,
+    worktrees: scan.worktrees.map((worktree) => ({
+      ...worktree,
+      remoteLoading: loading,
+    })),
   }
 }
 

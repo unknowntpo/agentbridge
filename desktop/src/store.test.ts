@@ -2,12 +2,17 @@ import { describe, expect, it } from "vitest"
 
 import {
   createInitialState,
+  deployAgentFromDraft,
   deployAgent,
+  openAgentDrawer,
   lockStateForWorktree,
   normalizeProjectScan,
   resolveApproval,
   selectInitialWorktree,
   sendAgentMessage,
+  updateAgentDraft,
+  withProjectLoading,
+  withRemoteLoading,
   type ProjectScan,
 } from "./store.js"
 
@@ -85,6 +90,7 @@ describe("AgentHub store", () => {
       provider: "Codex",
       mode: "write",
       profile: "workspace-write",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
       prompt: "work",
     })
     const second = deployAgent(first, {
@@ -92,6 +98,7 @@ describe("AgentHub store", () => {
       provider: "Gemini",
       mode: "write",
       profile: "workspace-write",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
       prompt: "also work",
     })
     expect(second.sessions).toHaveLength(1)
@@ -105,6 +112,7 @@ describe("AgentHub store", () => {
       provider: "Codex",
       mode: "write",
       profile: "workspace-write",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
       prompt: "work",
     })
     const second = deployAgent(first, {
@@ -112,6 +120,7 @@ describe("AgentHub store", () => {
       provider: "Gemini",
       mode: "read",
       profile: "workspace-read",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
       prompt: "review",
     })
     expect(second.sessions).toHaveLength(2)
@@ -124,6 +133,7 @@ describe("AgentHub store", () => {
       provider: "Codex",
       mode: "write",
       profile: "workspace-write",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
       prompt: "work",
     })
     const sessionId = state.selectedSessionId!
@@ -132,5 +142,45 @@ describe("AgentHub store", () => {
     const resolved = resolveApproval(pending, pending.approvals[0]!.id, "approved")
     expect(resolved.approvals[0]?.state).toBe("approved")
     expect(resolved.sessions[0]?.state).toBe("running")
+  })
+
+  it("creates an agent draft from selected worktree and deploys from the drawer", () => {
+    const state = createInitialState()
+    const worktree = scan.worktrees.find((candidate) => candidate.id === "main")!
+    const opened = openAgentDrawer(state, worktree)
+
+    expect(opened.agentDrawerOpen).toBe(true)
+    expect(opened.agentDraft).toMatchObject({
+      provider: "Codex",
+      mode: "write",
+      profile: "workspace-write",
+      workingDirectory: worktree.path,
+    })
+
+    const edited = updateAgentDraft(opened, {
+      provider: "Gemini",
+      mode: "read",
+      prompt: "review this worktree",
+    })
+    expect(edited.agentDraft?.profile).toBe("workspace-read")
+
+    const deployed = deployAgentFromDraft(edited)
+    expect(deployed.agentDrawerOpen).toBe(false)
+    expect(deployed.sessions[0]).toMatchObject({
+      provider: "Gemini",
+      mode: "read",
+      profile: "workspace-read",
+      workingDirectory: worktree.path,
+      prompt: "review this worktree",
+    })
+  })
+
+  it("tracks local scan and remote enrichment loading separately", () => {
+    const state = createInitialState()
+    expect(withProjectLoading(state, "local-scanning").projectLoading).toBe("local-scanning")
+
+    const enriched = withRemoteLoading(scan, true)
+    expect(enriched.worktrees.every((worktree) => worktree.remoteLoading)).toBe(true)
+    expect(withRemoteLoading(enriched, false).worktrees.every((worktree) => worktree.remoteLoading === false)).toBe(true)
   })
 })

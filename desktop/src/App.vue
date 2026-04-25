@@ -5,24 +5,25 @@ import { computed, onMounted, reactive, ref, watch } from "vue"
 import {
   createApproval,
   createInitialState,
-  deployAgent,
+  closeAgentDrawer,
+  deployAgentFromDraft,
   lockStateForWorktree,
   normalizeProjectScan,
+  openAgentDrawer,
   resolveApproval,
   selectInitialWorktree,
   selectedSession,
   selectedWorktree,
   sendAgentMessage,
   sessionsForWorktree,
-  type AgentMode,
+  updateAgentDraft,
+  withRemoteLoading,
   type AllowedProject,
   type AppState,
   type GithubState,
-  type PermissionProfile,
   type ProjectScan,
   type Provider,
   type TabId,
-  type WorktreeScan,
 } from "./store"
 
 interface GraphNode {
@@ -49,7 +50,7 @@ const state = reactive<AppState>(restoreState())
 const chatDraft = ref("")
 const newWorktreeBranch = ref("feat/agenthub-demo")
 const newWorktreeBase = ref("HEAD")
-const loading = ref(false)
+const loadingProjectId = ref<string | null>(null)
 
 const currentWorktree = computed(() => selectedWorktree(state))
 const currentSession = computed(() => selectedSession(state))
@@ -69,6 +70,8 @@ watch(
     sessions: state.sessions,
     approvals: state.approvals,
     projectPath: projectPath.value,
+    agentDrawerOpen: state.agentDrawerOpen,
+    agentDraft: state.agentDraft,
   }),
   (snapshot) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
@@ -94,16 +97,36 @@ async function loadAllowedProjects(): Promise<void> {
 }
 
 async function scanProject(path: string): Promise<void> {
-  loading.value = true
+  state.projectLoading = "local-scanning"
+  loadingProjectId.value = state.projects.find((project) => project.path === path)?.id ?? path
   state.notice = null
   try {
-    const scan = await invokeCommand<ProjectScan>("scan_project", { path })
-    applyProject(scan)
+    const localScan = await invokeCommand<ProjectScan>("scan_project_local", { path })
+    applyProject(withRemoteLoading(localScan, true))
+    state.projectLoading = "remote-refreshing"
+    state.notice = "Local worktrees loaded. Refreshing GitHub state in background."
+    void refreshProjectRemote(path)
   } catch (error) {
     state.notice = `Using browser mock state. Open the Tauri window for real Git/GitHub scanning. ${String(error)}`
     applyProject(mockProject(path))
+    state.projectLoading = "idle"
+    loadingProjectId.value = null
+  }
+}
+
+async function refreshProjectRemote(path: string): Promise<void> {
+  try {
+    const enriched = await invokeCommand<ProjectScan>("scan_project", { path })
+    applyProject(withRemoteLoading(enriched, false))
+    state.notice = "GitHub state refreshed."
+  } catch (error) {
+    if (state.project) {
+      state.project = withRemoteLoading(state.project, false)
+    }
+    state.notice = `Remote refresh blocked: ${String(error)}`
   } finally {
-    loading.value = false
+    state.projectLoading = "idle"
+    loadingProjectId.value = null
   }
 }
 
@@ -128,16 +151,22 @@ function selectAgent(sessionId: string): void {
   state.activeTab = "chat"
 }
 
-function deploy(provider: Provider, mode: AgentMode, profile: PermissionProfile): void {
+function openDeployDrawer(): void {
   const worktree = currentWorktree.value
   if (!worktree) return
-  Object.assign(state, deployAgent(state, {
-    worktreeId: worktree.id,
-    provider,
-    mode,
-    profile,
-    prompt: `${mode === "write" ? "Work on" : "Review"} ${worktree.name}`,
-  }))
+  Object.assign(state, openAgentDrawer(state, worktree))
+}
+
+function closeDeployDrawer(): void {
+  Object.assign(state, closeAgentDrawer(state))
+}
+
+function updateDraft(patch: Parameters<typeof updateAgentDraft>[1]): void {
+  Object.assign(state, updateAgentDraft(state, patch))
+}
+
+function createAgentFromDrawer(): void {
+  Object.assign(state, deployAgentFromDraft(state))
 }
 
 function sendChat(): void {
@@ -157,6 +186,7 @@ async function refreshGithub(): Promise<void> {
   try {
     const remote = await invokeCommand<GithubState>("scan_github", { worktreePath: worktree.path })
     worktree.remote = remote
+    worktree.remoteLoading = false
     state.notice = remote.mocked ? remote.message ?? "GitHub state is mocked." : "GitHub state refreshed."
   } catch (error) {
     state.notice = String(error)
@@ -366,7 +396,7 @@ function mockProject(path: string): ProjectScan {
         </div>
       </div>
 
-      <button class="primary-action" type="button" @click="deploy('Codex', 'write', 'workspace-write')">
+      <button class="primary-action" type="button" @click="openDeployDrawer">
         Deploy agent
       </button>
 
@@ -378,10 +408,14 @@ function mockProject(path: string): ProjectScan {
           type="button"
           @click="projectPath = project.path; scanProject(project.path)"
         >
-          {{ project.label }}
+          <span class="project-button-label">{{ project.label }}</span>
+          <span v-if="loadingProjectId === project.id" class="inline-spinner" aria-hidden="true"></span>
         </button>
         <input v-model="projectPath" aria-label="Project path" />
-        <button type="button" @click="scanProject(projectPath)">Scan path</button>
+        <button type="button" @click="scanProject(projectPath)">
+          <span>Scan path</span>
+          <span v-if="loadingProjectId === projectPath" class="inline-spinner" aria-hidden="true"></span>
+        </button>
       </section>
 
       <nav>
@@ -405,7 +439,13 @@ function mockProject(path: string): ProjectScan {
           <h1>Worktree Tree</h1>
         </div>
         <div class="topbar-actions">
-          <button type="button" @click="scanProject(projectPath)">{{ loading ? "Scanning..." : "Scan" }}</button>
+          <span v-if="state.projectLoading !== 'idle'" class="loading-pill">
+            <span class="inline-spinner" aria-hidden="true"></span>
+            {{ state.projectLoading === "local-scanning" ? "Loading local Git" : "Refreshing GitHub" }}
+          </span>
+          <button type="button" :disabled="state.projectLoading === 'local-scanning'" @click="scanProject(projectPath)">
+            {{ state.projectLoading === "local-scanning" ? "Scanning..." : "Scan" }}
+          </button>
           <input v-model="newWorktreeBranch" class="compact-input" aria-label="New worktree branch" />
           <input v-model="newWorktreeBase" class="tiny-input" aria-label="Base ref" />
           <button type="button" @click="createWorktree">New worktree</button>
@@ -490,9 +530,7 @@ function mockProject(path: string): ProjectScan {
         </section>
 
         <section class="inspector-actions">
-          <button type="button" @click="deploy('Codex', 'write', 'workspace-write')">Codex write</button>
-          <button type="button" @click="deploy('Gemini', 'read', 'workspace-read')">Gemini read</button>
-          <button type="button" @click="deploy('Claude', 'read', 'workspace-read')">Claude read</button>
+          <button type="button" @click="openDeployDrawer">Deploy agent</button>
           <button type="button" @click="pushBranch">Push</button>
           <button type="button" @click="openPr">Open PR</button>
         </section>
@@ -504,7 +542,7 @@ function mockProject(path: string): ProjectScan {
             <span>HEAD</span><code>{{ currentWorktree.head }}</code>
             <span>Branch</span><span>{{ currentWorktree.branch ?? "detached" }}</span>
             <span>Remote</span><span>{{ currentWorktree.remote.pr ?? "local" }}</span>
-            <span>Checks</span><span>{{ currentWorktree.remote.checks }}</span>
+            <span>Checks</span><span>{{ currentWorktree.remoteLoading ? "loading..." : currentWorktree.remote.checks }}</span>
           </div>
         </section>
 
@@ -612,6 +650,84 @@ function mockProject(path: string): ProjectScan {
           <p class="small-note">Deploy or select an agent to inspect session details.</p>
         </section>
       </template>
+    </aside>
+
+    <aside v-if="state.agentDrawerOpen && state.agentDraft" class="agent-drawer-panel" aria-label="Create agent drawer">
+      <header>
+        <div>
+          <span class="eyebrow">Create agent</span>
+          <h2>{{ currentWorktree?.name ?? "No worktree" }}</h2>
+        </div>
+        <button type="button" @click="closeDeployDrawer">Close</button>
+      </header>
+
+      <section class="drawer-section">
+        <span class="section-label">Provider</span>
+        <div class="segmented-row">
+          <button
+            v-for="provider in ['Codex', 'Gemini', 'Claude']"
+            :key="provider"
+            type="button"
+            :class="{ active: state.agentDraft.provider === provider }"
+            @click="updateDraft({ provider: provider as Provider })"
+          >
+            {{ provider }}
+          </button>
+        </div>
+      </section>
+
+      <section class="drawer-section">
+        <span class="section-label">Permission</span>
+        <div class="segmented-row stacked">
+          <button
+            type="button"
+            :class="{ active: state.agentDraft.profile === 'workspace-read' }"
+            @click="updateDraft({ mode: 'read', profile: 'workspace-read' })"
+          >
+            Read-only
+          </button>
+          <button
+            type="button"
+            :class="{ active: state.agentDraft.profile === 'workspace-write' }"
+            @click="updateDraft({ mode: 'write', profile: 'workspace-write' })"
+          >
+            Workspace write
+          </button>
+          <button
+            type="button"
+            :class="{ active: state.agentDraft.profile === 'full-access' }"
+            @click="updateDraft({ mode: 'write', profile: 'full-access' })"
+          >
+            Full access
+          </button>
+        </div>
+      </section>
+
+      <section class="drawer-section">
+        <label>
+          <span class="section-label">Working directory</span>
+          <input
+            :value="state.agentDraft.workingDirectory"
+            @input="updateDraft({ workingDirectory: ($event.target as HTMLInputElement).value })"
+          />
+        </label>
+        <p class="small-note">Default is selected worktree path. Keep it inside the trusted project root.</p>
+      </section>
+
+      <section class="drawer-section">
+        <label>
+          <span class="section-label">Task prompt</span>
+          <textarea
+            :value="state.agentDraft.prompt"
+            @input="updateDraft({ prompt: ($event.target as HTMLTextAreaElement).value })"
+          />
+        </label>
+      </section>
+
+      <footer>
+        <button type="button" @click="closeDeployDrawer">Cancel</button>
+        <button class="primary-action" type="button" @click="createAgentFromDrawer">Create agent</button>
+      </footer>
     </aside>
   </main>
 </template>

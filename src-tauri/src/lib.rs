@@ -90,6 +90,15 @@ fn allowed_projects() -> Result<Vec<AllowedProject>, String> {
 
 #[tauri::command]
 fn scan_project(path: String) -> Result<ProjectScan, String> {
+  scan_project_inner(path, true)
+}
+
+#[tauri::command]
+fn scan_project_local(path: String) -> Result<ProjectScan, String> {
+  scan_project_inner(path, false)
+}
+
+fn scan_project_inner(path: String, include_remote: bool) -> Result<ProjectScan, String> {
   let requested = canonical_or_existing(Path::new(&path))?;
   ensure_allowed_project_path(&requested)?;
 
@@ -115,11 +124,11 @@ fn scan_project(path: String) -> Result<ProjectScan, String> {
   let raw = run_git(&anchor, &["worktree", "list", "--porcelain"])?.stdout;
   let mut worktrees = parse_worktree_porcelain(&raw)
     .into_iter()
-    .filter_map(|entry| scan_worktree_entry(entry).transpose())
+    .filter_map(|entry| scan_worktree_entry(entry, include_remote).transpose())
     .collect::<Result<Vec<_>, _>>()?;
 
   if worktrees.is_empty() {
-    worktrees.push(scan_single_worktree(&anchor)?);
+    worktrees.push(scan_single_worktree(&anchor, include_remote)?);
   }
 
   worktrees.sort_by(|left, right| left.name.cmp(&right.name));
@@ -141,7 +150,7 @@ fn scan_project(path: String) -> Result<ProjectScan, String> {
     }.to_string(),
     root_path: display_path(&root_path),
     anchor_path: display_path(&anchor),
-    github: github_state_for_path(&anchor),
+    github: if include_remote { github_state_for_path(&anchor) } else { local_pending_github_state() },
     worktrees,
   })
 }
@@ -217,15 +226,15 @@ fn open_pr(worktree_path: String) -> Result<GithubState, String> {
   Ok(github_state_from_pr_json(&String::from_utf8_lossy(&status.stdout), "ok".to_string(), None))
 }
 
-fn scan_worktree_entry(entry: WorktreeEntry) -> Result<Option<WorktreeScan>, String> {
+fn scan_worktree_entry(entry: WorktreeEntry, include_remote: bool) -> Result<Option<WorktreeScan>, String> {
   let path = canonical_or_existing(Path::new(&entry.path))?;
   if !is_allowed_worktree_path(&path) {
     return Ok(None);
   }
-  Ok(Some(scan_single_worktree_with_git(&path, entry.branch, entry.head)?))
+  Ok(Some(scan_single_worktree_with_git(&path, entry.branch, entry.head, include_remote)?))
 }
 
-fn scan_single_worktree(path: &Path) -> Result<WorktreeScan, String> {
+fn scan_single_worktree(path: &Path, include_remote: bool) -> Result<WorktreeScan, String> {
   let branch = run_git(path, &["branch", "--show-current"])
     .ok()
     .map(|outcome| outcome.stdout.trim().to_string())
@@ -233,10 +242,10 @@ fn scan_single_worktree(path: &Path) -> Result<WorktreeScan, String> {
   let head = run_git(path, &["rev-parse", "HEAD"])
     .map(|outcome| outcome.stdout.trim().to_string())
     .unwrap_or_else(|_| "unknown".to_string());
-  scan_single_worktree_with_git(path, branch, head)
+  scan_single_worktree_with_git(path, branch, head, include_remote)
 }
 
-fn scan_single_worktree_with_git(path: &Path, branch: Option<String>, head: String) -> Result<WorktreeScan, String> {
+fn scan_single_worktree_with_git(path: &Path, branch: Option<String>, head: String, include_remote: bool) -> Result<WorktreeScan, String> {
   let status_output = run_git(path, &["status", "--porcelain"]).ok().map(|outcome| outcome.stdout).unwrap_or_default();
   let upstream = run_git(path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
     .ok()
@@ -263,8 +272,21 @@ fn scan_single_worktree_with_git(path: &Path, branch: Option<String>, head: Stri
     status: if status_output.trim().is_empty() { "clean" } else { "dirty" }.to_string(),
     ahead,
     behind,
-    remote: github_state_for_path(path),
+    remote: if include_remote { github_state_for_path(path) } else { local_pending_github_state() },
   })
+}
+
+fn local_pending_github_state() -> GithubState {
+  GithubState {
+    provider: "GitHub".to_string(),
+    auth: "pending".to_string(),
+    pr: None,
+    pr_url: None,
+    checks: "pending".to_string(),
+    review: "pending".to_string(),
+    message: Some("Remote state not loaded yet.".to_string()),
+    mocked: true,
+  }
 }
 
 fn github_state_for_path(path: &Path) -> GithubState {
@@ -496,6 +518,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       allowed_projects,
       scan_project,
+      scan_project_local,
       scan_github,
       create_worktree,
       push_branch,

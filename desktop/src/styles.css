@@ -74,7 +74,14 @@ button:active {
   transform: translateY(0);
 }
 
-input {
+button:disabled {
+  cursor: progress;
+  opacity: 0.62;
+  transform: none;
+}
+
+input,
+textarea {
   min-width: 0;
   border: 1px solid var(--neutral-300);
   border-radius: 14px;
@@ -86,6 +93,12 @@ input {
   font-weight: 750;
 }
 
+textarea {
+  min-height: 118px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 code {
   font-family: var(--mono);
 }
@@ -95,6 +108,7 @@ code {
   grid-template-columns: 238px minmax(720px, 1fr) 360px;
   height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
 .sidebar,
@@ -181,8 +195,18 @@ nav a.active {
 }
 
 .project-picker button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
+}
+
+.project-button-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trusted-root {
@@ -247,6 +271,35 @@ p {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--primary-300);
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: var(--primary-900);
+  background: var(--primary-100);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.inline-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgb(79 156 164 / 24%);
+  border-top-color: var(--primary-600);
+  border-radius: 999px;
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .compact-input {
@@ -892,4 +945,83 @@ button.agent-chip {
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.agent-drawer-panel {
+  position: fixed;
+  z-index: 20;
+  top: 18px;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 420px;
+  border: 1px solid var(--primary-300);
+  border-radius: 28px;
+  padding: 22px;
+  background: rgb(255 253 248 / 94%);
+  box-shadow: 0 28px 80px rgb(43 38 30 / 20%);
+  backdrop-filter: blur(22px);
+}
+
+.agent-drawer-panel > header,
+.agent-drawer-panel > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.agent-drawer-panel h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.drawer-section {
+  display: grid;
+  gap: 8px;
+}
+
+.drawer-section label {
+  display: grid;
+  gap: 8px;
+}
+
+.drawer-section input,
+.drawer-section textarea {
+  width: 100%;
+}
+
+.section-label {
+  color: var(--neutral-500);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.segmented-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.segmented-row.stacked {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.segmented-row button.active {
+  border-color: var(--primary-300);
+  color: var(--primary-900);
+  background: var(--primary-100);
+  box-shadow: 0 0 0 4px rgb(79 156 164 / 10%);
+}
+
+.agent-drawer-panel > footer {
+  margin-top: auto;
+  border-top: 1px solid var(--neutral-300);
+  padding-top: 16px;
 }
