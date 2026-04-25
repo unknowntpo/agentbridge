@@ -1585,6 +1585,7 @@
       }
 
       .commit-graph-lane {
+        --lane-x: 35.5px;
         position: relative;
         display: grid;
         width: 58px;
@@ -1599,7 +1600,7 @@
       .commit-graph-lane::before {
         position: absolute;
         top: calc(50% - 2px);
-        left: 18px;
+        left: var(--lane-x);
         z-index: 1;
         width: 26px;
         height: 3px;
@@ -1612,7 +1613,7 @@
       .commit-graph-lane.branch::after {
         position: absolute;
         top: calc(50% - 22px);
-        left: 18px;
+        left: calc(var(--lane-x) - 17.5px);
         z-index: 1;
         width: 22px;
         height: 24px;
@@ -1631,32 +1632,34 @@
       }
 
       .commit-graph-lane.docs-line::before {
-        left: 18px;
+        left: var(--lane-x);
         width: 14px;
         background: var(--ab-secondary-300);
       }
 
       .commit-graph-lane.docs-line {
+        --lane-x: 47.5px;
         color: var(--ab-secondary-600);
       }
 
       .commit-graph-lane.exp-line::before {
-        left: 18px;
+        left: var(--lane-x);
         width: 26px;
         background: var(--ab-danger-300);
       }
 
       .commit-graph-lane.exp-line {
+        --lane-x: 59.5px;
         color: var(--ab-danger-600);
       }
 
       .commit-graph-lane.docs-line::after {
-        left: 18px;
+        left: calc(var(--lane-x) - 17.5px);
         border-color: var(--ab-secondary-300);
       }
 
       .commit-graph-lane.exp-line::after {
-        left: 30px;
+        left: calc(var(--lane-x) - 17.5px);
         border-color: var(--ab-danger-300);
       }
 
@@ -1667,7 +1670,7 @@
       .commit-graph-lane span {
         position: absolute;
         top: 50%;
-        left: 10px;
+        left: var(--lane-x);
         z-index: 1;
         width: 13px;
         height: 13px;
@@ -1675,15 +1678,7 @@
         border-radius: 999px;
         background: white;
         box-shadow: 0 0 0 4px rgb(255 255 255 / 84%);
-        transform: translateY(-50%);
-      }
-
-      .commit-graph-lane.docs-line span {
-        left: 22px;
-      }
-
-      .commit-graph-lane.exp-line span {
-        left: 34px;
+        transform: translate(-50%, -50%);
       }
 
       .commit-log-panel-preview {
