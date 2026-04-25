@@ -45,6 +45,23 @@ export function buildCommitLogRows(
     return sessions.filter((session) => session.worktreeId === worktree.id)
   }
 
+  // Fallback demo sessions shown when no real agent is attached to a worktree.
+  // Keeps the design-system preview and live app visually consistent.
+  const demoSession = (id: string, worktreeId: string, provider: AgentSession["provider"], mode: AgentSession["mode"]): AgentSession => ({
+    id, worktreeId, provider, mode,
+    profile: "workspace-write", state: "idle", prompt: "", workingDirectory: "",
+    mocked: true, messages: [], runs: [], artifacts: [],
+    skills: { loaded: [], suggested: [], blocked: [], events: [] },
+  })
+
+  const agentsFor = (worktree: WorktreeScan | null, demos: Array<{ provider: AgentSession["provider"]; mode: AgentSession["mode"] }>): AgentSession[] => {
+    const real = sessionFor(worktree)
+    if (real.length) return real
+    return demos.map(({ provider, mode }, i) =>
+      demoSession(`demo-${worktree?.id ?? "none"}-${i}`, worktree?.id ?? "", provider, mode)
+    )
+  }
+
   const rows: CommitLogRow[] = [
     {
       id: "commit-agent-drawer-head",
@@ -57,7 +74,7 @@ export function buildCommitLogRows(
       ],
       worktreeId: feature?.id ?? null,
       worktreeName: worktreeLabel(feature, "wt/agent-drawer"),
-      agents: sessionFor(feature),
+      agents: agentsFor(feature, [{ provider: "Codex", mode: "write" }, { provider: "Gemini", mode: "read" }]),
       status: feature?.status ?? "clean",
       graph: { lane: "feature", kind: "head" },
     },
@@ -81,7 +98,7 @@ export function buildCommitLogRows(
       refs: [{ label: docs?.branch ?? "docs/permissions", tone: "branch" }],
       worktreeId: docs?.id ?? null,
       worktreeName: worktreeLabel(docs, "wt/docs-permissions"),
-      agents: sessionFor(docs),
+      agents: agentsFor(docs, [{ provider: "Claude", mode: "read" }, { provider: "Gemini", mode: "read" }]),
       status: docs?.status ?? "clean",
       graph: { lane: "docs", kind: "head" },
     },
@@ -105,7 +122,7 @@ export function buildCommitLogRows(
       refs: [{ label: experiment?.branch ?? "exp/cache", tone: "experiment" }],
       worktreeId: experiment?.id ?? null,
       worktreeName: worktreeLabel(experiment, "wt/experiment-cache"),
-      agents: sessionFor(experiment),
+      agents: agentsFor(experiment, [{ provider: "Codex", mode: "write" }]),
       status: experiment?.status ?? "dirty",
       graph: { lane: "experiment", kind: "head" },
     },
@@ -149,26 +166,28 @@ export function commitGraphSvgPath(rowCount: number): {
   experiment: string
   points: Array<{ id: string; x: number; y: number; lane: CommitLane; kind: CommitNodeKind }>
 } {
-  const rowHeight = 92
-  const top = rowHeight / 2
-  const bottom = top + Math.max(rowCount - 1, 0) * rowHeight
-  const x = { main: 32, feature: 50, docs: 68, experiment: 86 }
-  const y = (index: number) => top + index * rowHeight
+  const rowHeight = 68
+  const totalH = rowCount * rowHeight
+  const x = { main: 24, feature: 56, docs: 56, experiment: 88 }
+  const y = (i: number) => rowHeight / 2 + i * rowHeight
+  const mid = (a: number, b: number) => (a + b) / 2
 
+  // Straight vertical lanes with single Q-curve bends at fork/merge points only.
+  // Topology: feat(row0) ← main(row1) → docs(row2) → main(row3) → exp(row4) → main(row5) → main(row6)
   return {
-    viewBox: `0 0 112 ${rowCount * rowHeight}`,
-    main: `M ${x.main} ${top} V ${bottom}`,
-    feature: `M ${x.main} ${y(1)} C ${x.feature} ${y(1)}, ${x.feature} ${y(0)}, ${x.feature} ${y(0)} V ${y(0)}`,
-    docs: `M ${x.main} ${y(1)} C ${x.docs} ${y(1)}, ${x.docs} ${y(2)}, ${x.docs} ${y(2)} V ${y(2)} C ${x.docs} ${y(3)}, ${x.main} ${y(3)}, ${x.main} ${y(3)}`,
-    experiment: `M ${x.main} ${y(3)} C ${x.experiment} ${y(3)}, ${x.experiment} ${y(4)}, ${x.experiment} ${y(4)} V ${y(4)} C ${x.experiment} ${y(5)}, ${x.main} ${y(5)}, ${x.main} ${y(5)}`,
+    viewBox: `0 0 112 ${totalH}`,
+    main:       `M ${x.main} 0 V ${totalH}`,
+    feature:    `M ${x.feature} 0 V ${mid(y(0), y(1))} Q ${x.feature} ${y(1)} ${x.main} ${y(1)}`,
+    docs:       `M ${x.main} ${y(1)} V ${mid(y(1), y(2))} Q ${x.main} ${y(2)} ${x.docs} ${y(2)} V ${mid(y(2), y(3))} Q ${x.docs} ${y(3)} ${x.main} ${y(3)}`,
+    experiment: `M ${x.main} ${y(3)} V ${mid(y(3), y(4))} Q ${x.main} ${y(4)} ${x.experiment} ${y(4)} V ${mid(y(4), y(5))} Q ${x.experiment} ${y(5)} ${x.main} ${y(5)}`,
     points: [
-      { id: "commit-agent-drawer-head", x: x.feature, y: y(0), lane: "feature", kind: "head" },
-      { id: "commit-main-parent", x: x.main, y: y(1), lane: "main", kind: "normal" },
-      { id: "commit-docs-head", x: x.docs, y: y(2), lane: "docs", kind: "head" },
-      { id: "commit-merge-docs", x: x.main, y: y(3), lane: "main", kind: "merge" },
-      { id: "commit-experiment-head", x: x.experiment, y: y(4), lane: "experiment", kind: "head" },
-      { id: "commit-merge-experiment", x: x.main, y: y(5), lane: "main", kind: "merge" },
-      { id: "commit-release", x: x.main, y: y(6), lane: "main", kind: "head" },
+      { id: "commit-agent-drawer-head", x: x.feature,    y: y(0), lane: "feature",    kind: "head"   },
+      { id: "commit-main-parent",       x: x.main,       y: y(1), lane: "main",       kind: "normal" },
+      { id: "commit-docs-head",         x: x.docs,       y: y(2), lane: "docs",       kind: "head"   },
+      { id: "commit-merge-docs",        x: x.main,       y: y(3), lane: "main",       kind: "merge"  },
+      { id: "commit-experiment-head",   x: x.experiment, y: y(4), lane: "experiment", kind: "head"   },
+      { id: "commit-merge-experiment",  x: x.main,       y: y(5), lane: "main",       kind: "merge"  },
+      { id: "commit-release",           x: x.main,       y: y(6), lane: "main",       kind: "head"   },
     ].slice(0, rowCount) as Array<{ id: string; x: number; y: number; lane: CommitLane; kind: CommitNodeKind }>,
   }
 }

@@ -594,7 +594,8 @@ function mockProject(path: string): ProjectScan {
                   <path class="line experiment" :d="commitGraph.experiment" />
                   <g v-for="point in commitGraph.points" :key="point.id" :class="['node', point.lane, point.kind]">
                     <circle v-if="point.kind === 'merge'" class="halo" :cx="point.x" :cy="point.y" r="9" />
-                    <circle class="core" :cx="point.x" :cy="point.y" :r="point.kind === 'head' ? 7 : 5" />
+                    <circle v-if="point.kind === 'head'" class="halo" :cx="point.x" :cy="point.y" r="13" />
+                    <circle class="core" :cx="point.x" :cy="point.y" :r="point.kind === 'merge' ? 3.5 : point.kind === 'head' ? 6.5 : 4.5" />
                   </g>
                 </svg>
 
@@ -603,7 +604,7 @@ function mockProject(path: string): ProjectScan {
                   :key="row.id"
                   type="button"
                   class="commit-log-row"
-                  :class="{ active: row.worktreeId === state.selectedWorktreeId }"
+                  :class="{ active: row.worktreeId === state.selectedWorktreeId, dirty: row.status === 'dirty' }"
                   @click="row.worktreeId && selectWorktree(row.worktreeId)"
                 >
                   <span class="graph-spacer" aria-hidden="true"></span>

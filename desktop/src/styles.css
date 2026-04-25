@@ -478,7 +478,7 @@ p {
 .commit-log-header-row,
 .commit-log-row {
   display: grid;
-  grid-template-columns: 80px minmax(190px, 1.5fr) minmax(76px, 0.65fr) minmax(126px, 0.95fr) 60px;
+  grid-template-columns: 112px minmax(200px, 2fr) minmax(110px, 0.9fr) minmax(160px, 1.2fr) 76px;
   align-items: center;
 }
 
@@ -523,8 +523,8 @@ p {
   top: 0;
   left: 0;
   z-index: 2;
-  width: 80px;
-  height: 644px;
+  width: 112px;
+  height: 476px; /* 7 rows × 68px */
   overflow: visible;
   pointer-events: none;
 }
@@ -533,7 +533,7 @@ p {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 4;
+  stroke-width: 2.5;
 }
 
 .commit-log-svg .main {
@@ -554,11 +554,28 @@ p {
 
 .commit-log-svg .core {
   fill: white;
-  stroke-width: 4;
+  stroke-width: 2.5;
 }
 
-.commit-log-svg .head .core {
-  fill: var(--primary-50);
+.commit-log-svg .head .halo {
+  stroke: none;
+  opacity: 0.55;
+}
+
+.commit-log-svg .node.feature.head .halo {
+  fill: var(--secondary-100);
+}
+
+.commit-log-svg .node.docs.head .halo {
+  fill: #e8f1fa;
+}
+
+.commit-log-svg .node.experiment.head .halo {
+  fill: var(--danger-50);
+}
+
+.commit-log-svg .node.main.head .halo {
+  fill: var(--primary-100);
 }
 
 .commit-log-svg .merge .halo {
@@ -609,7 +626,7 @@ p {
   position: relative;
   z-index: 3;
   width: 100%;
-  min-height: 92px;
+  min-height: 68px;
   border: 0;
   border-bottom: 1px solid var(--neutral-200);
   border-radius: 0;
@@ -618,13 +635,24 @@ p {
   text-align: left;
 }
 
-.commit-log-row:hover,
+.commit-log-row:hover {
+  transform: none;
+  background: rgb(241 248 248 / 60%);
+}
+
 .commit-log-row.active {
   transform: none;
-  background:
-    linear-gradient(90deg, rgb(79 156 164 / 12%), transparent 34%),
-    rgb(255 255 255 / 76%);
-  box-shadow: inset 4px 0 0 var(--primary-500);
+  background: rgb(255 248 237 / 70%);
+  box-shadow: inset 3px 0 0 var(--secondary-500);
+}
+
+.commit-log-row.dirty {
+  background: var(--warning-50);
+}
+
+.commit-log-row.dirty:hover {
+  background: var(--warning-50);
+  filter: brightness(0.97);
 }
 
 .commit-log-row > span {
@@ -633,7 +661,7 @@ p {
 }
 
 .graph-spacer {
-  min-height: 92px;
+  min-height: 68px;
 }
 
 .commit-message-cell {

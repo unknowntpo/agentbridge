@@ -41,10 +41,13 @@ describe("commit log view model", () => {
   it("models a fork and merge graph with stable lane coordinates", () => {
     const graph = commitGraphSvgPath(7)
 
-    expect(graph.main).toContain("V 598")
-    expect(graph.docs).toContain("C 68 322, 32 322, 32 322")
-    expect(graph.experiment).toContain("C 86 506, 32 506, 32 506")
-    expect(graph.points.filter((point) => point.kind === "merge").map((point) => point.y)).toEqual([322, 506])
+    expect(graph.viewBox).toBe("0 0 112 476")
+    expect(graph.main).toBe("M 24 0 V 476")
+    expect(graph.feature).toBe("M 56 0 V 68 Q 56 102 24 102")
+    expect(graph.docs).toBe("M 24 102 V 136 Q 24 170 56 170 V 204 Q 56 238 24 238")
+    expect(graph.experiment).toBe("M 24 238 V 272 Q 24 306 88 306 V 340 Q 88 374 24 374")
+    expect(graph.points.map((point) => point.y)).toEqual([34, 102, 170, 238, 306, 374, 442])
+    expect(graph.points.filter((point) => point.kind === "merge").map((point) => point.y)).toEqual([238, 374])
   })
 })
 
