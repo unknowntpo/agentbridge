@@ -1468,11 +1468,6 @@
         min-height: 74px;
         overflow: visible;
         background-color: rgb(255 255 255 / 78%);
-        background-image:
-          linear-gradient(90deg, transparent 0 34px, var(--ab-primary-500) 34px 37px, transparent 37px 46px, var(--ab-secondary-300) 46px 49px, transparent 49px 58px, var(--ab-danger-300) 58px 61px, transparent 61px 100%);
-        background-position: left top;
-        background-repeat: no-repeat;
-        background-size: 72px 100%;
         transition:
           transform var(--ab-motion-fast),
           border-color var(--ab-motion-fast),
@@ -1485,11 +1480,10 @@
         border-color: var(--ab-primary-300);
         background-color: white;
         background-image:
-          linear-gradient(90deg, transparent 0 34px, var(--ab-primary-500) 34px 37px, transparent 37px 46px, var(--ab-secondary-300) 46px 49px, transparent 49px 58px, var(--ab-danger-300) 58px 61px, transparent 61px 100%),
           linear-gradient(90deg, var(--ab-primary-50), rgb(255 255 255 / 84%) 42%);
-        background-position: left top, left top;
-        background-repeat: no-repeat, no-repeat;
-        background-size: 72px 100%, 100% 100%;
+        background-position: left top;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
         box-shadow: 0 0 0 3px rgb(79 156 164 / 10%), 0 10px 24px rgb(43 38 30 / 10%);
       }
 
@@ -1508,6 +1502,10 @@
         width: fit-content;
         max-width: 100%;
         padding: 5px 8px;
+      }
+
+      .commit-graph-cell {
+        min-height: 74px;
       }
 
       .commit-row-message {
@@ -1588,12 +1586,12 @@
         --lane-x: 35.5px;
         position: relative;
         display: grid;
-        width: 58px;
+        width: 100%;
         height: auto;
         min-height: 74px;
         align-self: stretch;
         place-items: center;
-        justify-self: center;
+        justify-self: stretch;
         color: var(--ab-primary-600);
       }
 
@@ -1707,7 +1705,7 @@
       }
 
       .commit-log-scroll {
-        max-height: 300px;
+        max-height: 520px;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-color: var(--ab-primary-300) transparent;
@@ -1754,6 +1752,57 @@
       .commit-log-body {
         position: relative;
         display: grid;
+      }
+
+      .commit-log-graph-svg {
+        position: absolute;
+        inset: 0 auto 0 0;
+        z-index: 2;
+        width: 72px;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+      }
+
+      .commit-log-graph-svg path {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 3;
+      }
+
+      .commit-log-graph-svg .main-line {
+        stroke: var(--ab-primary-500);
+      }
+
+      .commit-log-graph-svg .feature-line {
+        stroke: var(--ab-secondary-300);
+      }
+
+      .commit-log-graph-svg .experiment-line {
+        stroke: var(--ab-danger-300);
+      }
+
+      .commit-log-graph-svg circle {
+        fill: white;
+        stroke-width: 3;
+      }
+
+      .commit-log-graph-svg .main-node {
+        stroke: var(--ab-primary-600);
+      }
+
+      .commit-log-graph-svg .feature-node {
+        stroke: var(--ab-secondary-600);
+      }
+
+      .commit-log-graph-svg .experiment-node {
+        stroke: var(--ab-danger-500);
+      }
+
+      .commit-log-graph-svg .selected-node {
+        fill: var(--ab-primary-900);
+        stroke: var(--ab-primary-600);
       }
 
       .commit-log-body .commit-row-preview {
@@ -3283,7 +3332,7 @@
         if (name === "WorktreeTreeCanvas") return `<div class="worktree-graph-preview" data-worktree-graph><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main</span><span class="commit-hint">commit a1b2c3d</span><span class="worktree-graph-meta"><span class="badge secondary">no agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">ready for read-only agent</span></div></span></button><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">feat/worktree-tree</span><span class="commit-hint">commit d4e5f6a</span><span class="worktree-graph-meta"><span class="lock-badge locked">${lockIcon}write locked</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></div></span></button><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">wt/perf-proto</span><span class="commit-hint">detached c0ffee1</span><span class="worktree-graph-meta"><span class="badge warning">dirty</span><span class="badge secondary">local</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip read">${claudeIcon}Claude read</span></div></span></button><div class="graph-rule-note"><span>commit lane is ancestry context</span><span>click a worktree to reveal agents</span></div></div>`
         if (name === "TreeConnectorLayer") return `<div class="connector-contract-preview" data-worktree-graph><div class="branching-graph"><svg viewBox="0 0 420 178" aria-hidden="true"><path class="branch-path-main" d="M70 36 H188 H350"></path><path class="branch-path-feature" d="M188 36 C226 36 236 96 278 96"></path><path class="branch-path-worktree" d="M350 88 V172"></path><path class="branch-path-worktree" d="M278 148 V172"></path><rect class="branch-node-box" x="28" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="70" y="36">a1b2</text><rect class="branch-node-box" x="146" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text" x="188" y="36">d4e5</text><rect class="branch-node-box has-branch" x="308" y="19" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="350" y="36">c0ff</text><rect class="branch-ref-box" x="323" y="64" width="54" height="24" rx="12"></rect><text class="branch-ref-text" x="350" y="76">main</text><rect class="branch-node-box has-branch" x="236" y="79" width="84" height="34" rx="17"></rect><text class="branch-node-text has-branch" x="278" y="96">b1c2</text><rect class="branch-ref-box" x="247" y="124" width="62" height="24" rx="12"></rect><text class="branch-ref-text" x="278" y="136">feat/ui</text></svg><div class="branch-worktree-row"><div class="branch-card-slot main-wt"><button class="worktree-graph-card" data-worktree-node type="button"><span class="worktree-graph-title">main worktree</span><span class="commit-hint">on main @ c0ff</span><span class="worktree-graph-status"><span>0 agents</span></span><span class="worktree-agent-drawer"><div><span class="badge secondary">no agents</span></div></span></button></div><div class="branch-card-slot feature-wt"><button class="worktree-graph-card selected" data-worktree-node type="button" aria-pressed="true"><span class="worktree-graph-title">ui worktree</span><span class="commit-hint">on feat/ui @ b1c2</span><span class="worktree-graph-status"><span>selected</span></span><span class="worktree-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span></div></span></button></div></div></div><div class="graph-rule-note"><span>branch heads get highlight color</span><span>only actionable worktree state appears on cards</span></div></div>`
         if (name === "AutoConnectorLayer") return `<div class="auto-connector-stage" data-auto-connector><svg class="auto-svg" aria-hidden="true"></svg><div class="auto-node auto-commit" data-auto-node="a1b2" style="left: 8%; top: 48px;">a1b2</div><div class="auto-node auto-commit" data-auto-node="d4e5" style="left: 34%; top: 48px;">d4e5</div><div class="auto-node auto-commit active" data-auto-node="c0ff" title="main points here" style="left: 74%; top: 48px;">c0ff</div><div class="auto-node auto-commit active" data-auto-node="b1c2" title="feat/ui points here" style="left: 52%; top: 150px;">b1c2</div><article class="auto-node auto-worktree selected" data-auto-node="uiWorktree" style="left: 43%; top: 314px;"><strong>feat/worktree-tree</strong><span class="auto-worktree-ref">origin/feat/ui</span><div class="auto-worktree-row"><span class="badge secondary">#42</span><span class="badge secondary">b1c2</span><span class="badge warning">locked</span></div><span>↑ 2 ↓ 0 GitHub</span><div class="auto-agent-drawer"><div><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></div></div><span class="auto-worktree-footer">Write locked by Codex</span></article><article class="auto-node auto-worktree" data-auto-node="mainWorktree" style="left: 65%; top: 334px;"><strong>main</strong><span class="auto-worktree-ref">origin/main</span><div class="auto-worktree-row"><span class="badge secondary">local</span><span class="badge secondary">c0ff</span></div><span>↑ 0 ↓ 0 GitHub</span><div class="auto-agent-drawer"><div><span class="badge secondary">No active agents</span></div></div><span class="auto-worktree-footer">Unlocked</span></article><span class="auto-hint">Click a worktree to reveal agents</span><span class="auto-legend"><span>commit ancestry</span><span>worktree attachment</span></span></div>`
-        if (name === "CommitLogPanel") return `<div class="commit-log-panel-preview"><div class="commit-log-toolbar"><strong>Commit tree</strong><span class="badge secondary">3 checked-out branches</span></div><div class="commit-log-scroll"><div class="commit-log-header"><span>Graph</span><span>Message</span><span>Worktree</span><span>Agents</span><span>Status</span></div><div class="commit-log-body"><div class="commit-row-preview selected"><span class="commit-graph-lane branch main-line"><span></span></span><div class="commit-row-message"><strong>Add deploy agent drawer</strong><code>d4e5f6a · HEAD · feat/agent-drawer</code></div><span class="commit-row-meta">wt/agent-drawer</span><span class="commit-row-agents"><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-lane dot main-line"><span></span></span><div class="commit-row-message"><strong>Split local scan from GitHub enrichment</strong><code>f6a7b8c · main ancestry</code></div><span class="commit-row-meta">main</span><span class="commit-row-agent"><span class="commit-row-meta">—</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-lane branch docs-line"><span></span></span><div class="commit-row-message"><strong>Document permission model</strong><code>e7fa89b · docs/permissions</code></div><span class="commit-row-meta">wt/docs-permissions</span><span class="commit-row-agents"><span class="agent-chip read">${claudeIcon}Claude read</span><span class="agent-chip read">${geminiIcon}Gemini read</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-lane branch exp-line"><span></span></span><div class="commit-row-message"><strong>Try cached scan experiment</strong><code>b1c2d3e · exp/cache</code></div><span class="commit-row-meta">wt/experiment-cache</span><span class="commit-row-agents"><span class="agent-chip write">${codexIcon}Codex write</span></span><span class="badge warning">dirty</span></div><div class="commit-row-preview"><span class="commit-graph-lane dot main-line"><span></span></span><div class="commit-row-message"><strong>Make AgentHub scan nonblocking</strong><code>c3d4e5f · main</code></div><span class="commit-row-meta">main</span><span class="commit-row-agent">${codexIcon}<span>Codex write</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-lane dot main-line"><span></span></span><div class="commit-row-message"><strong>Initial design system pass</strong><code>a1b2c3d</code></div><span class="commit-row-meta">main</span><span class="commit-row-agent"><span class="commit-row-meta">—</span></span><span class="badge success">clean</span></div></div></div></div>`
+        if (name === "CommitLogPanel") return `<div class="commit-log-panel-preview"><div class="commit-log-toolbar"><strong>Commit tree</strong><span class="badge secondary">fork + merge graph</span></div><div class="commit-log-scroll"><div class="commit-log-header"><span>Graph</span><span>Message</span><span>Worktree</span><span>Agents</span><span>Status</span></div><div class="commit-log-body"><svg class="commit-log-graph-svg" viewBox="0 0 72 444" preserveAspectRatio="none" aria-hidden="true"><path class="main-line" d="M34 37 V407"></path><path class="feature-line" d="M34 37 C48 37 48 74 48 111 V185 C48 222 34 222 34 259"></path><path class="experiment-line" d="M34 185 C60 185 60 222 60 259 V333 C60 370 34 370 34 407"></path><circle class="selected-node" cx="34" cy="37" r="7"></circle><circle class="feature-node" cx="48" cy="111" r="6"></circle><circle class="feature-node" cx="48" cy="185" r="6"></circle><circle class="main-node" cx="34" cy="259" r="6"></circle><circle class="experiment-node" cx="60" cy="333" r="6"></circle><circle class="main-node" cx="34" cy="407" r="6"></circle></svg><div class="commit-row-preview selected"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Add deploy agent drawer</strong><code>d4e5f6a · HEAD · feat/agent-drawer</code></div><span class="commit-row-meta">wt/agent-drawer</span><span class="commit-row-agents"><span class="agent-chip write">${codexIcon}Codex write</span><span class="agent-chip read">${geminiIcon}Gemini read</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Split local scan from GitHub enrichment</strong><code>f6a7b8c · forked from main</code></div><span class="commit-row-meta">wt/agent-drawer</span><span class="commit-row-agent"><span class="commit-row-meta">—</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Fix sidebar overflow</strong><code>a7b8c9d · feature branch</code></div><span class="commit-row-meta">wt/agent-drawer</span><span class="commit-row-agent">${codexIcon}<span>Codex write</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Document Git truth for worktree UI</strong><code>8c9d0e1 · merged feature</code></div><span class="commit-row-meta">wt/docs-permissions</span><span class="commit-row-agents"><span class="agent-chip read">${claudeIcon}Claude read</span><span class="agent-chip read">${geminiIcon}Gemini read</span></span><span class="badge success">clean</span></div><div class="commit-row-preview"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Try cached scan experiment</strong><code>b1c2d3e · exp/cache</code></div><span class="commit-row-meta">wt/experiment-cache</span><span class="commit-row-agents"><span class="agent-chip write">${codexIcon}Codex write</span></span><span class="badge warning">dirty</span></div><div class="commit-row-preview"><span class="commit-graph-cell"></span><div class="commit-row-message"><strong>Make AgentHub scan nonblocking</strong><code>c3d4e5f · merged experiment</code></div><span class="commit-row-meta">main</span><span class="commit-row-agent"><span class="commit-row-meta">—</span></span><span class="badge success">clean</span></div></div></div></div>`
         if (name === "SelectedCommitInspector") return '<div class="selected-commit-preview"><span class="eyebrow">Selected commit</span><strong>Add deploy agent drawer</strong><span class="commit-row-meta">d4e5f6a · feat/agent-drawer · wt/agent-drawer</span><div class="selected-commit-actions"><button class="mini-button primary">Deploy agent</button><button class="mini-button">Open diff</button></div><div class="execution-target-card"><strong>Execution target</strong><span>selected worktree: wt/agent-drawer</span><span>cwd is inherited unless advanced override is opened</span></div></div>'
         if (name === "DeployAgentDrawer") return `<div class="deploy-agent-drawer-preview"><strong>Deploy agent</strong><div class="organism-card-row"><span class="agent-chip write">${codexIcon}Codex</span><span class="agent-chip read">${geminiIcon}Gemini</span><span class="agent-chip read">${claudeIcon}Claude</span></div><div class="permission-options"><div class="permission-option selected"><strong>workspace-write</strong><span class="badge primary">recommended</span></div><div class="permission-option"><strong>read-only</strong><span class="badge secondary">btw task</span></div></div><div class="execution-target-card"><strong>Execution target</strong><span>wt/agent-drawer · feat/agent-drawer</span><span>/Users/.../agentbridge/wt/agent-drawer</span></div><code class="command-block"><span class="command-text">Implement selected commit follow-up...</span><span class="approval-command-copy">✎</span></code><div class="deploy-agent-actions"><button class="mini-button primary">Start agent</button><button class="mini-button">Cancel</button></div></div>`
         if (name === "ProjectSidebar") return '<div class="organism-preview compact"><div class="organism-head"><span class="organism-title">AgentHub</span><span class="badge primary">AB</span></div><div class="organism-list"><div class="organism-list-row"><span>Tree</span><span class="mini-status-dot"></span></div><div class="organism-list-row"><span>Approvals</span><span class="badge danger">1</span></div></div></div>'
