@@ -79,6 +79,7 @@ Required fields:
 ## UI Rules
 
 - Keep the Git log visible while the drawer is open.
+- The Git log remains a vertically scrollable commit tree panel with a sticky header.
 - Drawer should not replace the whole dashboard.
 - The selected commit row remains highlighted.
 - The selected commit node in the graph remains highlighted.

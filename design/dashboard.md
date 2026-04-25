@@ -114,6 +114,8 @@ Important Git truth:
 
 Middle main panel:
 - Git log table with a left commit graph lane
+- vertically scrollable commit tree/log panel; keep the table header sticky
+- commit history may contain many rows, so the center panel should show a visible scrollbar instead of growing the whole page
 - colored ancestry lines and round commit nodes
 - columns: Graph, Message, Worktree, Agent, Author, Time, Status
 - selected commit row highlighted with soft teal
@@ -184,4 +186,3 @@ For consistent iterations:
 3. For corrections, use the current image as an input reference and use the Iteration Prompt.
 4. Prefer Responses API multi-turn editing with `previous_response_id` or image ID.
 5. Keep size/aspect/quality stable between runs.
-

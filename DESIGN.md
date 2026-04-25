@@ -61,6 +61,28 @@ The central canvas must represent Git ancestry, not arbitrary dependencies.
 
 Do not draw runtime dependency edges in this view. If dependency visualization is needed later, it should be a separate view.
 
+## Commit Log Panel
+
+The Git-log inspired view is the dense default for real projects with many commits.
+
+- The center panel is a vertically scrollable commit tree/log, independent from the sidebar and inspector.
+- The graph lane is row-aligned with commit rows, similar to desktop Git tools.
+- The graph lane shows commit ancestry only. It must not show provider sessions, runtime dependencies, or worktree ownership.
+- Branch refs and tags are metadata on commit rows. A commit with a branch head can use stronger border/fill treatment.
+- Worktree is a row column or inspector field, not a parent folder. Do not render `feat/` as a folder containing many worktrees.
+- Long commit messages, paths, and branch refs truncate in the row and expand in the right inspector.
+- The header stays sticky while the commit body scrolls.
+- Selection remains visible and stable while the user scrolls.
+- Hundreds or thousands of commits should later use virtualization; until then, use a constrained scroll area so the page itself does not jump.
+
+Deploying an agent from this view:
+
+- User clicks a commit row or graph node.
+- Right inspector becomes `Selected Commit`.
+- `Deploy agent` opens a drawer.
+- The drawer confirms the execution target derived from the selected worktree. It is not a worktree dropdown.
+- Working directory defaults to the selected worktree path and is read-only unless the user opens an advanced override.
+
 ## Worktree Card Contract
 
 Each card represents one real checkout directory. Show these fields when available:
@@ -257,6 +279,14 @@ If the dashboard grows beyond mock stage, extract components by product concept:
 - `WorktreeTreeCanvas`
 - `WorktreeCard`
 - `TreeConnector`
+- `CommitLogPanel`
+- `CommitGraphLane`
+- `CommitRow`
+- `SelectedCommitInspector`
+- `DeployAgentDrawer`
+- `ExecutionTargetCard`
+- `ReadonlyPathField`
+- `PermissionOption`
 - `AgentChip`
 - `LockBadge`
 - `InspectorPanel`
