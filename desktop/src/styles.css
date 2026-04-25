@@ -122,8 +122,10 @@ code {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  min-width: 0;
   padding: 22px;
   border-right: 1px solid var(--neutral-300);
+  overflow: hidden;
 }
 
 .brand {
@@ -184,6 +186,7 @@ nav a.active {
 .project-picker {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .project-picker span {
@@ -199,14 +202,24 @@ nav a.active {
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
   text-align: left;
 }
 
 .project-button-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-picker input {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .trusted-root {
