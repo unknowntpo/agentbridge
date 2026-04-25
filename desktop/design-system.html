@@ -1466,7 +1466,13 @@
         grid-template-columns: 72px minmax(180px, 2fr) minmax(126px, 1fr) minmax(180px, 1.35fr) 88px;
         align-items: center;
         min-height: 74px;
-        overflow: hidden;
+        overflow: visible;
+        background-color: rgb(255 255 255 / 78%);
+        background-image:
+          linear-gradient(90deg, transparent 0 34px, var(--ab-primary-500) 34px 37px, transparent 37px 46px, var(--ab-secondary-300) 46px 49px, transparent 49px 58px, var(--ab-danger-300) 58px 61px, transparent 61px 100%);
+        background-position: left top;
+        background-repeat: no-repeat;
+        background-size: 72px 100%;
         transition:
           transform var(--ab-motion-fast),
           border-color var(--ab-motion-fast),
@@ -1477,9 +1483,13 @@
       .commit-row-preview:hover,
       .commit-row-preview.selected {
         border-color: var(--ab-primary-300);
-        background:
-          linear-gradient(90deg, var(--ab-primary-50), rgb(255 255 255 / 84%) 42%),
-          white;
+        background-color: white;
+        background-image:
+          linear-gradient(90deg, transparent 0 34px, var(--ab-primary-500) 34px 37px, transparent 37px 46px, var(--ab-secondary-300) 46px 49px, transparent 49px 58px, var(--ab-danger-300) 58px 61px, transparent 61px 100%),
+          linear-gradient(90deg, var(--ab-primary-50), rgb(255 255 255 / 84%) 42%);
+        background-position: left top, left top;
+        background-repeat: no-repeat, no-repeat;
+        background-size: 72px 100%, 100% 100%;
         box-shadow: 0 0 0 3px rgb(79 156 164 / 10%), 0 10px 24px rgb(43 38 30 / 10%);
       }
 
@@ -1491,6 +1501,13 @@
       .commit-row-preview > div {
         min-width: 0;
         padding: 10px 9px;
+      }
+
+      .commit-row-preview > .badge {
+        justify-self: start;
+        width: fit-content;
+        max-width: 100%;
+        padding: 5px 8px;
       }
 
       .commit-row-message {
@@ -1571,26 +1588,32 @@
         position: relative;
         display: grid;
         width: 58px;
-        height: 54px;
+        height: auto;
+        min-height: 74px;
+        align-self: stretch;
         place-items: center;
         justify-self: center;
+        color: var(--ab-primary-600);
       }
 
       .commit-graph-lane::before {
         position: absolute;
-        top: -18px;
-        bottom: -18px;
-        left: 16px;
-        width: 3px;
+        top: calc(50% - 2px);
+        left: 18px;
+        z-index: 1;
+        width: 26px;
+        height: 3px;
         border-radius: 999px;
-        background: var(--ab-secondary-300);
+        background: var(--ab-primary-300);
         content: "";
+        opacity: 0;
       }
 
       .commit-graph-lane.branch::after {
         position: absolute;
-        top: 10px;
+        top: calc(50% - 22px);
         left: 18px;
+        z-index: 1;
         width: 22px;
         height: 24px;
         border-right: 3px solid var(--ab-primary-300);
@@ -1599,23 +1622,37 @@
         content: "";
       }
 
+      .commit-graph-lane.branch::before {
+        opacity: 1;
+      }
+
       .commit-graph-lane.main-line::before {
         background: var(--ab-primary-500);
       }
 
       .commit-graph-lane.docs-line::before {
-        left: 28px;
-        background: var(--ab-secondary-400);
+        left: 18px;
+        width: 14px;
+        background: var(--ab-secondary-300);
+      }
+
+      .commit-graph-lane.docs-line {
+        color: var(--ab-secondary-600);
       }
 
       .commit-graph-lane.exp-line::before {
-        left: 40px;
+        left: 18px;
+        width: 26px;
         background: var(--ab-danger-300);
+      }
+
+      .commit-graph-lane.exp-line {
+        color: var(--ab-danger-600);
       }
 
       .commit-graph-lane.docs-line::after {
         left: 18px;
-        border-color: var(--ab-secondary-400);
+        border-color: var(--ab-secondary-300);
       }
 
       .commit-graph-lane.exp-line::after {
@@ -1628,16 +1665,25 @@
       }
 
       .commit-graph-lane span {
-        position: relative;
+        position: absolute;
+        top: 50%;
+        left: 10px;
         z-index: 1;
-        justify-self: start;
-        margin-left: 10px;
         width: 13px;
         height: 13px;
         border: 3px solid currentColor;
         border-radius: 999px;
         background: white;
         box-shadow: 0 0 0 4px rgb(255 255 255 / 84%);
+        transform: translateY(-50%);
+      }
+
+      .commit-graph-lane.docs-line span {
+        left: 22px;
+      }
+
+      .commit-graph-lane.exp-line span {
+        left: 34px;
       }
 
       .commit-log-panel-preview {
@@ -1711,6 +1757,7 @@
       }
 
       .commit-log-body {
+        position: relative;
         display: grid;
       }
 
