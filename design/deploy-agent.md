@@ -52,12 +52,15 @@ Required fields:
   - Workspace write
   - Full access
 - Worktree:
-  - selected worktree path by default
-  - user can change to another worktree in the same trusted project
-  - detached or missing worktree requires explicit selection
+  - displayed as `Execution target`
+  - derived from the already selected worktree
+  - not a dropdown and not directly editable in the default flow
+  - if no worktree is selected, deployment is disabled until the user selects one from the left panel
 - Working directory:
   - default same as worktree path
-  - editable only within trusted project root
+  - displayed as read-only by default
+  - editable only after expanding `Advanced: override working directory`
+  - override must remain within the trusted project root
 - Task prompt:
   - default generated from selected commit message
 - Context:
@@ -80,6 +83,7 @@ Required fields:
 - The selected commit row remains highlighted.
 - The selected commit node in the graph remains highlighted.
 - The drawer should visually explain that commit is context, while worktree is execution target.
+- Do not show a worktree picker dropdown in the drawer when a worktree is already selected in the left panel.
 - Avoid wording that implies an agent is deployed to a branch or commit directly.
 
 ## Image Prompt
@@ -147,11 +151,14 @@ Deploy Agent drawer:
   Read-only
   Workspace write selected
   Full access with muted Kurenai risk badge
-- Worktree select:
+- Execution target:
   wt/agent-drawer
   branch: feat/agent-drawer
-- Working directory input:
+- This is a confirmation card, not a dropdown.
+- Working directory read-only field:
   /Users/unknowntpo/repo/unknowntpo/agentbridge/wt/agent-drawer
+- Advanced collapsed row:
+  "Override working directory"
 - Task prompt textarea:
   "Continue from commit d4e5f6a and implement the next AgentHub drawer refinement."
 - Context summary card:
@@ -167,6 +174,7 @@ Important Git truth:
 - Do not imply a branch owns an agent.
 - Agent is deployed to a worktree / working directory.
 - Commit is only context for the task.
+- Do not show a target worktree dropdown. The user already selected the worktree from the left worktree list.
 
 Rendering requirements:
 - 16:9 landscape
@@ -175,4 +183,3 @@ Rendering requirements:
 - readable hierarchy
 - product design board quality
 ```
-
