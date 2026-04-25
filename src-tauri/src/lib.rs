@@ -4,6 +4,10 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
+use tauri::Emitter;
 
 const MINISHOP_CONTAINER: &str = "/Users/unknowntpo/repo/unknowntpo/minishop";
 const DUMMY_CONTAINER: &str = "/Users/unknowntpo/repo/unknowntpo/agentbridge/agenthub-workflow-dummy";
@@ -62,6 +66,18 @@ struct CommandOutcome {
   message: String,
   stdout: String,
   stderr: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ProjectChangedEvent {
+  path: String,
+  reason: String,
+}
+
+#[derive(Default)]
+struct WatchRegistry {
+  watched: Mutex<BTreeSet<String>>,
 }
 
 #[tauri::command]
@@ -226,12 +242,123 @@ fn open_pr(worktree_path: String) -> Result<GithubState, String> {
   Ok(github_state_from_pr_json(&String::from_utf8_lossy(&status.stdout), "ok".to_string(), None))
 }
 
+#[tauri::command]
+fn deploy_agent(worktree_id: String, worktree_path: String, provider: String, mode: String, profile: String, prompt: String) -> Result<Value, String> {
+  let path = canonical_or_existing(Path::new(&worktree_path))?;
+  ensure_allowed_worktree_path(&path)?;
+
+  let repo_root = current_repo_root()?;
+  let path_arg = display_path(&path);
+  let tsx = repo_root.join("node_modules/.bin/tsx");
+  let mut command = Command::new(tsx);
+  command
+    .args([
+      "src/cli.ts",
+      "agent",
+      "deploy",
+      "--worktree-id",
+      &worktree_id,
+      "--worktree-path",
+      &path_arg,
+      "--provider",
+      &provider,
+      "--mode",
+      &mode,
+      "--profile",
+      &profile,
+      "--prompt",
+      &prompt,
+      "--json",
+    ])
+    .current_dir(&repo_root)
+    .env("PATH", node24_path());
+
+  let output = command
+    .output()
+    .map_err(|error| format!("failed to run agentbridge agent deploy: {error}"))?;
+  if !output.status.success() {
+    return Err(format!(
+      "agentbridge agent deploy failed: {}",
+      String::from_utf8_lossy(&output.stderr).trim()
+    ));
+  }
+
+  serde_json::from_slice::<Value>(&output.stdout)
+    .map_err(|error| format!("agentbridge agent deploy returned invalid JSON: {error}"))
+}
+
+#[tauri::command]
+fn start_project_watch(app: tauri::AppHandle, registry: tauri::State<'_, WatchRegistry>, path: String) -> Result<(), String> {
+  let requested = canonical_or_existing(Path::new(&path))?;
+  ensure_allowed_project_path(&requested)?;
+  let (root, anchor) = project_root_and_anchor(&requested)?;
+  let key = display_path(&root);
+
+  {
+    let mut watched = registry.watched.lock().map_err(|_| "Project watch registry is poisoned.".to_string())?;
+    if !watched.insert(key.clone()) {
+      return Ok(());
+    }
+  }
+
+  thread::spawn(move || {
+    poll_project_changes(app, root, anchor);
+  });
+  Ok(())
+}
+
 fn scan_worktree_entry(entry: WorktreeEntry, include_remote: bool) -> Result<Option<WorktreeScan>, String> {
   let path = canonical_or_existing(Path::new(&entry.path))?;
   if !is_allowed_worktree_path(&path) {
     return Ok(None);
   }
   Ok(Some(scan_single_worktree_with_git(&path, entry.branch, entry.head, include_remote)?))
+}
+
+fn project_root_and_anchor(requested: &Path) -> Result<(PathBuf, PathBuf), String> {
+  let minishop = canonical_or_existing(Path::new(MINISHOP_CONTAINER))?;
+  let dummy = canonical_or_existing(Path::new(DUMMY_CONTAINER)).ok();
+  let is_minishop_project = requested == minishop || requested.starts_with(&minishop);
+  let is_dummy_project = dummy.as_ref().is_some_and(|path| requested == *path || requested.starts_with(path));
+  let is_minishop_container = requested == minishop;
+  let is_dummy_container = dummy.as_ref().is_some_and(|path| requested == *path);
+  let anchor = if is_minishop_container || is_dummy_container {
+    find_git_child(requested).ok_or_else(|| format!("No Git worktree found under {}", display_path(requested)))?
+  } else {
+    requested.to_path_buf()
+  };
+  let root = if is_minishop_project {
+    minishop
+  } else if is_dummy_project {
+    dummy.ok_or_else(|| "Dummy project path is unavailable.".to_string())?
+  } else {
+    current_repo_root()?
+  };
+  Ok((root, anchor))
+}
+
+fn poll_project_changes(app: tauri::AppHandle, root: PathBuf, anchor: PathBuf) {
+  let mut last = snapshot_project_git_state(&anchor).unwrap_or_default();
+  loop {
+    thread::sleep(Duration::from_millis(1200));
+    let Ok(next) = snapshot_project_git_state(&anchor) else {
+      continue;
+    };
+    if next == last {
+      continue;
+    }
+    last = next;
+    let _ = app.emit("project_changed", ProjectChangedEvent {
+      path: display_path(&root),
+      reason: "git refs/worktrees changed".to_string(),
+    });
+  }
+}
+
+fn snapshot_project_git_state(anchor: &Path) -> Result<String, String> {
+  let worktrees = run_git(anchor, &["worktree", "list", "--porcelain"])?.stdout;
+  let branches = run_git(anchor, &["for-each-ref", "--format=%(refname:short)=%(objectname)", "refs/heads"])?.stdout;
+  Ok(format!("{worktrees}\n---refs---\n{branches}"))
 }
 
 fn scan_single_worktree(path: &Path, include_remote: bool) -> Result<WorktreeScan, String> {
@@ -511,16 +638,72 @@ fn display_path(path: &Path) -> String {
   path.to_string_lossy().to_string()
 }
 
+fn node24_path() -> String {
+  let existing = std::env::var("PATH").unwrap_or_default();
+  let node24 = "/Users/unknowntpo/.nvm/versions/node/v24.15.0/bin";
+  if Path::new(node24).exists() && !existing.split(':').any(|part| part == node24) {
+    return format!("{node24}:{existing}");
+  }
+  existing
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::time::{SystemTime, UNIX_EPOCH};
+
+  #[test]
+  fn project_git_snapshot_changes_when_a_branch_is_created() {
+    let repo = temp_repo();
+    git(&repo, &["init", "--initial-branch=main"]);
+    fs::write(repo.join("README.md"), "# demo\n").unwrap();
+    git(&repo, &["add", "README.md"]);
+    git(&repo, &["-c", "user.name=AgentHub Test", "-c", "user.email=agenthub@example.test", "commit", "-m", "init"]);
+
+    let before = snapshot_project_git_state(&repo).unwrap();
+    git(&repo, &["branch", "feat/live-watch"]);
+    let after = snapshot_project_git_state(&repo).unwrap();
+
+    assert_ne!(before, after);
+    assert!(after.contains("feat/live-watch"));
+  }
+
+  fn temp_repo() -> PathBuf {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("agenthub-watch-test-{stamp}"));
+    fs::create_dir_all(&path).unwrap();
+    path
+  }
+
+  fn git(cwd: &Path, args: &[&str]) {
+    let output = Command::new("git")
+      .args(args)
+      .current_dir(cwd)
+      .env("GIT_CONFIG_GLOBAL", "/dev/null")
+      .output()
+      .unwrap();
+    assert!(
+      output.status.success(),
+      "git {:?} failed: {}",
+      args,
+      String::from_utf8_lossy(&output.stderr)
+    );
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_opener::init())
+    .manage(WatchRegistry::default())
     .invoke_handler(tauri::generate_handler![
       allowed_projects,
       scan_project,
       scan_project_local,
       scan_github,
       create_worktree,
+      deploy_agent,
+      start_project_watch,
       push_branch,
       open_pr,
     ])

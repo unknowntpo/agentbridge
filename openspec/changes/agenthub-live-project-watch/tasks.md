@@ -1,0 +1,5 @@
+- [x] Add live-watch proposal and requirement delta.
+- [x] Add Tauri project watch command and event payload.
+- [x] Subscribe in Vue and refresh local scan on project changes.
+- [x] Add test proving Git branch creation changes the watched snapshot.
+- [x] Run Tauri and frontend verification.

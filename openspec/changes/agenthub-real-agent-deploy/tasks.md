@@ -1,0 +1,6 @@
+- [x] Add backend deploy helper returning AgentHub session JSON.
+- [x] Add CLI `agent deploy` command.
+- [x] Add CLI e2e coverage with a fake Codex app-server.
+- [x] Add Tauri `deploy_agent` bridge command.
+- [x] Wire create-agent drawer to real deploy with fallback.
+- [x] Run typecheck, frontend tests, CLI e2e, and Tauri cargo check.

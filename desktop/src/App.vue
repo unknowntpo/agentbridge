@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { invoke as tauriInvoke } from "@tauri-apps/api/core"
+import { listen } from "@tauri-apps/api/event"
 import { computed, onMounted, reactive, ref, watch } from "vue"
 
 import { buildCommitLogRows, commitGraphSvgPath } from "./commit-log"
 import {
+  addAgentSession,
   createApproval,
   createInitialState,
   closeAgentDrawer,
@@ -35,6 +37,11 @@ interface CommandOutcome {
   stderr: string
 }
 
+interface ProjectChangedEvent {
+  path: string
+  reason: string
+}
+
 const STORAGE_KEY = "agenthub.mvp.state.v1"
 const DEFAULT_MINISHOP = "/Users/unknowntpo/repo/unknowntpo/minishop"
 const DEFAULT_AGENTBRIDGE = "/Users/unknowntpo/repo/unknowntpo/agentbridge/main"
@@ -45,6 +52,8 @@ const chatDraft = ref("")
 const newWorktreeBranch = ref("feat/agenthub-demo")
 const newWorktreeBase = ref("HEAD")
 const loadingProjectId = ref<string | null>(null)
+const agentDeploying = ref(false)
+const watchingProjectPath = ref<string | null>(null)
 
 const currentWorktree = computed(() => selectedWorktree(state))
 const currentSession = computed(() => selectedSession(state))
@@ -74,6 +83,11 @@ watch(
 )
 
 onMounted(async () => {
+  await listen<ProjectChangedEvent>("project_changed", async (event) => {
+    if (!state.project || event.payload.path !== state.project.rootPath) return
+    state.notice = `Project changed (${event.payload.reason}). Reloading local worktrees.`
+    await scanProjectLocalOnly(event.payload.path)
+  })
   await loadAllowedProjects()
   await scanProject(projectPath.value)
 })
@@ -97,6 +111,7 @@ async function scanProject(path: string): Promise<void> {
   try {
     const localScan = await invokeCommand<ProjectScan>("scan_project_local", { path })
     applyProject(withRemoteLoading(localScan, true))
+    await startProjectWatch(localScan.rootPath)
     state.projectLoading = "remote-refreshing"
     state.notice = "Local worktrees loaded. Refreshing GitHub state in background."
     void refreshProjectRemote(path)
@@ -105,6 +120,29 @@ async function scanProject(path: string): Promise<void> {
     applyProject(mockProject(path))
     state.projectLoading = "idle"
     loadingProjectId.value = null
+  }
+}
+
+async function scanProjectLocalOnly(path: string): Promise<void> {
+  state.projectLoading = "local-scanning"
+  try {
+    const localScan = await invokeCommand<ProjectScan>("scan_project_local", { path })
+    applyProject(withRemoteLoading(localScan, false))
+    state.notice = "Local Git state updated."
+  } catch (error) {
+    state.notice = `Local refresh blocked: ${String(error)}`
+  } finally {
+    state.projectLoading = "idle"
+  }
+}
+
+async function startProjectWatch(path: string): Promise<void> {
+  if (watchingProjectPath.value === path) return
+  watchingProjectPath.value = path
+  try {
+    await invokeCommand<void>("start_project_watch", { path })
+  } catch (error) {
+    state.notice = `Live watch unavailable: ${String(error)}`
   }
 }
 
@@ -159,8 +197,31 @@ function updateDraft(patch: Parameters<typeof updateAgentDraft>[1]): void {
   Object.assign(state, updateAgentDraft(state, patch))
 }
 
-function createAgentFromDrawer(): void {
-  Object.assign(state, deployAgentFromDraft(state))
+async function createAgentFromDrawer(): Promise<void> {
+  const draft = state.agentDraft
+  if (!draft || agentDeploying.value) return
+
+  agentDeploying.value = true
+  state.notice = "Starting agent through AgentBridge..."
+  try {
+    const session = await invokeCommand<AgentSession>("deploy_agent", {
+      worktreeId: draft.worktreeId,
+      worktreePath: draft.workingDirectory,
+      provider: draft.provider.toLowerCase(),
+      mode: draft.mode,
+      profile: draft.profile,
+      prompt: draft.prompt,
+    })
+    Object.assign(state, addAgentSession(state, session))
+  } catch (error) {
+    const next = deployAgentFromDraft(state)
+    Object.assign(state, {
+      ...next,
+      notice: `Real agent deploy blocked; using local mock session. ${String(error)}`,
+    })
+  } finally {
+    agentDeploying.value = false
+  }
 }
 
 function sendChat(): void {
@@ -798,7 +859,9 @@ function mockProject(path: string): ProjectScan {
 
       <footer>
         <button type="button" @click="closeDeployDrawer">Cancel</button>
-        <button class="primary-action" type="button" @click="createAgentFromDrawer">Create agent</button>
+        <button class="primary-action" type="button" :disabled="agentDeploying" @click="createAgentFromDrawer">
+          {{ agentDeploying ? "Starting..." : "Create agent" }}
+        </button>
       </footer>
     </aside>
   </main>

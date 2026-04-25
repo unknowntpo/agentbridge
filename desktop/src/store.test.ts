@@ -4,6 +4,7 @@ import {
   createInitialState,
   deployAgentFromDraft,
   deployAgent,
+  addAgentSession,
   openAgentDrawer,
   lockStateForWorktree,
   normalizeProjectScan,
@@ -182,5 +183,34 @@ describe("AgentHub store", () => {
     const enriched = withRemoteLoading(scan, true)
     expect(enriched.worktrees.every((worktree) => worktree.remoteLoading)).toBe(true)
     expect(withRemoteLoading(enriched, false).worktrees.every((worktree) => worktree.remoteLoading === false)).toBe(true)
+  })
+
+  it("attaches a real backend-created agent session to the selected worktree", () => {
+    const state = createInitialState()
+    const next = addAgentSession(state, {
+      id: "thread-real",
+      worktreeId: "main",
+      provider: "Codex",
+      mode: "write",
+      profile: "workspace-write",
+      state: "running",
+      prompt: "work",
+      workingDirectory: "/Users/unknowntpo/repo/unknowntpo/minishop/main",
+      mocked: false,
+      messages: [],
+      runs: [],
+      artifacts: [],
+      skills: {
+        loaded: ["codex-app-server"],
+        suggested: [],
+        blocked: [],
+        events: [],
+      },
+    })
+
+    expect(next.selectedWorktreeId).toBe("main")
+    expect(next.selectedSessionId).toBe("thread-real")
+    expect(next.agentDrawerOpen).toBe(false)
+    expect(next.notice).toMatch(/AgentBridge/)
   })
 })

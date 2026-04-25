@@ -18,6 +18,7 @@ import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
+import { deployAgent as deployAgentHandler } from "./agenthub/agentDeploy.js"
 import { attachLocalSession } from "./local/sessionAttach.js"
 import { resolveManagedBinding as selectManagedBinding } from "./local/sessionBindingResolver.js"
 import { createManagedLocalSession } from "./local/sessionNew.js"
@@ -48,6 +49,9 @@ interface SessionCommandOptions {
   branch?: string
   base?: string
   project?: string
+  worktreeId?: string
+  worktreePath?: string
+  mode?: string
 }
 
 async function main(): Promise<void> {
@@ -101,6 +105,28 @@ async function main(): Promise<void> {
     .option("--json", "Emit machine-readable JSON.")
     .action(async (plainDir: string, options: SessionCommandOptions) => {
       await runProjectCreate(plainDir, options)
+    })
+
+  const agent = program
+    .command("agent")
+    .description("Deploy and inspect AgentHub provider sessions.")
+    .showHelpAfterError()
+    .action(() => {
+      agent.help()
+    })
+
+  agent
+    .command("deploy")
+    .description("Deploy a provider agent onto one worktree.")
+    .requiredOption("--worktree-id <id>", "Frontend/worktree id to attach the session to.")
+    .requiredOption("--worktree-path <path>", "Worktree directory used as provider working directory.")
+    .requiredOption("--prompt <text>", "Initial task prompt for the agent.")
+    .option("--provider <provider>", "Provider to use (`codex`).", "codex")
+    .option("--mode <mode>", "Agent mode (`read` or `write`).", "write")
+    .option("--profile <profile>", "Permission profile.", "workspace-write")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runAgentDeploy(options)
     })
 
   const worktree = program
@@ -408,6 +434,37 @@ async function runWorktreeCreate(slug: string, options: SessionCommandOptions): 
     return
   }
   console.log(outcome.message)
+}
+
+async function runAgentDeploy(options: SessionCommandOptions): Promise<void> {
+  const provider = resolveProvider(options.provider, "codex") ?? "codex"
+  const mode = options.mode === "read" ? "read" : "write"
+  const prompt = options.prompt?.trim()
+  if (!options.worktreeId) {
+    throw new Error("`agentbridge agent deploy` requires `--worktree-id <id>`.")
+  }
+  if (!options.worktreePath) {
+    throw new Error("`agentbridge agent deploy` requires `--worktree-path <path>`.")
+  }
+  if (!prompt) {
+    throw new Error("`agentbridge agent deploy` requires `--prompt <text>`.")
+  }
+
+  const session = await deployAgentHandler({
+    worktreeId: options.worktreeId,
+    worktreePath: options.worktreePath,
+    provider,
+    mode,
+    profile: parsePermissionProfile(options.profile),
+    prompt,
+  })
+  if (options.json) {
+    writeJson(session)
+    return
+  }
+
+  console.log(`${session.provider} ${session.mode} session ${session.id}`)
+  console.log(session.messages.at(-1)?.text ?? "(no output)")
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

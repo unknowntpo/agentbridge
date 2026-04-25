@@ -292,6 +292,21 @@ export function deployAgentFromDraft(state: AppState): AppState {
   }
 }
 
+export function addAgentSession(state: AppState, session: AgentSession): AppState {
+  return {
+    ...state,
+    sessions: [
+      ...state.sessions.filter((candidate) => candidate.id !== session.id),
+      session,
+    ],
+    selectedSessionId: session.id,
+    selectedWorktreeId: session.worktreeId,
+    activeTab: "chat",
+    agentDrawerOpen: false,
+    notice: session.mocked ? `${session.provider} session is mocked.` : `${session.provider} session started through AgentBridge.`,
+  }
+}
+
 export function withProjectLoading(state: AppState, projectLoading: ProjectLoadingState): AppState {
   return { ...state, projectLoading }
 }
