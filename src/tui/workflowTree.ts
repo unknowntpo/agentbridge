@@ -1,4 +1,4 @@
-import type { WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
+import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
 
 export const WorkflowCliView = {
   TaskTree: "task-tree",
@@ -10,6 +10,13 @@ export const WorkflowCliView = {
 export type WorkflowCliView = (typeof WorkflowCliView)[keyof typeof WorkflowCliView]
 
 const WORKFLOW_CLI_VIEW_VALUES = new Set<string>(Object.values(WorkflowCliView))
+
+const AGENT_PROVIDER_DISPLAY: Record<WorkflowAgentConfig["provider"], { badge: string; label: string }> = {
+  claude: { badge: "[CC]", label: "Claude Code" },
+  codex: { badge: "[Cx]", label: "Codex" },
+  gemini: { badge: "[Gm]", label: "Gemini" },
+  openai: { badge: "[OA]", label: "OpenAI" },
+}
 
 export function renderWorkflowTree(model: WorkflowViewModel): string {
   return model.projects.map(renderProject).join("\n\n")
@@ -34,6 +41,14 @@ export function parseWorkflowCliView(input: string | undefined): WorkflowCliView
     return input
   }
   throw new Error("workflow view must be one of: task-tree, dependency, ready, agents")
+}
+
+export function formatAgentProviderBadge(provider: WorkflowAgentConfig["provider"]): string {
+  return AGENT_PROVIDER_DISPLAY[provider].badge
+}
+
+export function formatAgentProviderLabel(provider: WorkflowAgentConfig["provider"]): string {
+  return AGENT_PROVIDER_DISPLAY[provider].label
 }
 
 function isWorkflowCliView(input: string): input is WorkflowCliView {
@@ -119,8 +134,8 @@ function renderAgentsProject(project: WorkflowProjectView): string {
   for (const agent of project.agents) {
     const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
     const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
-    lines.push(`${agentStatusIcon(agent.status)} ${agent.id}`)
-    lines.push(`  provider: ${agent.provider}   mode: ${agent.mode}   status: ${agent.status}`)
+    lines.push(`${agentStatusIcon(agent.status)} ${formatAgentProviderBadge(agent.provider)} ${agent.id}`)
+    lines.push(`  provider: ${formatAgentProviderLabel(agent.provider)}   mode: ${agent.mode}   status: ${agent.status}`)
     lines.push(`  branch: ${worktree?.branch ?? "unknown"}`)
     lines.push(`  worktree: ${worktree?.path ?? agent.worktree}`)
     lines.push(`  task: ${item ? `${item.id} ${item.title} [${item.status}]` : "none"}`)

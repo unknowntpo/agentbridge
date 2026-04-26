@@ -2,7 +2,13 @@ import React, { useState } from "react"
 import { Box, render, Text, useInput } from "ink"
 
 import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
-import { renderWorkflowView, WorkflowCliView, type WorkflowCliView as WorkflowCliViewType } from "./workflowTree.js"
+import {
+  formatAgentProviderBadge,
+  formatAgentProviderLabel,
+  renderWorkflowView,
+  WorkflowCliView,
+  type WorkflowCliView as WorkflowCliViewType,
+} from "./workflowTree.js"
 
 export const WORKFLOW_TUI_CONTROLS = [
   "tab  next view",
@@ -136,6 +142,7 @@ function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: Wo
   const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
   const statusColor = agent.status === "running" ? "green" : "gray"
   const modeColor = agent.mode === "write" ? "yellow" : "blue"
+  const providerColor = getProviderColor(agent.provider)
   const deps = item?.dependencies.length
     ? item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
     : "none"
@@ -144,8 +151,9 @@ function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: Wo
     <Box flexDirection="column" borderStyle="round" borderColor={statusColor} paddingX={1} paddingY={1} marginTop={1}>
       <Box>
         <Text color={statusColor}>{agent.status === "running" ? "[*]" : "[.]"} </Text>
+        <Text color={providerColor}>{formatAgentProviderBadge(agent.provider)} </Text>
         <Text bold>{agent.id}</Text>
-        <Text color="gray">  provider: </Text><Text color="cyan">{agent.provider}</Text>
+        <Text color="gray">  provider: </Text><Text color={providerColor}>{formatAgentProviderLabel(agent.provider)}</Text>
         <Text color="gray">  mode: </Text><Text color={modeColor}>{agent.mode}</Text>
         <Text color="gray">  status: </Text><Text color={statusColor}>{agent.status}</Text>
       </Box>
@@ -155,6 +163,19 @@ function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: Wo
       <Text>deps: <Text color={deps === "none" ? "gray" : "red"}>{deps}</Text></Text>
     </Box>
   )
+}
+
+function getProviderColor(provider: WorkflowAgentConfig["provider"]): "blue" | "cyan" | "green" | "magenta" {
+  switch (provider) {
+    case "claude":
+      return "magenta"
+    case "codex":
+      return "cyan"
+    case "gemini":
+      return "blue"
+    case "openai":
+      return "green"
+  }
 }
 
 function ProjectHeader({ project }: { project: WorkflowProjectView }): React.ReactElement {
