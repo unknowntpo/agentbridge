@@ -91,11 +91,13 @@ onMounted(async () => {
     route.value = resolveRoute(window.location.pathname)
   })
   if (route.value === "design-system") return
-  await listen<ProjectChangedEvent>("project_changed", async (event) => {
-    if (!state.project || event.payload.path !== state.project.rootPath) return
-    state.notice = `Project changed (${event.payload.reason}). Reloading local worktrees.`
-    await scanProjectLocalOnly(event.payload.path)
-  })
+  if (hasTauriRuntime()) {
+    await listen<ProjectChangedEvent>("project_changed", async (event) => {
+      if (!state.project || event.payload.path !== state.project.rootPath) return
+      state.notice = `Project changed (${event.payload.reason}). Reloading local worktrees.`
+      await scanProjectLocalOnly(event.payload.path)
+    })
+  }
   await loadAllowedProjects()
   await scanProject(projectPath.value)
 })
@@ -377,11 +379,14 @@ function worktreeLockClass(worktree: WorktreeScan): string {
 }
 
 async function invokeCommand<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  const hasTauriRuntime = "__TAURI_INTERNALS__" in window || "__TAURI__" in window
-  if (!hasTauriRuntime) {
+  if (!hasTauriRuntime()) {
     throw new Error("Tauri runtime unavailable in browser preview.")
   }
   return tauriInvoke<T>(command, args)
+}
+
+function hasTauriRuntime(): boolean {
+  return "__TAURI_INTERNALS__" in window || "__TAURI__" in window
 }
 
 function restoreState(): AppState {
@@ -711,6 +716,38 @@ function mockProject(path: string): ProjectScan {
             <span class="badge badge-muted">waiting</span>
           </header>
           <p class="small-note">Deploy or select an agent to inspect session details.</p>
+        </section>
+      </template>
+      <template v-else>
+        <section class="inspector-hero">
+          <span class="eyebrow">No worktree selected</span>
+          <h2>Scan a project first</h2>
+          <p>{{ state.notice ?? "The commit log can show demo topology, but deploy/chat actions need a real checked-out worktree." }}</p>
+        </section>
+
+        <section class="inspector-actions">
+          <button class="primary-action" type="button" :disabled="state.projectLoading === 'local-scanning'" @click="scanProject(projectPath)">
+            {{ state.projectLoading === "local-scanning" ? "Scanning..." : "Scan project" }}
+          </button>
+          <button type="button" :disabled="!state.project" @click="createWorktree">New worktree</button>
+        </section>
+
+        <section class="inspector-section">
+          <h3>Project state</h3>
+          <div class="fact-grid">
+            <span>Path</span><code>{{ projectPath }}</code>
+            <span>Worktrees</span><span>{{ state.project?.worktrees.length ?? 0 }}</span>
+            <span>Loading</span><span>{{ state.projectLoading }}</span>
+            <span>Agents</span><span>{{ state.sessions.length }}</span>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <h3>Next action</h3>
+          <div class="empty-note">
+            Pick an allowed project or scan a valid Git worktree root. Once a real worktree is selected,
+            this panel will show Git truth, agent access, approvals, and session chat.
+          </div>
         </section>
       </template>
     </aside>
