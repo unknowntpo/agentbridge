@@ -9,7 +9,8 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "rootDir": ".",
+    "jsx": "react-jsx",
     "types": ["node", "bun"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "desktop/src/**/*.ts", "desktop/src/**/*.vue"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "desktop/src/**/*.ts", "desktop/src/**/*.vue"]
 }

@@ -19,12 +19,15 @@ import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deployAgent as deployAgentHandler } from "./agenthub/agentDeploy.js"
+import { loadWorkflowFile } from "./agenthub/workflowConfig.js"
 import { attachLocalSession } from "./local/sessionAttach.js"
 import { resolveManagedBinding as selectManagedBinding } from "./local/sessionBindingResolver.js"
 import { createManagedLocalSession } from "./local/sessionNew.js"
 import { openManagedSession } from "./local/sessionOpen.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runtime/sessionPermissions.js"
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
+import { runWorkflowTui } from "./tui/WorkflowTui.js"
+import { renderWorkflowTree } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
 
 const RUNTIME_DIR = path.join(os.homedir(), ".agentbridge")
@@ -48,6 +51,8 @@ interface SessionCommandOptions {
   repo?: string
   branch?: string
   base?: string
+  file?: string
+  print?: boolean
   project?: string
   worktreeId?: string
   worktreePath?: string
@@ -156,6 +161,15 @@ async function main(): Promise<void> {
     .option("--json", "Emit machine-readable JSON.")
     .action(async (slug: string, options: SessionCommandOptions) => {
       await runWorktreeCreate(slug, options)
+    })
+
+  program
+    .command("tui")
+    .description("Preview an AgentHub issue/worktree/agent workflow YAML in the terminal.")
+    .requiredOption("--file <path>", "AgentHub workflow YAML file.")
+    .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
+    .action(async (options: SessionCommandOptions) => {
+      await runTui(options)
     })
 
   session
@@ -465,6 +479,20 @@ async function runAgentDeploy(options: SessionCommandOptions): Promise<void> {
 
   console.log(`${session.provider} ${session.mode} session ${session.id}`)
   console.log(session.messages.at(-1)?.text ?? "(no output)")
+}
+
+async function runTui(options: SessionCommandOptions): Promise<void> {
+  if (!options.file) {
+    throw new Error("`agentbridge tui` requires `--file <path>`.")
+  }
+
+  const model = await loadWorkflowFile(path.resolve(options.file))
+  if (options.print || !process.stdin.isTTY || !process.stdout.isTTY) {
+    console.log(renderWorkflowTree(model))
+    return
+  }
+
+  await runWorkflowTui(model)
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

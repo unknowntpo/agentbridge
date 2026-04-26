@@ -1,0 +1,104 @@
+version: 1
+projects:
+  - id: minishop
+    name: MiniShop Demo
+    root: /Users/unknowntpo/repo/unknowntpo/minishop
+    repo:
+      provider: github
+      owner: unknowntpo
+      name: minishop
+      remote: git@github.com:unknowntpo/minishop.git
+    work_items:
+      - id: epic-checkout
+        type: epic
+        title: Checkout reliability
+        status: in_progress
+        priority: high
+        children:
+          - gh-120
+          - gh-121
+      - id: gh-120
+        type: issue
+        source: github
+        external_id: "120"
+        title: Fix checkout timeout
+        status: todo
+        priority: high
+        branch: agent/gh-120-checkout-timeout
+        labels:
+          - checkout
+          - bug
+      - id: gh-121
+        type: issue
+        source: github
+        external_id: "121"
+        title: Add checkout retry metrics
+        status: in_progress
+        branch: agent/gh-121-checkout-retry
+        labels:
+          - checkout
+          - observability
+      - id: epic-benchmark
+        type: epic
+        title: Benchmark dashboard polish
+        status: in_progress
+        children:
+          - gh-130
+      - id: gh-130
+        type: issue
+        source: github
+        external_id: "130"
+        title: Extract benchmark result dashboard
+        status: review
+        branch: agent/gh-130-benchmark-dashboard
+        labels:
+          - benchmark
+          - ui
+    worktrees:
+      - id: wt-main
+        name: main
+        path: main
+        branch: main
+      - id: wt-gh-121
+        name: checkout-retry
+        path: wt/checkout-retry
+        branch: agent/gh-121-checkout-retry
+        work_item: gh-121
+      - id: wt-gh-130
+        name: benchmark-dashboard
+        path: wt/benchmark-dashboard
+        branch: agent/gh-130-benchmark-dashboard
+        work_item: gh-130
+    agents:
+      - id: codex-gh-121
+        provider: codex
+        mode: write
+        status: running
+        profile: workspace-write
+        worktree: wt-gh-121
+        work_item: gh-121
+      - id: gemini-gh-121
+        provider: gemini
+        mode: read
+        status: idle
+        profile: workspace-read
+        worktree: wt-gh-121
+        work_item: gh-121
+      - id: claude-gh-130
+        provider: claude
+        mode: read
+        status: idle
+        profile: workspace-read
+        worktree: wt-gh-130
+        work_item: gh-130
+    pull_requests:
+      - id: pr-44
+        work_item: gh-121
+        url: https://github.com/unknowntpo/minishop/pull/44
+        status: open
+        checks: pending
+      - id: pr-45
+        work_item: gh-130
+        url: https://github.com/unknowntpo/minishop/pull/45
+        status: review_requested
+        checks: passing
