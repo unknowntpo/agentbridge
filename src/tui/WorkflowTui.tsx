@@ -2,15 +2,25 @@ import React, { useState } from "react"
 import { Box, render, Text, useInput } from "ink"
 
 import type { WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
+import { renderWorkflowView, WorkflowCliView, type WorkflowCliView as WorkflowCliViewType } from "./workflowTree.js"
 
 interface WorkflowTuiProps {
   model: WorkflowViewModel
+  initialView?: WorkflowCliViewType
   onExit?: () => void
 }
 
-export function WorkflowTui({ model, onExit }: WorkflowTuiProps): React.ReactElement {
+const VIEW_ORDER: WorkflowCliViewType[] = [
+  WorkflowCliView.TaskTree,
+  WorkflowCliView.Dependency,
+  WorkflowCliView.Ready,
+  WorkflowCliView.Agents,
+]
+
+export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onExit }: WorkflowTuiProps): React.ReactElement {
   const [projectIndex, setProjectIndex] = useState(0)
   const [itemIndex, setItemIndex] = useState(0)
+  const [view, setView] = useState<WorkflowCliViewType>(initialView)
   const project = model.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
@@ -19,6 +29,13 @@ export function WorkflowTui({ model, onExit }: WorkflowTuiProps): React.ReactEle
     if (input === "q") {
       onExit?.()
       return
+    }
+    if (input === "1") setView(WorkflowCliView.TaskTree)
+    if (input === "2") setView(WorkflowCliView.Dependency)
+    if (input === "3") setView(WorkflowCliView.Ready)
+    if (input === "4") setView(WorkflowCliView.Agents)
+    if (key.tab) {
+      setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
     }
     if (key.upArrow) setItemIndex((current) => Math.max(0, current - 1))
     if (key.downArrow) setItemIndex((current) => Math.min(items.length - 1, current + 1))
@@ -36,31 +53,48 @@ export function WorkflowTui({ model, onExit }: WorkflowTuiProps): React.ReactEle
     <Box flexDirection="column" paddingX={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">AgentHub Workflow Prototype</Text>
-        <Text color="gray">  q quit · ↑↓ focus issue · ←→ project</Text>
+        <Text color="gray">  q quit · tab view · 1 tree · 2 deps · 3 ready · 4 agents · ↑↓ focus</Text>
       </Box>
       <ProjectHeader project={project} />
-      <Box marginTop={1}>
-        <Box flexDirection="column" width="58%" marginRight={2}>
-          <Text bold>Work Items</Text>
-          {items.map((item, index) => (
-            <Text key={item.id} color={index === itemIndex ? "cyan" : undefined}>
-              {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{item.type} {item.id} {item.title} [{item.status}]
-            </Text>
-          ))}
-        </Box>
-        <Box flexDirection="column" width="42%">
-          <Text bold>Selected</Text>
-          {selected ? <SelectedItem item={selected} /> : <Text color="gray">No work item.</Text>}
-        </Box>
+      <Text color="gray">view: {view}</Text>
+      {view === WorkflowCliView.TaskTree
+        ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} />
+        : <ProjectionView model={model} view={view} />}
+    </Box>
+  )
+}
+
+export async function runWorkflowTui(model: WorkflowViewModel, initialView: WorkflowCliViewType = WorkflowCliView.TaskTree): Promise<void> {
+  let instance: ReturnType<typeof render> | undefined
+  instance = render(<WorkflowTui model={model} initialView={initialView} onExit={() => instance?.unmount()} />)
+  await instance.waitUntilExit()
+}
+
+function TaskTreeView({ items, itemIndex, selected }: { items: FlattenedWorkItem[]; itemIndex: number; selected: FlattenedWorkItem | undefined }): React.ReactElement {
+  return (
+    <Box marginTop={1}>
+      <Box flexDirection="column" width="58%" marginRight={2}>
+        <Text bold>Work Items</Text>
+        {items.map((item, index) => (
+          <Text key={item.id} color={index === itemIndex ? "cyan" : undefined}>
+            {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{item.type} {item.id} {item.title} [{item.status}]
+          </Text>
+        ))}
+      </Box>
+      <Box flexDirection="column" width="42%">
+        <Text bold>Selected</Text>
+        {selected ? <SelectedItem item={selected} /> : <Text color="gray">No work item.</Text>}
       </Box>
     </Box>
   )
 }
 
-export async function runWorkflowTui(model: WorkflowViewModel): Promise<void> {
-  let instance: ReturnType<typeof render> | undefined
-  instance = render(<WorkflowTui model={model} onExit={() => instance?.unmount()} />)
-  await instance.waitUntilExit()
+function ProjectionView({ model, view }: { model: WorkflowViewModel; view: WorkflowCliViewType }): React.ReactElement {
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text>{renderWorkflowView(model, view)}</Text>
+    </Box>
+  )
 }
 
 function ProjectHeader({ project }: { project: WorkflowProjectView }): React.ReactElement {

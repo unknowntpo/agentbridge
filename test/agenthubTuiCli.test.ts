@@ -24,6 +24,26 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("deps: gh-121(in_progress), gh-120(todo)")
   })
 
+  it("prints a selected TUI view in non-interactive mode", () => {
+    const stdout = execFileSync("bun", [
+      "src/cli.ts",
+      "tui",
+      "--file",
+      path.resolve(import.meta.dirname, "../examples/agenthub.workflow.yml"),
+      "--view",
+      "agents",
+      "--print",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+
+    expect(stdout).toContain("Agents View")
+    expect(stdout).toContain("codex-gh-121 codex write running")
+    expect(stdout).not.toContain("summary: 2 epics")
+  })
+
   it("prints a dependency workflow view", () => {
     const stdout = runWorkflowView("dependency")
 

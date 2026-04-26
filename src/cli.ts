@@ -168,6 +168,7 @@ async function main(): Promise<void> {
     .command("tui")
     .description("Preview an AgentHub issue/worktree/agent workflow YAML in the terminal.")
     .requiredOption("--file <path>", "AgentHub workflow YAML file.")
+    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents.", "task-tree")
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
       await runTui(options)
@@ -497,12 +498,13 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
   }
 
   const model = await loadWorkflowFile(path.resolve(options.file))
+  const view = parseWorkflowCliView(options.view)
   if (options.print || !process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log(renderWorkflowTree(model))
+    console.log(renderWorkflowView(model, view))
     return
   }
 
-  await runWorkflowTui(model)
+  await runWorkflowTui(model, view)
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {
