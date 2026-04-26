@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process"
+import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 
 import { describe, expect, it } from "bun:test"
@@ -13,6 +15,8 @@ describe("AgentHub TUI CLI", () => {
       "2    dependency",
       "3    ready",
       "4    agents",
+      "5    commits",
+      "r    refresh project",
       "q    quit",
     ])
   })
@@ -93,6 +97,54 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("[.] [CC] claude-gh-130")
     expect(stdout).toContain("provider: Claude Code   mode: read   status: idle")
   })
+
+  it("prints a real project commit view without a workflow YAML file", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-tui-real-"))
+    const plainDir = path.join(root, "demo")
+    const source = path.join(root, "source")
+    createSourceRepo(source)
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "project",
+      "create",
+      plainDir,
+      "--repo",
+      source,
+      "--branch",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    const stdout = execFileSync("bun", [
+      "src/cli.ts",
+      "tui",
+      "--project",
+      plainDir,
+      "--view",
+      "commits",
+      "--print",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    expect(stdout).toContain("Demo Project (demo)")
+    expect(stdout).toContain("Commit View")
+    expect(stdout).toContain("Initial commit")
+    expect(stdout).toContain("worktrees: main clean +0/-0")
+  })
 })
 
 function runWorkflowView(view: string): string {
@@ -107,5 +159,21 @@ function runWorkflowView(view: string): string {
     cwd: path.resolve(import.meta.dirname, ".."),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+  })
+}
+
+function createSourceRepo(dir: string): void {
+  fs.mkdirSync(dir, { recursive: true })
+  git(dir, ["init", "--initial-branch=main"])
+  fs.writeFileSync(path.join(dir, "README.md"), "# demo\n")
+  git(dir, ["add", "README.md"])
+  git(dir, ["-c", "user.name=AgentHub Test", "-c", "user.email=agenthub@example.test", "commit", "-m", "Initial commit"])
+}
+
+function git(cwd: string, args: string[]): void {
+  execFileSync("git", args, {
+    cwd,
+    stdio: "pipe",
+    env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" },
   })
 }

@@ -10,6 +10,7 @@ export interface ProjectScan {
   rootPath: string
   anchorPath: string
   worktrees: WorktreeScan[]
+  commits: GitCommitScan[]
 }
 
 export interface WorktreeScan {
@@ -22,6 +23,15 @@ export interface WorktreeScan {
   status: "clean" | "dirty"
   ahead: number
   behind: number
+}
+
+export interface GitCommitScan {
+  hash: string
+  shortHash: string
+  subject: string
+  refs: string[]
+  authorName: string
+  authoredAt: string
 }
 
 export interface CommandOutcome {

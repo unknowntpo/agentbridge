@@ -19,6 +19,7 @@ describe("AgentHub workflow config", () => {
       worktrees: 3,
       agents: 3,
       pullRequests: 2,
+      commits: 0,
     })
 
     const checkoutRetry = project.workItems.find((item) => item.id === "gh-121")

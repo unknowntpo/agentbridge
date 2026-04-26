@@ -82,13 +82,36 @@ export interface WorkflowProjectView {
   worktrees: WorkflowWorktreeConfig[]
   agents: WorkflowAgentConfig[]
   pullRequests: WorkflowPullRequestConfig[]
+  commits: WorkflowCommitView[]
   summary: {
     epics: number
     issues: number
     worktrees: number
     agents: number
     pullRequests: number
+    commits: number
   }
+}
+
+export interface WorkflowCommitView {
+  id: string
+  hash: string
+  shortHash: string
+  subject: string
+  refs: string[]
+  authoredAt?: string
+  authorName?: string
+  worktrees: WorkflowCommitWorktreeView[]
+}
+
+export interface WorkflowCommitWorktreeView {
+  id: string
+  name: string
+  path: string
+  branch: string | null
+  status: string
+  ahead: number
+  behind: number
 }
 
 export interface WorkflowWorkItemView extends Omit<WorkflowWorkItemConfig, "children"> {
@@ -224,12 +247,14 @@ function deriveProjectView(project: WorkflowProjectConfig): WorkflowProjectView 
     worktrees,
     agents,
     pullRequests,
+    commits: [],
     summary: {
       epics: workItems.filter((item) => item.type === "epic").length,
       issues: workItems.filter((item) => item.type !== "epic").length,
       worktrees: worktrees.length,
       agents: agents.length,
       pullRequests: pullRequests.length,
+      commits: 0,
     },
   }
 }

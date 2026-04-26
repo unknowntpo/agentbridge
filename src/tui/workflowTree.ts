@@ -5,6 +5,7 @@ export const WorkflowCliView = {
   Dependency: "dependency",
   Ready: "ready",
   Agents: "agents",
+  Commits: "commits",
 } as const
 
 export type WorkflowCliView = (typeof WorkflowCliView)[keyof typeof WorkflowCliView]
@@ -32,6 +33,8 @@ export function renderWorkflowView(model: WorkflowViewModel, view: WorkflowCliVi
       return model.projects.map(renderReadyProject).join("\n\n")
     case WorkflowCliView.Agents:
       return model.projects.map(renderAgentsProject).join("\n\n")
+    case WorkflowCliView.Commits:
+      return model.projects.map(renderCommitsProject).join("\n\n")
   }
 }
 
@@ -40,7 +43,7 @@ export function parseWorkflowCliView(input: string | undefined): WorkflowCliView
   if (isWorkflowCliView(input)) {
     return input
   }
-  throw new Error("workflow view must be one of: task-tree, dependency, ready, agents")
+  throw new Error("workflow view must be one of: task-tree, dependency, ready, agents, commits")
 }
 
 export function formatAgentProviderBadge(provider: WorkflowAgentConfig["provider"]): string {
@@ -145,6 +148,26 @@ function renderAgentsProject(project: WorkflowProjectView): string {
   return lines.join("\n")
 }
 
+function renderCommitsProject(project: WorkflowProjectView): string {
+  const lines = [
+    `${project.name} (${project.id})`,
+    "Commit View",
+  ]
+
+  if (project.commits.length === 0) {
+    lines.push("- none")
+    return lines.join("\n")
+  }
+
+  for (const commit of project.commits) {
+    lines.push(`${commit.shortHash} ${commit.subject}`)
+    lines.push(`  refs: ${commit.refs.length > 0 ? commit.refs.join(", ") : "none"}`)
+    lines.push(`  worktrees: ${formatCommitWorktrees(commit.worktrees)}`)
+  }
+
+  return lines.join("\n")
+}
+
 function renderItem(item: WorkflowWorkItemView, prefix: string, last: boolean): string[] {
   const branch = last ? "└─" : "├─"
   const childPrefix = `${prefix}${last ? "   " : "│  "}`
@@ -194,6 +217,13 @@ function formatPullRequest(item: WorkflowWorkItemView): string {
 function formatDependencies(item: WorkflowWorkItemView): string {
   if (item.dependencies.length === 0) return "none"
   return item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
+}
+
+function formatCommitWorktrees(worktrees: WorkflowProjectView["commits"][number]["worktrees"]): string {
+  if (worktrees.length === 0) return "none"
+  return worktrees
+    .map((worktree) => `${worktree.name} ${worktree.status} +${worktree.ahead}/-${worktree.behind}`)
+    .join(", ")
 }
 
 function agentStatusIcon(status: string): string {

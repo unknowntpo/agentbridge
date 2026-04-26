@@ -18,8 +18,10 @@ import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
+import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
 import { deployAgent as deployAgentHandler } from "./agenthub/agentDeploy.js"
 import { loadWorkflowFile } from "./agenthub/workflowConfig.js"
+import type { WorkflowViewModel } from "./agenthub/workflowConfig.js"
 import { attachLocalSession } from "./local/sessionAttach.js"
 import { resolveManagedBinding as selectManagedBinding } from "./local/sessionBindingResolver.js"
 import { createManagedLocalSession } from "./local/sessionNew.js"
@@ -166,9 +168,10 @@ async function main(): Promise<void> {
 
   program
     .command("tui")
-    .description("Preview an AgentHub issue/worktree/agent workflow YAML in the terminal.")
-    .requiredOption("--file <path>", "AgentHub workflow YAML file.")
-    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents.", "task-tree")
+    .description("Preview an AgentHub workflow YAML or real Git project in the terminal.")
+    .option("--file <path>", "AgentHub workflow YAML file.")
+    .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
+    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits.", "task-tree")
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
       await runTui(options)
@@ -176,9 +179,10 @@ async function main(): Promise<void> {
 
   program
     .command("workflow")
-    .description("Print read-only AgentHub workflow projections from a workflow YAML file.")
-    .requiredOption("--file <path>", "AgentHub workflow YAML file.")
-    .option("--view <view>", "View to print: task-tree, dependency, ready, agents.", "task-tree")
+    .description("Print read-only AgentHub workflow projections from YAML or real Git project state.")
+    .option("--file <path>", "AgentHub workflow YAML file.")
+    .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
+    .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits.", "task-tree")
     .action(async (options: SessionCommandOptions) => {
       await runWorkflow(options)
     })
@@ -493,26 +497,38 @@ async function runAgentDeploy(options: SessionCommandOptions): Promise<void> {
 }
 
 async function runTui(options: SessionCommandOptions): Promise<void> {
-  if (!options.file) {
-    throw new Error("`agentbridge tui` requires `--file <path>`.")
-  }
-
-  const model = await loadWorkflowFile(path.resolve(options.file))
+  const model = await loadWorkflowModelFromOptions(options, "`agentbridge tui`")
   const view = parseWorkflowCliView(options.view)
   if (options.print || !process.stdin.isTTY || !process.stdout.isTTY) {
     console.log(renderWorkflowView(model, view))
     return
   }
 
-  await runWorkflowTui(model, view)
+  const reloadModel = options.project ? async () => loadProjectWorkflowModel(options.project!) : undefined
+  await runWorkflowTui(model, view, reloadModel)
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {
-  if (!options.file) {
-    throw new Error("`agentbridge workflow` requires `--file <path>`.")
-  }
-  const model = await loadWorkflowFile(path.resolve(options.file))
+  const model = await loadWorkflowModelFromOptions(options, "`agentbridge workflow`")
   console.log(renderWorkflowView(model, parseWorkflowCliView(options.view)))
+}
+
+async function loadWorkflowModelFromOptions(options: SessionCommandOptions, commandName: string): Promise<WorkflowViewModel> {
+  if (options.file && options.project) {
+    throw new Error(`${commandName} accepts either --file or --project, not both.`)
+  }
+  if (options.file) {
+    return loadWorkflowFile(path.resolve(options.file))
+  }
+  if (options.project) {
+    return loadProjectWorkflowModel(options.project)
+  }
+  throw new Error(`${commandName} requires --file <path> or --project <path>.`)
+}
+
+async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowViewModel> {
+  const service = createAgentHubProjectServiceFromEnv()
+  return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath))
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

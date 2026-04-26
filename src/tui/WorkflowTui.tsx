@@ -16,12 +16,15 @@ export const WORKFLOW_TUI_CONTROLS = [
   "2    dependency",
   "3    ready",
   "4    agents",
+  "5    commits",
+  "r    refresh project",
   "q    quit",
 ] as const
 
 interface WorkflowTuiProps {
   model: WorkflowViewModel
   initialView?: WorkflowCliViewType
+  reloadModel?: () => Promise<WorkflowViewModel>
   onExit?: () => void
 }
 
@@ -30,13 +33,16 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Dependency,
   WorkflowCliView.Ready,
   WorkflowCliView.Agents,
+  WorkflowCliView.Commits,
 ]
 
-export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onExit }: WorkflowTuiProps): React.ReactElement {
+export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, reloadModel, onExit }: WorkflowTuiProps): React.ReactElement {
+  const [currentModel, setCurrentModel] = useState(model)
+  const [notice, setNotice] = useState<string | null>(null)
   const [projectIndex, setProjectIndex] = useState(0)
   const [itemIndex, setItemIndex] = useState(0)
   const [view, setView] = useState<WorkflowCliViewType>(initialView)
-  const project = model.projects[projectIndex]!
+  const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
 
@@ -49,6 +55,20 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onE
     if (input === "2") setView(WorkflowCliView.Dependency)
     if (input === "3") setView(WorkflowCliView.Ready)
     if (input === "4") setView(WorkflowCliView.Agents)
+    if (input === "5") setView(WorkflowCliView.Commits)
+    if (input === "r" && reloadModel) {
+      setNotice("refreshing project...")
+      void reloadModel()
+        .then((nextModel) => {
+          setCurrentModel(nextModel)
+          setProjectIndex(0)
+          setItemIndex(0)
+          setNotice("project refreshed")
+        })
+        .catch((error: unknown) => {
+          setNotice(error instanceof Error ? error.message : "project refresh failed")
+        })
+    }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
     }
@@ -59,7 +79,7 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onE
       setItemIndex(0)
     }
     if (key.rightArrow) {
-      setProjectIndex((current) => Math.min(model.projects.length - 1, current + 1))
+      setProjectIndex((current) => Math.min(currentModel.projects.length - 1, current + 1))
       setItemIndex(0)
     }
   })
@@ -70,13 +90,14 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onE
         <Text bold color="cyan">AgentHub Workflow Prototype</Text>
       </Box>
       <ControlsHelp />
+      {notice ? <Text color="yellow">{notice}</Text> : null}
       <ProjectHeader project={project} />
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
         ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} />
         : view === WorkflowCliView.Agents
           ? <AgentsProjectionView project={project} />
-        : <ProjectionView model={model} view={view} />}
+        : <ProjectionView model={currentModel} view={view} />}
     </Box>
   )
 }
@@ -93,9 +114,13 @@ function ControlsHelp(): React.ReactElement {
   )
 }
 
-export async function runWorkflowTui(model: WorkflowViewModel, initialView: WorkflowCliViewType = WorkflowCliView.TaskTree): Promise<void> {
+export async function runWorkflowTui(
+  model: WorkflowViewModel,
+  initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
+  reloadModel?: () => Promise<WorkflowViewModel>,
+): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
-  instance = render(<WorkflowTui model={model} initialView={initialView} onExit={() => instance?.unmount()} />)
+  instance = render(<WorkflowTui model={model} initialView={initialView} reloadModel={reloadModel} onExit={() => instance?.unmount()} />)
   await instance.waitUntilExit()
 }
 

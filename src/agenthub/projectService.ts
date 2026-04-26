@@ -3,7 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { GitCommandError, GitCommandRunner, type GitRunner } from "./gitRunner.js"
-import type { AgentHubProject, CommandOutcome, ProjectScan, WorktreeScan } from "./types.js"
+import type { AgentHubProject, CommandOutcome, GitCommitScan, ProjectScan, WorktreeScan } from "./types.js"
 import { parseWorktreePorcelain, safeBranchName, safeWorktreeSlug, worktreeId } from "./worktreeLayout.js"
 
 export interface AgentHubProjectServiceOptions {
@@ -58,6 +58,7 @@ export class AgentHubProjectService {
       rootPath: project.path,
       anchorPath,
       worktrees: worktrees.sort((left, right) => left.name.localeCompare(right.name)),
+      commits: await this.#scanCommits(anchorPath),
     }
   }
 
@@ -111,6 +112,23 @@ export class AgentHubProjectService {
       ahead: Number.isFinite(ahead) ? ahead : 0,
       behind: Number.isFinite(behind) ? behind : 0,
     }
+  }
+
+  async #scanCommits(anchorPath: string): Promise<GitCommitScan[]> {
+    const output = await this.#optionalGit(anchorPath, [
+      "log",
+      "--all",
+      "--max-count=80",
+      "--date=iso-strict",
+      "--decorate=short",
+      "--pretty=format:%H%x1f%h%x1f%s%x1f%D%x1f%an%x1f%aI",
+    ])
+    if (!output) return []
+
+    return output
+      .split(/\r?\n/)
+      .filter((line) => line.trim().length > 0)
+      .map(parseGitCommitLine)
   }
 
   async #optionalGit(cwd: string, args: string[]): Promise<string | null> {
@@ -207,4 +225,20 @@ function canonicalPath(inputPath: string): string {
 function isPathInside(candidate: string, parent: string): boolean {
   const relative = path.relative(path.resolve(parent), path.resolve(candidate))
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+function parseGitCommitLine(line: string): GitCommitScan {
+  const [hash = "", shortHash = "", subject = "", refs = "", authorName = "", authoredAt = ""] = line.split("\x1f")
+  return {
+    hash,
+    shortHash,
+    subject,
+    refs: refs
+      .split(",")
+      .map((ref) => ref.trim())
+      .filter((ref) => ref.length > 0)
+      .map((ref) => ref.replace(/^HEAD -> /, "")),
+    authorName,
+    authoredAt,
+  }
 }
