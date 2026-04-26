@@ -3,7 +3,20 @@ import path from "node:path"
 
 import { describe, expect, it } from "bun:test"
 
+import { WORKFLOW_TUI_CONTROLS } from "../src/tui/WorkflowTui.js"
+
 describe("AgentHub TUI CLI", () => {
+  it("keeps TUI view-switching controls visible as a product contract", () => {
+    expect([...WORKFLOW_TUI_CONTROLS]).toEqual([
+      "tab  next view",
+      "1    task-tree",
+      "2    dependency",
+      "3    ready",
+      "4    agents",
+      "q    quit",
+    ])
+  })
+
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
     const stdout = execFileSync("bun", [
       "src/cli.ts",
@@ -40,7 +53,8 @@ describe("AgentHub TUI CLI", () => {
     })
 
     expect(stdout).toContain("Agents View")
-    expect(stdout).toContain("codex-gh-121 codex write running")
+    expect(stdout).toContain("[*] codex-gh-121")
+    expect(stdout).toContain("provider: codex   mode: write   status: running")
     expect(stdout).not.toContain("summary: 2 epics")
   })
 
@@ -70,11 +84,13 @@ describe("AgentHub TUI CLI", () => {
     const stdout = runWorkflowView("agents")
 
     expect(stdout).toContain("Agents View")
-    expect(stdout).toContain("codex-gh-121 codex write running")
-    expect(stdout).toContain("worktree: wt/checkout-retry (agent/gh-121-checkout-retry)")
+    expect(stdout).toContain("[*] codex-gh-121")
+    expect(stdout).toContain("provider: codex   mode: write   status: running")
+    expect(stdout).toContain("branch: agent/gh-121-checkout-retry")
+    expect(stdout).toContain("worktree: wt/checkout-retry")
     expect(stdout).toContain("task: gh-121 Add checkout retry metrics [in_progress]")
     expect(stdout).toContain("deps: gh-120(todo)")
-    expect(stdout).toContain("claude-gh-130 claude read idle")
+    expect(stdout).toContain("[.] claude-gh-130")
   })
 })
 

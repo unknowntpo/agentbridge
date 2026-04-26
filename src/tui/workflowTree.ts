@@ -119,8 +119,10 @@ function renderAgentsProject(project: WorkflowProjectView): string {
   for (const agent of project.agents) {
     const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
     const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
-    lines.push(`${agent.id} ${agent.provider} ${agent.mode} ${agent.status}`)
-    lines.push(`  worktree: ${worktree ? `${worktree.path} (${worktree.branch})` : agent.worktree}`)
+    lines.push(`${agentStatusIcon(agent.status)} ${agent.id}`)
+    lines.push(`  provider: ${agent.provider}   mode: ${agent.mode}   status: ${agent.status}`)
+    lines.push(`  branch: ${worktree?.branch ?? "unknown"}`)
+    lines.push(`  worktree: ${worktree?.path ?? agent.worktree}`)
     lines.push(`  task: ${item ? `${item.id} ${item.title} [${item.status}]` : "none"}`)
     lines.push(`  deps: ${item ? formatDependencies(item) : "none"}`)
   }
@@ -177,4 +179,8 @@ function formatPullRequest(item: WorkflowWorkItemView): string {
 function formatDependencies(item: WorkflowWorkItemView): string {
   if (item.dependencies.length === 0) return "none"
   return item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
+}
+
+function agentStatusIcon(status: string): string {
+  return status === "running" ? "[*]" : "[.]"
 }

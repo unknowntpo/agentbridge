@@ -1,8 +1,17 @@
 import React, { useState } from "react"
 import { Box, render, Text, useInput } from "ink"
 
-import type { WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
+import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
 import { renderWorkflowView, WorkflowCliView, type WorkflowCliView as WorkflowCliViewType } from "./workflowTree.js"
+
+export const WORKFLOW_TUI_CONTROLS = [
+  "tab  next view",
+  "1    task-tree",
+  "2    dependency",
+  "3    ready",
+  "4    agents",
+  "q    quit",
+] as const
 
 interface WorkflowTuiProps {
   model: WorkflowViewModel
@@ -53,13 +62,27 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, onE
     <Box flexDirection="column" paddingX={1}>
       <Box marginBottom={1}>
         <Text bold color="cyan">AgentHub Workflow Prototype</Text>
-        <Text color="gray">  q quit · tab view · 1 tree · 2 deps · 3 ready · 4 agents · ↑↓ focus</Text>
       </Box>
+      <ControlsHelp />
       <ProjectHeader project={project} />
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
         ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} />
+        : view === WorkflowCliView.Agents
+          ? <AgentsProjectionView project={project} />
         : <ProjectionView model={model} view={view} />}
+    </Box>
+  )
+}
+
+function ControlsHelp(): React.ReactElement {
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold>Controls</Text>
+      {WORKFLOW_TUI_CONTROLS.map((control) => (
+        <Text key={control} color="gray">{control}</Text>
+      ))}
+      <Text color="gray">↑↓   focus task in task-tree</Text>
     </Box>
   )
 }
@@ -93,6 +116,43 @@ function ProjectionView({ model, view }: { model: WorkflowViewModel; view: Workf
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text>{renderWorkflowView(model, view)}</Text>
+    </Box>
+  )
+}
+
+function AgentsProjectionView({ project }: { project: WorkflowProjectView }): React.ReactElement {
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text bold>Agents View</Text>
+      {project.agents.length === 0
+        ? <Text color="gray">No agents.</Text>
+        : project.agents.map((agent) => <AgentCard key={agent.id} agent={agent} project={project} />)}
+    </Box>
+  )
+}
+
+function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: WorkflowProjectView }): React.ReactElement {
+  const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
+  const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
+  const statusColor = agent.status === "running" ? "green" : "gray"
+  const modeColor = agent.mode === "write" ? "yellow" : "blue"
+  const deps = item?.dependencies.length
+    ? item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
+    : "none"
+
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor={statusColor} paddingX={1} paddingY={1} marginTop={1}>
+      <Box>
+        <Text color={statusColor}>{agent.status === "running" ? "[*]" : "[.]"} </Text>
+        <Text bold>{agent.id}</Text>
+        <Text color="gray">  provider: </Text><Text color="cyan">{agent.provider}</Text>
+        <Text color="gray">  mode: </Text><Text color={modeColor}>{agent.mode}</Text>
+        <Text color="gray">  status: </Text><Text color={statusColor}>{agent.status}</Text>
+      </Box>
+      <Text>branch: <Text color="cyan">{worktree?.branch ?? "unknown"}</Text></Text>
+      <Text>worktree: <Text color="cyan">{worktree?.path ?? agent.worktree}</Text></Text>
+      <Text>task: {item ? <Text color="yellow">{item.id} {item.title} [{item.status}]</Text> : <Text color="gray">none</Text>}</Text>
+      <Text>deps: <Text color={deps === "none" ? "gray" : "red"}>{deps}</Text></Text>
     </Box>
   )
 }
