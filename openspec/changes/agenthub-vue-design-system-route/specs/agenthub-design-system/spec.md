@@ -23,6 +23,14 @@ AgentHub SHALL render the dashboard commit log and the design system commit log 
 - **THEN** both routes use the same `CommitLogPanel` component
 - **AND** the design system supplies demo data instead of duplicating the component markup.
 
+#### Scenario: Design system previews commit-driven deploy flow
+
+- **GIVEN** the design system route is open
+- **WHEN** the user selects a commit row in the shared commit log
+- **THEN** the route updates a selected commit inspector
+- **AND** the inspector exposes a deploy agent action for the selected worktree
+- **AND** the deploy drawer lets the user choose provider, permission profile, working directory, and task prompt.
+
 ### Requirement: Shared design tokens
 
 AgentHub SHALL keep desktop design tokens in a shared stylesheet imported by the Vue app styles.
@@ -32,4 +40,3 @@ AgentHub SHALL keep desktop design tokens in a shared stylesheet imported by the
 - **GIVEN** the desktop CSS is loaded
 - **WHEN** commit log styles reference color or surface tokens
 - **THEN** those tokens resolve from the shared token source or compatibility aliases.
-

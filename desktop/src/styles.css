@@ -1146,6 +1146,68 @@ button.agent-chip {
   padding: 20px;
 }
 
+.design-system-workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(820px, 1fr) 340px;
+  gap: 18px;
+  max-width: 1320px;
+  margin: 0 auto 18px;
+  align-items: start;
+}
+
+.design-system-workflow-grid .design-system-section {
+  max-width: none;
+  margin: 0;
+}
+
+.design-system-inspector {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  border: 1px solid var(--neutral-300);
+  border-radius: 28px;
+  padding: 18px;
+  background: rgb(255 253 248 / 88%);
+  box-shadow: var(--shadow);
+}
+
+.design-system-target-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  border: 1px solid var(--neutral-300);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgb(255 255 255 / 64%);
+}
+
+.design-system-target-card code {
+  color: var(--neutral-500);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.design-system-agent-list {
+  display: grid;
+  gap: 8px;
+}
+
+.design-system-agent-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 8px;
+}
+
+.design-system-agent-list button.active {
+  border-color: var(--primary-300);
+  background: var(--primary-50);
+  box-shadow: 0 0 0 4px rgb(79 156 164 / 10%);
+}
+
 .section-heading {
   display: grid;
   gap: 6px;
@@ -1452,14 +1514,15 @@ button.agent-chip {
   bottom: 18px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
   width: 420px;
   border: 1px solid var(--primary-300);
   border-radius: 28px;
-  padding: 22px;
+  padding: 18px;
   background: rgb(255 253 248 / 94%);
   box-shadow: 0 28px 80px rgb(43 38 30 / 20%);
   backdrop-filter: blur(22px);
+  overflow: auto;
 }
 
 .agent-drawer-panel > header,
@@ -1478,7 +1541,7 @@ button.agent-chip {
 
 .drawer-section {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .drawer-section label {
@@ -1489,6 +1552,10 @@ button.agent-chip {
 .drawer-section input,
 .drawer-section textarea {
   width: 100%;
+}
+
+.agent-drawer-panel textarea {
+  min-height: 62px;
 }
 
 .section-label {
@@ -1510,6 +1577,23 @@ button.agent-chip {
   grid-template-columns: 1fr;
 }
 
+.segmented-row.stacked button {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  border-radius: 18px;
+  padding: 9px 12px;
+  text-align: left;
+  white-space: normal;
+}
+
+.segmented-row.stacked button span {
+  color: var(--neutral-500);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
 .segmented-row button.active {
   border-color: var(--primary-300);
   color: var(--primary-900);
@@ -1517,8 +1601,20 @@ button.agent-chip {
   box-shadow: 0 0 0 4px rgb(79 156 164 / 10%);
 }
 
+.segmented-row button.active span {
+  color: var(--primary-700);
+}
+
 .agent-drawer-panel > footer {
   margin-top: auto;
   border-top: 1px solid var(--neutral-300);
-  padding-top: 16px;
+  padding-top: 12px;
+  position: sticky;
+  bottom: -18px;
+  margin-right: -18px;
+  margin-left: -18px;
+  padding-right: 18px;
+  padding-bottom: 18px;
+  padding-left: 18px;
+  background: rgb(255 253 248 / 96%);
 }

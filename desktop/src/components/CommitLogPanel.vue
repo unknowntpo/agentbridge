@@ -8,12 +8,19 @@ defineProps<{
   rows: CommitLogRow[]
   graph: ReturnType<typeof commitGraphSvgPath>
   selectedWorktreeId: string | null
+  selectedRowId?: string | null
 }>()
 
 const emit = defineEmits<{
   "select-worktree": [id: string]
   "select-agent": [id: string]
+  "select-row": [row: CommitLogRow]
 }>()
+
+function selectRow(row: CommitLogRow): void {
+  emit("select-row", row)
+  if (row.worktreeId) emit("select-worktree", row.worktreeId)
+}
 </script>
 
 <template>
@@ -62,8 +69,8 @@ const emit = defineEmits<{
           :key="row.id"
           type="button"
           class="commit-log-row"
-          :class="{ active: row.worktreeId === selectedWorktreeId, dirty: row.status === 'dirty' }"
-          @click="row.worktreeId && emit('select-worktree', row.worktreeId)"
+          :class="{ active: selectedRowId ? row.id === selectedRowId : row.worktreeId === selectedWorktreeId, dirty: row.status === 'dirty' }"
+          @click="selectRow(row)"
         >
           <span class="graph-spacer" aria-hidden="true"></span>
           <span class="commit-message-cell">
@@ -98,4 +105,3 @@ const emit = defineEmits<{
     </div>
   </section>
 </template>
-
