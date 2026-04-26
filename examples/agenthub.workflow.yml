@@ -34,6 +34,8 @@ projects:
         external_id: "121"
         title: Add checkout retry metrics
         status: in_progress
+        depends_on:
+          - gh-120
         branch: agent/gh-121-checkout-retry
         labels:
           - checkout
@@ -50,6 +52,9 @@ projects:
         external_id: "130"
         title: Extract benchmark result dashboard
         status: review
+        depends_on:
+          - gh-121
+          - gh-120
         branch: agent/gh-130-benchmark-dashboard
         labels:
           - benchmark

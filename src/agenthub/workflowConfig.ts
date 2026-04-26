@@ -39,6 +39,7 @@ export interface WorkflowWorkItemConfig {
   branch?: string
   labels?: string[]
   children?: string[]
+  depends_on?: string[]
 }
 
 export interface WorkflowWorktreeConfig {
@@ -92,9 +93,17 @@ export interface WorkflowProjectView {
 
 export interface WorkflowWorkItemView extends Omit<WorkflowWorkItemConfig, "children"> {
   children: WorkflowWorkItemView[]
+  dependencies: WorkflowWorkItemDependencyView[]
+  dependents: WorkflowWorkItemDependencyView[]
   agents: WorkflowAgentConfig[]
   worktree: WorkflowWorktreeConfig | null
   pullRequest: WorkflowPullRequestConfig | null
+}
+
+export interface WorkflowWorkItemDependencyView {
+  id: string
+  title: string
+  status: WorkItemStatus
 }
 
 export async function loadWorkflowFile(filePath: string): Promise<WorkflowViewModel> {
@@ -148,7 +157,16 @@ function deriveProjectView(project: WorkflowProjectConfig): WorkflowProjectView 
       }
       childIds.add(childId)
     }
+    for (const dependencyId of item.depends_on ?? []) {
+      if (dependencyId === item.id) {
+        throw new Error(`work item \`${item.id}\` cannot depend on itself`)
+      }
+      if (!workItemById.has(dependencyId)) {
+        throw new Error(`work item \`${item.id}\` references unknown dependency \`${dependencyId}\``)
+      }
+    }
   }
+  assertNoDependencyCycles(workItems, workItemById)
 
   for (const worktree of worktrees) {
     if (worktree.work_item && !workItemById.has(worktree.work_item)) {
@@ -175,9 +193,15 @@ function deriveProjectView(project: WorkflowProjectConfig): WorkflowProjectView 
     const linkedAgents = agents.filter((agent) => agent.work_item === item.id)
     const linkedWorktree = worktrees.find((worktree) => worktree.work_item === item.id) ?? null
     const linkedPullRequest = pullRequests.find((pullRequest) => pullRequest.work_item === item.id) ?? null
+    const dependencies = (item.depends_on ?? []).map((dependencyId) => toDependencyView(workItemById.get(dependencyId)!))
+    const dependents = workItems
+      .filter((candidate) => (candidate.depends_on ?? []).includes(item.id))
+      .map(toDependencyView)
     return {
       ...item,
       children: (item.children ?? []).map((childId) => buildItem(workItemById.get(childId)!)),
+      dependencies,
+      dependents,
       agents: linkedAgents,
       worktree: linkedWorktree,
       pullRequest: linkedPullRequest,
@@ -237,6 +261,41 @@ function parseWorkItem(value: unknown, context: string): WorkflowWorkItemConfig 
     branch: optionalString(record.branch, `${context}.branch`),
     labels: parseOptionalStringArray(record.labels, `${context}.labels`),
     children: parseOptionalStringArray(record.children, `${context}.children`),
+    depends_on: parseOptionalStringArray(record.depends_on, `${context}.depends_on`),
+  }
+}
+
+function toDependencyView(item: WorkflowWorkItemConfig): WorkflowWorkItemDependencyView {
+  return {
+    id: item.id,
+    title: item.title,
+    status: item.status,
+  }
+}
+
+function assertNoDependencyCycles(
+  workItems: WorkflowWorkItemConfig[],
+  workItemById: Map<string, WorkflowWorkItemConfig>,
+): void {
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+
+  const visit = (item: WorkflowWorkItemConfig, path: string[]): void => {
+    if (visiting.has(item.id)) {
+      throw new Error(`dependency cycle detected: ${[...path, item.id].join(" -> ")}`)
+    }
+    if (visited.has(item.id)) return
+
+    visiting.add(item.id)
+    for (const dependencyId of item.depends_on ?? []) {
+      visit(workItemById.get(dependencyId)!, [...path, item.id])
+    }
+    visiting.delete(item.id)
+    visited.add(item.id)
+  }
+
+  for (const item of workItems) {
+    visit(item, [])
   }
 }
 

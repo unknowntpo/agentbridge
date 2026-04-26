@@ -80,6 +80,12 @@ function SelectedItem({ item }: { item: FlattenedWorkItem }): React.ReactElement
     : item.agents.map((agent) => `${agent.provider} ${agent.mode} ${agent.status}`).join(", ")
   const worktree = item.worktree ? `${item.worktree.path} (${item.worktree.branch})` : "none"
   const pullRequest = item.pullRequest ? `${item.pullRequest.id} ${item.pullRequest.status}${item.pullRequest.checks ? ` checks:${item.pullRequest.checks}` : ""}` : "none"
+  const dependencies = item.dependencies.length === 0
+    ? "none"
+    : item.dependencies.map((dependency) => `${dependency.id} ${dependency.status}`).join(", ")
+  const dependents = item.dependents.length === 0
+    ? "none"
+    : item.dependents.map((dependent) => `${dependent.id} ${dependent.status}`).join(", ")
 
   return (
     <Box flexDirection="column" borderStyle="round" paddingX={1} paddingY={1}>
@@ -88,6 +94,8 @@ function SelectedItem({ item }: { item: FlattenedWorkItem }): React.ReactElement
       <Text>worktree: {worktree}</Text>
       <Text>agents: {agents}</Text>
       <Text>pr: {pullRequest}</Text>
+      <Text>deps: {dependencies}</Text>
+      <Text>unblocks: {dependents}</Text>
     </Box>
   )
 }

@@ -21,5 +21,6 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("issue gh-130 Extract benchmark result dashboard [review]")
     expect(stdout).toContain("agents: claude read idle")
     expect(stdout).toContain("pr: pr-45 review_requested checks:passing")
+    expect(stdout).toContain("deps: gh-121(in_progress), gh-120(todo)")
   })
 })

@@ -10,13 +10,25 @@ AgentBridge SHALL provide an isolated prototype that loads an AgentHub workflow 
 
 - **WHEN** the user runs `agentbridge tui --file <path> --print`
 - **THEN** the command prints a deterministic terminal tree
-- **AND** the tree includes projects, epics, issues, linked worktrees, linked agents, and linked PR state.
+- **AND** the tree includes projects, epics, issues, linked worktrees, linked agents, linked PR state, and work item dependencies.
 
 #### Scenario: Workflow references are invalid
 
 - **WHEN** a workflow file references a missing work item or worktree
 - **THEN** the command fails before rendering
 - **AND** the error identifies the invalid reference.
+
+#### Scenario: Work item depends on multiple tasks
+
+- **WHEN** a work item declares `depends_on` with multiple work item ids
+- **THEN** the derived model exposes all dependencies with their current statuses
+- **AND** each dependency exposes the dependent work item as something it unblocks.
+
+#### Scenario: Work item dependencies contain a cycle
+
+- **WHEN** work items depend on each other in a cycle
+- **THEN** AgentBridge rejects the workflow file before rendering
+- **AND** the error identifies that a dependency cycle exists.
 
 ### Requirement: TUI prototype is isolated
 

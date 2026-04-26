@@ -29,6 +29,7 @@ function renderItem(item: WorkflowWorkItemView, prefix: string, last: boolean): 
     `worktree: ${formatWorktree(item)}`,
     `agents: ${formatAgents(item)}`,
     `pr: ${formatPullRequest(item)}`,
+    `deps: ${formatDependencies(item)}`,
   ]
   details.forEach((detail, index) => {
     const detailLast = index === details.length - 1 && item.children.length === 0
@@ -61,4 +62,9 @@ function formatAgents(item: WorkflowWorkItemView): string {
 function formatPullRequest(item: WorkflowWorkItemView): string {
   if (!item.pullRequest) return "none"
   return `${item.pullRequest.id} ${item.pullRequest.status}${item.pullRequest.checks ? ` checks:${item.pullRequest.checks}` : ""}`
+}
+
+function formatDependencies(item: WorkflowWorkItemView): string {
+  if (item.dependencies.length === 0) return "none"
+  return item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
 }
