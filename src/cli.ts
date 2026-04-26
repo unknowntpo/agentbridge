@@ -27,7 +27,7 @@ import { openManagedSession } from "./local/sessionOpen.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runtime/sessionPermissions.js"
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
 import { runWorkflowTui } from "./tui/WorkflowTui.js"
-import { renderWorkflowTree } from "./tui/workflowTree.js"
+import { parseWorkflowCliView, renderWorkflowTree, renderWorkflowView } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
 
 const RUNTIME_DIR = path.join(os.homedir(), ".agentbridge")
@@ -53,6 +53,7 @@ interface SessionCommandOptions {
   base?: string
   file?: string
   print?: boolean
+  view?: string
   project?: string
   worktreeId?: string
   worktreePath?: string
@@ -170,6 +171,15 @@ async function main(): Promise<void> {
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
       await runTui(options)
+    })
+
+  program
+    .command("workflow")
+    .description("Print read-only AgentHub workflow projections from a workflow YAML file.")
+    .requiredOption("--file <path>", "AgentHub workflow YAML file.")
+    .option("--view <view>", "View to print: task-tree, dependency, ready, agents.", "task-tree")
+    .action(async (options: SessionCommandOptions) => {
+      await runWorkflow(options)
     })
 
   session
@@ -493,6 +503,14 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
   }
 
   await runWorkflowTui(model)
+}
+
+async function runWorkflow(options: SessionCommandOptions): Promise<void> {
+  if (!options.file) {
+    throw new Error("`agentbridge workflow` requires `--file <path>`.")
+  }
+  const model = await loadWorkflowFile(path.resolve(options.file))
+  console.log(renderWorkflowView(model, parseWorkflowCliView(options.view)))
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

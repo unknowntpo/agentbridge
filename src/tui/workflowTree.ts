@@ -1,7 +1,43 @@
 import type { WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
 
+export const WorkflowCliView = {
+  TaskTree: "task-tree",
+  Dependency: "dependency",
+  Ready: "ready",
+  Agents: "agents",
+} as const
+
+export type WorkflowCliView = (typeof WorkflowCliView)[keyof typeof WorkflowCliView]
+
+const WORKFLOW_CLI_VIEW_VALUES = new Set<string>(Object.values(WorkflowCliView))
+
 export function renderWorkflowTree(model: WorkflowViewModel): string {
   return model.projects.map(renderProject).join("\n\n")
+}
+
+export function renderWorkflowView(model: WorkflowViewModel, view: WorkflowCliView): string {
+  switch (view) {
+    case WorkflowCliView.TaskTree:
+      return renderWorkflowTree(model)
+    case WorkflowCliView.Dependency:
+      return model.projects.map(renderDependencyProject).join("\n\n")
+    case WorkflowCliView.Ready:
+      return model.projects.map(renderReadyProject).join("\n\n")
+    case WorkflowCliView.Agents:
+      return model.projects.map(renderAgentsProject).join("\n\n")
+  }
+}
+
+export function parseWorkflowCliView(input: string | undefined): WorkflowCliView {
+  if (!input) return WorkflowCliView.TaskTree
+  if (isWorkflowCliView(input)) {
+    return input
+  }
+  throw new Error("workflow view must be one of: task-tree, dependency, ready, agents")
+}
+
+function isWorkflowCliView(input: string): input is WorkflowCliView {
+  return WORKFLOW_CLI_VIEW_VALUES.has(input)
 }
 
 function renderProject(project: WorkflowProjectView): string {
@@ -14,6 +50,80 @@ function renderProject(project: WorkflowProjectView): string {
   project.rootItems.forEach((item, index) => {
     lines.push(...renderItem(item, "", index === project.rootItems.length - 1))
   })
+
+  return lines.join("\n")
+}
+
+function renderDependencyProject(project: WorkflowProjectView): string {
+  const lines = [
+    `${project.name} (${project.id})`,
+    "Dependency View",
+  ]
+
+  const items = project.workItems.filter((item) => item.type !== "epic")
+  for (const item of items) {
+    lines.push(`${item.id} [${item.status}] ${item.title}`)
+    if (item.dependents.length === 0) {
+      lines.push("  └─> none")
+      continue
+    }
+    item.dependents.forEach((dependent, index) => {
+      const connector = index === item.dependents.length - 1 ? "└─>" : "├─>"
+      lines.push(`  ${connector} ${dependent.id} [${dependent.status}] ${dependent.title}`)
+    })
+  }
+
+  return lines.join("\n")
+}
+
+function renderReadyProject(project: WorkflowProjectView): string {
+  const items = project.workItems.filter((item) => item.type !== "epic")
+  const ready = items.filter((item) => item.status === "todo" && item.dependencies.every((dependency) => dependency.status === "done"))
+  const blocked = items.filter((item) => item.dependencies.some((dependency) => dependency.status !== "done"))
+
+  const lines = [
+    `${project.name} (${project.id})`,
+    "Ready View",
+    "Ready",
+  ]
+  if (ready.length === 0) {
+    lines.push("- none")
+  } else {
+    for (const item of ready) lines.push(`- ${item.id} ${item.title} [${item.status}]`)
+  }
+
+  lines.push("Blocked")
+  if (blocked.length === 0) {
+    lines.push("- none")
+  } else {
+    for (const item of blocked) {
+      lines.push(`- ${item.id} ${item.title} [${item.status}]`)
+      lines.push(`  blocked by: ${formatDependencies(item)}`)
+    }
+  }
+
+  return lines.join("\n")
+}
+
+function renderAgentsProject(project: WorkflowProjectView): string {
+  const lines = [
+    `${project.name} (${project.id})`,
+    "Agents View",
+  ]
+
+  if (project.agents.length === 0) {
+    lines.push("- none")
+    return lines.join("\n")
+  }
+
+  for (const agent of project.agents) {
+    const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
+    const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
+    lines.push(`${agent.id} ${agent.provider} ${agent.mode} ${agent.status}`)
+    lines.push(`  worktree: ${worktree ? `${worktree.path} (${worktree.branch})` : agent.worktree}`)
+    lines.push(`  task: ${item ? `${item.id} ${item.title} [${item.status}]` : "none"}`)
+    lines.push(`  deps: ${item ? formatDependencies(item) : "none"}`)
+  }
 
   return lines.join("\n")
 }

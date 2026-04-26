@@ -49,3 +49,29 @@ AgentBridge SHALL keep workflow parsing and relationship derivation in a pure mo
 - **WHEN** the CLI print renderer or Ink renderer needs workflow state
 - **THEN** it receives the same derived view model from the parser
 - **AND** renderer code does not reimplement relationship lookup.
+
+### Requirement: Workflow projections are explicit
+
+AgentBridge SHALL expose named workflow projections so task breakdown, dependency graph, ready queue, and agent state do not get confused with Git commit graph views.
+
+#### Scenario: User prints task breakdown
+
+- **WHEN** the user runs `agentbridge workflow --file <path> --view task-tree`
+- **THEN** the command prints epic/issue hierarchy and linked worktree, agent, PR, and dependency metadata.
+
+#### Scenario: User prints dependency graph
+
+- **WHEN** the user runs `agentbridge workflow --file <path> --view dependency`
+- **THEN** the command prints task dependency arrows
+- **AND** does not represent the output as a Git commit graph.
+
+#### Scenario: User prints actionable ready queue
+
+- **WHEN** the user runs `agentbridge workflow --file <path> --view ready`
+- **THEN** the command prints tasks that can start now
+- **AND** separately lists blocked tasks with unmet dependencies.
+
+#### Scenario: User prints agent assignment view
+
+- **WHEN** the user runs `agentbridge workflow --file <path> --view agents`
+- **THEN** the command prints each agent with provider, mode, status, worktree, task, and task dependencies.
