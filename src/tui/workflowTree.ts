@@ -6,7 +6,6 @@ export const WorkflowCliView = {
   Ready: "ready",
   Agents: "agents",
   Commits: "commits",
-  Lifecycle: "lifecycle",
 } as const
 
 export type WorkflowCliView = (typeof WorkflowCliView)[keyof typeof WorkflowCliView]
@@ -36,8 +35,6 @@ export function renderWorkflowView(model: WorkflowViewModel, view: WorkflowCliVi
       return model.projects.map(renderAgentsProject).join("\n\n")
     case WorkflowCliView.Commits:
       return model.projects.map(renderCommitsProject).join("\n\n")
-    case WorkflowCliView.Lifecycle:
-      return model.projects.map(renderLifecycleProject).join("\n\n")
   }
 }
 
@@ -46,7 +43,7 @@ export function parseWorkflowCliView(input: string | undefined): WorkflowCliView
   if (isWorkflowCliView(input)) {
     return input
   }
-  throw new Error("workflow view must be one of: task-tree, dependency, ready, agents, commits, lifecycle")
+  throw new Error("workflow view must be one of: task-tree, dependency, ready, agents, commits")
 }
 
 export function formatAgentProviderBadge(provider: WorkflowAgentConfig["provider"]): string {
@@ -171,39 +168,6 @@ function renderCommitsProject(project: WorkflowProjectView): string {
   return lines.join("\n")
 }
 
-function renderLifecycleProject(project: WorkflowProjectView): string {
-  const projectPath = project.root ?? "."
-  const defaultWorktree = project.worktrees[0]
-  const defaultCommit = project.commits[0]
-  const baseRef = defaultCommit?.shortHash ?? "HEAD"
-  const worktreeSlug = "wt/new-task"
-  const branchName = "agent/new-task"
-  const worktreePath = defaultWorktree?.path ?? `${projectPath}/${worktreeSlug}`
-  const worktreeId = defaultWorktree?.id ?? "<worktree-id>"
-  const prompt = `Work on ${branchName}`
-
-  return [
-    `${project.name} (${project.id})`,
-    "Lifecycle View",
-    "",
-    "1. Open or create a project",
-    `   existing repo: agentbridge tui --project ${quoteShell(projectPath)} --view commits`,
-    "   new layout:    agentbridge project create <project-dir> --repo <repo-url-or-path> --branch main",
-    "",
-    "2. Create a worktree for a task",
-    `   agentbridge worktree create ${quoteShell(worktreeSlug)} --project ${quoteShell(projectPath)} --branch ${quoteShell(branchName)} --base ${quoteShell(baseRef)}`,
-    "",
-    "3. Deploy a write agent on a worktree",
-    `   agentbridge agent deploy --worktree-id ${quoteShell(worktreeId)} --worktree-path ${quoteShell(worktreePath)} --provider codex --mode write --profile workspace-write --prompt ${quoteShell(prompt)}`,
-    "",
-    "4. Chat with or attach to that agent in another terminal",
-    `   agentbridge session open --latest --provider codex --cwd ${quoteShell(worktreePath)}`,
-    "",
-    "5. Keep this TUI open",
-    "   File watch is active for --project mode; local Git/file changes auto-refresh this view.",
-  ].join("\n")
-}
-
 function renderItem(item: WorkflowWorkItemView, prefix: string, last: boolean): string[] {
   const branch = last ? "└─" : "├─"
   const childPrefix = `${prefix}${last ? "   " : "│  "}`
@@ -264,9 +228,4 @@ function formatCommitWorktrees(worktrees: WorkflowProjectView["commits"][number]
 
 function agentStatusIcon(status: string): string {
   return status === "running" ? "[*]" : "[.]"
-}
-
-function quoteShell(value: string): string {
-  if (/^[A-Za-z0-9_./:@=-]+$/.test(value)) return value
-  return `'${value.replaceAll("'", "'\\''")}'`
 }

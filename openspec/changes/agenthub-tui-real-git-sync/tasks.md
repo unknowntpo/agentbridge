@@ -7,7 +7,13 @@
 - [x] Add TUI/CLI support for `--project <path>`.
 - [x] Add commit projection view and TUI view control.
 - [x] Add project file watch auto-refresh for interactive project TUI.
-- [x] Add lifecycle command view for project/worktree/agent/chat flow.
+- [x] Test lifecycle command handlers for project/worktree/agent/chat flow.
+- [x] Plan direct TUI lifecycle actions for project/worktree/agent/chat flow.
+- [ ] Add direct TUI project create/open action.
+- [ ] Add direct TUI worktree create action bound to a selected commit/ref.
+- [ ] Add direct TUI agent deploy action bound to the selected worktree.
+- [ ] Add direct TUI session/chat handoff action for deployed agents.
+- [ ] Add end-to-end TUI lifecycle coverage once action handlers exist.
 - [x] Add tests for commit scanning/projection and CLI project rendering.
 - [x] Run targeted tests.
 - [x] Run `bun run check`.

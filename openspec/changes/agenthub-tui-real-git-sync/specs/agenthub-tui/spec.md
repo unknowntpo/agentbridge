@@ -12,29 +12,22 @@ The TUI prototype SHALL support both mock workflow YAML and read-only real proje
 - **THEN** AgentBridge scans the local Git project containing that path
 - **AND** prints a deterministic terminal projection derived from real Git worktree and commit state.
 
-#### Scenario: User refreshes a real project TUI
-
-- **GIVEN** the user started `agentbridge tui --project <path>` interactively
-- **WHEN** the user presses `r`
-- **THEN** AgentBridge reloads the Git-backed project snapshot
-- **AND** updates the TUI model without changing the repository.
-
 #### Scenario: Project changes auto-refresh the TUI
 
 - **GIVEN** the user started `agentbridge tui --project <path>` interactively
 - **WHEN** files or Git metadata under that project change
 - **THEN** AgentBridge reloads the project snapshot after a short debounce
-- **AND** updates the TUI without requiring the user to press `r`.
+- **AND** updates the TUI without requiring manual refresh.
 
-### Requirement: Lifecycle command guidance
+### Requirement: Lifecycle operations
 
-The TUI SHALL expose copyable commands for the full local lifecycle without requiring complex forms inside the terminal UI.
+The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creation, agent deployment, and session chat/open SHALL be implemented as real actions before they appear as interactive TUI affordances.
 
-#### Scenario: User asks for lifecycle guidance
+#### Scenario: User evaluates lifecycle support
 
-- **WHEN** the user opens the `lifecycle` view
-- **THEN** the TUI prints commands for opening or creating a project, creating a worktree, deploying a Codex agent, and opening a chat session in another terminal
-- **AND** those commands are derived from the currently loaded project and worktree state where possible.
+- **WHEN** AgentHub lifecycle support is tested
+- **THEN** project creation, worktree creation, agent deployment, and session chat/open are verified through AgentBridge command handlers where those handlers exist
+- **AND** unsupported direct TUI actions are tracked as implementation gaps instead of being presented as a lifecycle view.
 
 ### Requirement: Workflow projections are explicit
 
@@ -45,8 +38,3 @@ AgentBridge SHALL expose named workflow projections so task breakdown, dependenc
 - **WHEN** the user runs `agentbridge workflow --project <path> --view commits`
 - **THEN** the command prints a commit projection
 - **AND** each commit row includes the short hash, subject, refs, linked worktrees, and local dirty/ahead/behind state where available.
-
-#### Scenario: User prints lifecycle commands
-
-- **WHEN** the user runs `agentbridge workflow --project <path> --view lifecycle`
-- **THEN** the command prints lifecycle commands for project, worktree, agent deploy, and session-open actions.

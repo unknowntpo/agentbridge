@@ -12,11 +12,12 @@ AgentHub needs one sync path where CLI/TUI can read the same Git-backed project 
 - Add a pure projection from `ProjectScan` to the existing TUI `WorkflowViewModel`.
 - Allow `agentbridge tui --project <path>` and `agentbridge workflow --project <path>` to render real project state without a YAML file.
 - Add a commit projection view that shows commit messages, refs, worktree bindings, dirty/clean state, ahead/behind state, and detached worktrees where available.
-- Add a refresh control in the interactive TUI so project-backed views can reload the Git snapshot.
+- Add file-watch based auto-refresh for interactive project TUI sessions so users do not need a manual refresh command.
+- Verify the current lifecycle path through existing AgentBridge command handlers, and document the gap for direct TUI actions.
 
 ## Non-goals
 
 - Do not start provider agents from the TUI in this change.
 - Do not mutate Git state.
 - Do not replace the YAML prototype; YAML remains useful for issue/work planning.
-- Do not implement continuous filesystem watching here. Live events can reuse this scan/projection path later.
+- Do not add a static lifecycle/help view. Lifecycle actions should become real TUI actions backed by command handlers, not copy-only text.

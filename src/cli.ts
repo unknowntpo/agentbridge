@@ -176,7 +176,7 @@ async function main(): Promise<void> {
     .description("Preview an AgentHub workflow YAML or real Git project in the terminal.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
-    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits, lifecycle.", "task-tree")
+    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits.", "task-tree")
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
       await runTui(options)
@@ -187,7 +187,7 @@ async function main(): Promise<void> {
     .description("Print read-only AgentHub workflow projections from YAML or real Git project state.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
-    .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits, lifecycle.", "task-tree")
+    .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits.", "task-tree")
     .action(async (options: SessionCommandOptions) => {
       await runWorkflow(options)
     })
@@ -509,9 +509,8 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
     return
   }
 
-  const reloadModel = options.project ? async () => loadProjectWorkflowModel(options.project!) : undefined
   const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project) : undefined
-  await runWorkflowTui(model, view, reloadModel, subscribeModelUpdates)
+  await runWorkflowTui(model, view, subscribeModelUpdates)
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {

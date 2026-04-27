@@ -6,6 +6,7 @@ import path from "node:path"
 import { describe, expect, it } from "bun:test"
 
 import { getViewportWindow, WORKFLOW_TUI_CONTROLS } from "../src/tui/WorkflowTui.js"
+import { parseWorkflowCliView } from "../src/tui/workflowTree.js"
 
 describe("AgentHub TUI CLI", () => {
   it("keeps TUI view-switching controls visible as a product contract", () => {
@@ -16,8 +17,6 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
-      "6    lifecycle",
-      "r    refresh project",
       "q    quit",
     ])
   })
@@ -27,6 +26,10 @@ describe("AgentHub TUI CLI", () => {
     expect(getViewportWindow(20, 80, 6)).toEqual({ start: 17, end: 23, total: 80 })
     expect(getViewportWindow(79, 80, 6)).toEqual({ start: 74, end: 80, total: 80 })
     expect(getViewportWindow(0, 0, 6)).toEqual({ start: 0, end: 0, total: 0 })
+  })
+
+  it("does not expose the removed lifecycle view as a workflow projection", () => {
+    expect(() => parseWorkflowCliView("lifecycle")).toThrow("workflow view must be one of: task-tree, dependency, ready, agents, commits")
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
@@ -154,15 +157,6 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("worktrees: main clean +0/-0")
   })
 
-  it("prints lifecycle commands for a real project", () => {
-    const stdout = runWorkflowView("lifecycle")
-
-    expect(stdout).toContain("Lifecycle View")
-    expect(stdout).toContain("agentbridge project create <project-dir> --repo <repo-url-or-path> --branch main")
-    expect(stdout).toContain("agentbridge worktree create")
-    expect(stdout).toContain("agentbridge agent deploy")
-    expect(stdout).toContain("agentbridge session open --latest --provider codex")
-  })
 })
 
 function runWorkflowView(view: string): string {

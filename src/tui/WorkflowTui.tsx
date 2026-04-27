@@ -17,8 +17,6 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
-  "6    lifecycle",
-  "r    refresh project",
   "q    quit",
 ] as const
 
@@ -31,7 +29,6 @@ export interface ViewportWindow {
 interface WorkflowTuiProps {
   model: WorkflowViewModel
   initialView?: WorkflowCliViewType
-  reloadModel?: () => Promise<WorkflowViewModel>
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
   onExit?: () => void
 }
@@ -42,13 +39,11 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Ready,
   WorkflowCliView.Agents,
   WorkflowCliView.Commits,
-  WorkflowCliView.Lifecycle,
 ]
 
 export function WorkflowTui({
   model,
   initialView = WorkflowCliView.TaskTree,
-  reloadModel,
   subscribeModelUpdates,
   onExit,
 }: WorkflowTuiProps): React.ReactElement {
@@ -92,20 +87,6 @@ export function WorkflowTui({
     if (input === "3") switchView(WorkflowCliView.Ready, setView, setItemIndex)
     if (input === "4") switchView(WorkflowCliView.Agents, setView, setItemIndex)
     if (input === "5") switchView(WorkflowCliView.Commits, setView, setItemIndex)
-    if (input === "6") switchView(WorkflowCliView.Lifecycle, setView, setItemIndex)
-    if (input === "r" && reloadModel) {
-      setNotice("refreshing project...")
-      void reloadModel()
-        .then((nextModel) => {
-          setCurrentModel(nextModel)
-          setProjectIndex(0)
-          setItemIndex(0)
-          setNotice("project refreshed")
-        })
-        .catch((error: unknown) => {
-          setNotice(error instanceof Error ? error.message : "project refresh failed")
-        })
-    }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
       setItemIndex(0)
@@ -155,7 +136,6 @@ function ControlsHelp(): React.ReactElement {
 export async function runWorkflowTui(
   model: WorkflowViewModel,
   initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
-  reloadModel?: () => Promise<WorkflowViewModel>,
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void,
 ): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
@@ -163,7 +143,6 @@ export async function runWorkflowTui(
     <WorkflowTui
       model={model}
       initialView={initialView}
-      reloadModel={reloadModel}
       subscribeModelUpdates={subscribeModelUpdates}
       onExit={() => instance?.unmount()}
     />,
