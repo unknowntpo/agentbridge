@@ -275,6 +275,47 @@ describe("AgentHub TUI CLI", () => {
       "agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0",
     ])
     expect(stdout.output).toContain("agent open command copied to clipboard")
+    expect(stdout.output).toContain("copied")
+  })
+
+  it("copies the selected agent handoff command when a terminal mouse press is received", async () => {
+    const stdout = new FakeTtyOutput()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const copied: string[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithManagedAgent(),
+        initialView: "agents",
+        copyToClipboard: async (text) => {
+          copied.push(text)
+          return { ok: true, message: "copied" }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("\u001b[?1006h")
+
+    stdin.write("\u001b[<0;10;10M")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(copied).toEqual([
+      "agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0",
+    ])
+    expect(stdout.output).toContain("agent open command copied to clipboard")
+    expect(stdout.output).toContain("copied")
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
@@ -497,7 +538,7 @@ function runWorkflowView(view: string): string {
 class CaptureStream extends Writable {
   readonly columns = 120
   readonly rows = 40
-  readonly isTTY = false
+  readonly isTTY: boolean = false
   readonly chunks: string[] = []
 
   get output(): string {
@@ -508,6 +549,10 @@ class CaptureStream extends Writable {
     this.chunks.push(chunk.toString())
     callback()
   }
+}
+
+class FakeTtyOutput extends CaptureStream {
+  override readonly isTTY = true
 }
 
 class FakeTtyInput extends PassThrough {

@@ -80,6 +80,14 @@ interface DeployDraft {
   field: DeployFormField
 }
 
+interface CopyEffect {
+  command: string
+  copiedAt: number
+}
+
+const ENABLE_MOUSE_REPORTING = "\u001b[?1000h\u001b[?1002h\u001b[?1003h\u001b[?1006h\u001b[?1015h"
+const DISABLE_MOUSE_REPORTING = "\u001b[?1000l\u001b[?1002l\u001b[?1003l\u001b[?1006l\u001b[?1015l"
+
 export function WorkflowTui({
   model,
   initialView = WorkflowCliView.TaskTree,
@@ -98,6 +106,7 @@ export function WorkflowTui({
   const [view, setView] = useState<WorkflowCliViewType>(initialView)
   const [handoff, setHandoff] = useState<WorkflowTuiDeployResult | null>(null)
   const [deployDraft, setDeployDraft] = useState<DeployDraft | null>(null)
+  const [copyEffect, setCopyEffect] = useState<CopyEffect | null>(null)
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
@@ -129,17 +138,23 @@ export function WorkflowTui({
     if (view !== WorkflowCliView.Agents || !selectedAgentCommand) return undefined
     if (!isRawModeSupported || !stdin.isTTY || !stdout.isTTY) return undefined
 
-    stdout.write("\u001b[?1000h\u001b[?1006h")
+    stdout.write(ENABLE_MOUSE_REPORTING)
     const onData = (data: Buffer) => {
       if (!isMousePress(data.toString("utf8"))) return
-      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice)
+      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice, setCopyEffect)
     }
     stdin.on("data", onData)
     return () => {
       stdin.off("data", onData)
-      stdout.write("\u001b[?1000l\u001b[?1006l")
+      stdout.write(DISABLE_MOUSE_REPORTING)
     }
   }, [copyToClipboard, isRawModeSupported, selectedAgentCommand, stdin, stdout, view])
+
+  useEffect(() => {
+    if (!copyEffect) return undefined
+    const timer = setTimeout(() => setCopyEffect(null), 1_600)
+    return () => clearTimeout(timer)
+  }, [copyEffect])
 
   useInput((input, key) => {
     if (deployDraft) {
@@ -227,7 +242,7 @@ export function WorkflowTui({
         setNotice("no selected agent handoff command to copy")
         return
       }
-      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice)
+      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice, setCopyEffect)
       return
     }
     if (input === "1") switchView(WorkflowCliView.TaskTree, setView, setItemIndex)
@@ -278,7 +293,7 @@ export function WorkflowTui({
       {view === WorkflowCliView.TaskTree
         ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} maxRows={bodyRows} />
         : view === WorkflowCliView.Agents
-          ? <AgentsProjectionView project={project} itemIndex={itemIndex} maxRows={bodyRows} />
+          ? <AgentsProjectionView project={project} itemIndex={itemIndex} maxRows={bodyRows} copyEffect={copyEffect} />
         : <ProjectionView lines={projectionLines} itemIndex={itemIndex} maxRows={bodyRows} />}
     </Box>
   )
@@ -398,7 +413,17 @@ function ProjectionView({ lines, itemIndex, maxRows }: { lines: string[]; itemIn
   )
 }
 
-function AgentsProjectionView({ project, itemIndex, maxRows }: { project: WorkflowProjectView; itemIndex: number; maxRows: number }): React.ReactElement {
+function AgentsProjectionView({
+  project,
+  itemIndex,
+  maxRows,
+  copyEffect,
+}: {
+  project: WorkflowProjectView
+  itemIndex: number
+  maxRows: number
+  copyEffect: CopyEffect | null
+}): React.ReactElement {
   const visibleCardCount = Math.max(1, Math.floor(maxRows / 8))
   const viewport = getViewportWindow(itemIndex, project.agents.length, visibleCardCount)
   const visibleAgents = project.agents.slice(viewport.start, viewport.end)
@@ -417,7 +442,7 @@ function AgentsProjectionView({ project, itemIndex, maxRows }: { project: Workfl
             selected={viewport.start + visibleIndex === itemIndex}
           />
         ))}
-      {selectedAgent ? <SelectedAgentCommandPanel agent={selectedAgent} project={project} /> : null}
+      {selectedAgent ? <SelectedAgentCommandPanel agent={selectedAgent} project={project} copyEffect={copyEffect} /> : null}
     </Box>
   )
 }
@@ -459,12 +484,26 @@ function AgentCard({
   )
 }
 
-function SelectedAgentCommandPanel({ agent, project }: { agent: WorkflowAgentConfig; project: WorkflowProjectView }): React.ReactElement {
+function SelectedAgentCommandPanel({
+  agent,
+  project,
+  copyEffect,
+}: {
+  agent: WorkflowAgentConfig
+  project: WorkflowProjectView
+  copyEffect: CopyEffect | null
+}): React.ReactElement {
   const command = getAgentHandoffCommand(project, agent)
+  const copied = Boolean(command && copyEffect?.command === command)
   return (
     <Box flexDirection="column" marginTop={1} paddingX={1}>
-      <Text color="gray">copy command for selected agent: <Text color="yellow">press y</Text> or click while this panel is visible</Text>
-      <Text color={command ? "green" : "gray"} wrap="truncate-end">{command ?? "no managed session id"}</Text>
+      <Text color="gray">
+        copy command for selected agent: <Text color="yellow">press y</Text> or click while this panel is visible
+        {copied ? <Text color="green">  copied</Text> : null}
+      </Text>
+      <Text color={copied ? "green" : command ? "cyan" : "gray"} inverse={copied} wrap="truncate-end">
+        {command ?? "no managed session id"}
+      </Text>
     </Box>
   )
 }
@@ -603,16 +642,22 @@ function getAgentHandoffCommand(project: WorkflowProjectView, agent: WorkflowAge
 }
 
 function isMousePress(input: string): boolean {
-  return /\u001b\[<\d+;\d+;\d+M/.test(input)
+  return /\u001b\[<\d+;\d+;\d+M/.test(input) || /\u001b\[M[\s\S]{3}/.test(input)
 }
 
 async function copyAgentCommand(
   command: string,
   copyToClipboard: ClipboardCopy,
   setNotice: (value: string | null) => void,
+  setCopyEffect: (value: CopyEffect | null) => void,
 ): Promise<void> {
   const result = await copyToClipboard(command)
-  setNotice(result.ok ? "agent open command copied to clipboard" : result.message)
+  if (result.ok) {
+    setCopyEffect({ command, copiedAt: Date.now() })
+    setNotice("agent open command copied to clipboard")
+    return
+  }
+  setNotice(result.message)
 }
 
 function nextDeployField(field: DeployFormField): DeployFormField {
