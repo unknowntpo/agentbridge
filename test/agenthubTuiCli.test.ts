@@ -25,6 +25,7 @@ describe("AgentHub TUI CLI", () => {
       "4    agents",
       "5    commits",
       "d    deploy codex",
+      "y    copy selected agent open command",
       "q    quit",
     ])
   })
@@ -235,7 +236,45 @@ describe("AgentHub TUI CLI", () => {
     await instance.waitUntilExit()
 
     expect(stdout.output).toContain("> [.] ◎ Codex codex-thr-managed")
-    expect(stdout.output).toContain("open: agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0")
+    expect(stdout.output).toContain("copy command for selected agent")
+    expect(stdout.output).toContain("agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0")
+  })
+
+  it("copies the selected agent handoff command from the agents view", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const copied: string[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithManagedAgent(),
+        initialView: "agents",
+        copyToClipboard: async (text) => {
+          copied.push(text)
+          return { ok: true, message: "copied" }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("y")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(copied).toEqual([
+      "agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0",
+    ])
+    expect(stdout.output).toContain("agent open command copied to clipboard")
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {

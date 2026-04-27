@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react"
-import { Box, render, Text, useInput, useWindowSize } from "ink"
+import { Box, render, Text, useInput, useStdin, useStdout, useWindowSize } from "ink"
 
 import type { PermissionProfile, ProviderKind } from "../types.js"
 import type { AgentMode, WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView, WorkflowWorktreeConfig } from "../agenthub/workflowConfig.js"
+import { type ClipboardCopy, copyTextToClipboard } from "../local/clipboard.js"
 import { buildSessionOpenCommand } from "../local/handoffCommand.js"
 import {
   formatAgentProviderBadge,
@@ -21,6 +22,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "4    agents",
   "5    commits",
   "d    deploy codex",
+  "y    copy selected agent open command",
   "q    quit",
 ] as const
 
@@ -35,6 +37,7 @@ interface WorkflowTuiProps {
   initialView?: WorkflowCliViewType
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
   deployAgent?: WorkflowTuiDeployHandler
+  copyToClipboard?: ClipboardCopy
   onExit?: () => void
 }
 
@@ -82,9 +85,12 @@ export function WorkflowTui({
   initialView = WorkflowCliView.TaskTree,
   subscribeModelUpdates,
   deployAgent,
+  copyToClipboard = copyTextToClipboard,
   onExit,
 }: WorkflowTuiProps): React.ReactElement {
   const { rows } = useWindowSize()
+  const { stdin, isRawModeSupported } = useStdin()
+  const { stdout } = useStdout()
   const [currentModel, setCurrentModel] = useState(model)
   const [notice, setNotice] = useState<string | null>(null)
   const [projectIndex, setProjectIndex] = useState(0)
@@ -100,6 +106,9 @@ export function WorkflowTui({
     ? []
     : renderWorkflowView(currentModel, view).split(/\r?\n/)
   const currentViewSize = getViewSize(view, items.length, project.agents.length, projectionLines.length)
+  const selectedAgentCommand = view === WorkflowCliView.Agents
+    ? getSelectedAgentHandoffCommand(project, itemIndex)
+    : null
 
   useEffect(() => {
     if (!subscribeModelUpdates) return undefined
@@ -115,6 +124,22 @@ export function WorkflowTui({
       },
     )
   }, [subscribeModelUpdates])
+
+  useEffect(() => {
+    if (view !== WorkflowCliView.Agents || !selectedAgentCommand) return undefined
+    if (!isRawModeSupported || !stdin.isTTY || !stdout.isTTY) return undefined
+
+    stdout.write("\u001b[?1000h\u001b[?1006h")
+    const onData = (data: Buffer) => {
+      if (!isMousePress(data.toString("utf8"))) return
+      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice)
+    }
+    stdin.on("data", onData)
+    return () => {
+      stdin.off("data", onData)
+      stdout.write("\u001b[?1000l\u001b[?1006l")
+    }
+  }, [copyToClipboard, isRawModeSupported, selectedAgentCommand, stdin, stdout, view])
 
   useInput((input, key) => {
     if (deployDraft) {
@@ -195,6 +220,14 @@ export function WorkflowTui({
 
     if (input === "q") {
       onExit?.()
+      return
+    }
+    if (input === "y") {
+      if (!selectedAgentCommand) {
+        setNotice("no selected agent handoff command to copy")
+        return
+      }
+      void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice)
       return
     }
     if (input === "1") switchView(WorkflowCliView.TaskTree, setView, setItemIndex)
@@ -369,6 +402,7 @@ function AgentsProjectionView({ project, itemIndex, maxRows }: { project: Workfl
   const visibleCardCount = Math.max(1, Math.floor(maxRows / 8))
   const viewport = getViewportWindow(itemIndex, project.agents.length, visibleCardCount)
   const visibleAgents = project.agents.slice(viewport.start, viewport.end)
+  const selectedAgent = project.agents[Math.min(itemIndex, Math.max(0, project.agents.length - 1))]
 
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -383,6 +417,7 @@ function AgentsProjectionView({ project, itemIndex, maxRows }: { project: Workfl
             selected={viewport.start + visibleIndex === itemIndex}
           />
         ))}
+      {selectedAgent ? <SelectedAgentCommandPanel agent={selectedAgent} project={project} /> : null}
     </Box>
   )
 }
@@ -401,13 +436,6 @@ function AgentCard({
   const statusColor = agent.status === "running" ? "green" : "gray"
   const modeColor = agent.mode === "write" ? "yellow" : "blue"
   const providerColor = getProviderColor(agent.provider)
-  const handoffCommand = agent.session_id && worktree && isSessionOpenProvider(agent.provider)
-    ? buildSessionOpenCommand({
-      sessionId: agent.session_id,
-      provider: agent.provider,
-      cwd: worktree.path,
-    })
-    : null
   const deps = item?.dependencies.length
     ? item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id}(${dependency.status})`).join(", ")
     : "none"
@@ -427,9 +455,16 @@ function AgentCard({
       <Text>worktree: <Text color="cyan">{worktree?.path ?? agent.worktree}</Text></Text>
       <Text>task: {item ? <Text color="yellow">{item.id} {item.title} [{item.status}]</Text> : <Text color="gray">none</Text>}</Text>
       <Text>deps: <Text color={deps === "none" ? "gray" : "red"}>{deps}</Text></Text>
-      {selected
-        ? <Text>open: <Text color={handoffCommand ? "green" : "gray"}>{handoffCommand ?? "no managed session id"}</Text></Text>
-        : null}
+    </Box>
+  )
+}
+
+function SelectedAgentCommandPanel({ agent, project }: { agent: WorkflowAgentConfig; project: WorkflowProjectView }): React.ReactElement {
+  const command = getAgentHandoffCommand(project, agent)
+  return (
+    <Box flexDirection="column" marginTop={1} paddingX={1}>
+      <Text color="gray">copy command for selected agent: <Text color="yellow">press y</Text> or click while this panel is visible</Text>
+      <Text color={command ? "green" : "gray"} wrap="truncate-end">{command ?? "no managed session id"}</Text>
     </Box>
   )
 }
@@ -549,6 +584,35 @@ function fieldMarker(current: DeployFormField, field: DeployFormField): string {
 
 function isSessionOpenProvider(provider: WorkflowAgentConfig["provider"]): provider is ProviderKind {
   return provider === "codex" || provider === "gemini"
+}
+
+function getSelectedAgentHandoffCommand(project: WorkflowProjectView, itemIndex: number): string | null {
+  const agent = project.agents[Math.min(itemIndex, Math.max(0, project.agents.length - 1))]
+  if (!agent) return null
+  return getAgentHandoffCommand(project, agent)
+}
+
+function getAgentHandoffCommand(project: WorkflowProjectView, agent: WorkflowAgentConfig): string | null {
+  const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
+  if (!agent.session_id || !worktree || !isSessionOpenProvider(agent.provider)) return null
+  return buildSessionOpenCommand({
+    sessionId: agent.session_id,
+    provider: agent.provider,
+    cwd: worktree.path,
+  })
+}
+
+function isMousePress(input: string): boolean {
+  return /\u001b\[<\d+;\d+;\d+M/.test(input)
+}
+
+async function copyAgentCommand(
+  command: string,
+  copyToClipboard: ClipboardCopy,
+  setNotice: (value: string | null) => void,
+): Promise<void> {
+  const result = await copyToClipboard(command)
+  setNotice(result.ok ? "agent open command copied to clipboard" : result.message)
 }
 
 function nextDeployField(field: DeployFormField): DeployFormField {

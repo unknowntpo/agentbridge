@@ -48,6 +48,7 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **THEN** AgentBridge joins the persisted binding to the scanned worktree by canonical workspace path
 - **AND** renders the provider, mode, status, branch, and worktree path in the agents projection
 - **AND** exposes a copyable `agentbridge session open ...` handoff command when a managed session id is available.
+- **AND** in interactive TUI mode, the selected agent handoff command is rendered outside the bordered card and can be copied to the system clipboard from the keyboard or mouse.
 
 #### Scenario: Tasks and dependencies show agent presence
 

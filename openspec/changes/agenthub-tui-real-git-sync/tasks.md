@@ -16,6 +16,7 @@
 - [x] Join persisted agent bindings into project TUI projections.
 - [x] Show provider icons on tasks and dependencies with linked agents.
 - [x] Show copyable session open commands for focused agents.
+- [x] Copy focused agent session open command to clipboard from the TUI.
 - [ ] Add direct TUI project create/open action.
 - [ ] Add direct TUI worktree create action bound to a selected commit/ref.
 - [ ] Add direct TUI embedded chat action for deployed agents.
