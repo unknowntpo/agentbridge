@@ -38,6 +38,13 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **AND** persists enough session state for handoff
 - **AND** shows a copyable `agentbridge session open ...` command for continuing in another terminal.
 
+#### Scenario: Persisted agent sessions appear in project projections
+
+- **GIVEN** AgentBridge has persisted a managed session binding for a worktree path
+- **WHEN** the user opens or prints `agentbridge tui --project <path> --view agents`
+- **THEN** AgentBridge joins the persisted binding to the scanned worktree by canonical workspace path
+- **AND** renders the provider, mode, status, branch, and worktree path in the agents projection.
+
 ### Requirement: Workflow projections are explicit
 
 AgentBridge SHALL expose named workflow projections so task breakdown, dependency graph, ready queue, agent state, and Git commit state do not get confused.

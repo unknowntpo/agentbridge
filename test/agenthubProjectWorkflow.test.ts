@@ -9,6 +9,7 @@ import { GitCommandRunner } from "../src/agenthub/gitRunner.js"
 import { AgentHubProjectService } from "../src/agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "../src/agenthub/projectWorkflow.js"
 import { renderWorkflowView, WorkflowCliView } from "../src/tui/workflowTree.js"
+import type { ThreadBinding } from "../src/types.js"
 
 describe("AgentHub real Git workflow projection", () => {
   it("syncs project, worktree, and commit state into a TUI workflow model", async () => {
@@ -48,6 +49,46 @@ describe("AgentHub real Git workflow projection", () => {
     expect(output).toContain("worktrees: checkout-retry clean +0/-0")
   })
 
+  it("projects managed agent bindings onto matching scanned worktrees", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-agent-projection-"))
+    const source = path.join(root, "source")
+    const plainDir = path.join(root, "demo")
+    createSourceRepo(source)
+
+    const service = new AgentHubProjectService({
+      git: new GitCommandRunner({ timeoutMs: 10_000 }),
+      projects: [{ id: "demo", label: "Demo Project", path: plainDir }],
+    })
+
+    await service.createProject({ plainDir, repo: source, branch: "main" })
+    const mainWorktreePath = path.join(plainDir, "main")
+    const scan = await service.scanProject(plainDir)
+    const model = deriveWorkflowViewModelFromProjectScan(scan, {
+      bindings: [testBinding({
+        threadId: "agenthub:thr-agent-1",
+        sessionId: "thr-agent-1",
+        workspacePath: mainWorktreePath,
+        state: "bound_idle",
+      })],
+    })
+
+    const project = model.projects[0]!
+    expect(project.summary.agents).toBe(1)
+    expect(project.agents).toMatchObject([{
+      id: "codex-thr-agent-1",
+      provider: "codex",
+      mode: "write",
+      status: "idle",
+      worktree: project.worktrees[0]!.id,
+    }])
+    expect(project.workItems.some((item) => item.agents.length === 1)).toBe(true)
+
+    const output = renderWorkflowView(model, WorkflowCliView.Agents)
+    expect(output).toContain("Agents View")
+    expect(output).toContain("[.] ◎ Codex codex-thr-agent-1")
+    expect(output).toContain(`worktree: ${fs.realpathSync(mainWorktreePath)}`)
+  })
+
   it("can scan one unlisted local repository for CLI project onboarding", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-unlisted-"))
     createSourceRepo(root)
@@ -79,4 +120,24 @@ function git(cwd: string, args: string[]): void {
     stdio: "pipe",
     env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null" },
   })
+}
+
+function testBinding(overrides: Partial<ThreadBinding>): ThreadBinding {
+  const now = "2026-04-27T00:00:00.000Z"
+  return {
+    threadId: "agenthub:thr-test",
+    sessionId: "thr-test",
+    provider: "codex",
+    backend: "app-server",
+    workspaceId: null,
+    workspaceLabel: "main",
+    workspacePath: "/tmp/demo/main",
+    permissionProfile: "workspace-write",
+    state: "bound_idle",
+    createdAt: now,
+    updatedAt: now,
+    lastError: null,
+    lastReadMessageId: null,
+    ...overrides,
+  }
 }

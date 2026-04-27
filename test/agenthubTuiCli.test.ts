@@ -11,6 +11,7 @@ import React from "react"
 import type { WorkflowViewModel } from "../src/agenthub/workflowConfig.js"
 import { buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
 import { buildSessionOpenCommand } from "../src/local/handoffCommand.js"
+import { SQLiteStateStore } from "../src/state/sqliteStateStore.js"
 import { createProjectModelSubscriber, shouldIgnoreWatchPath } from "../src/tui/projectModelSubscriber.js"
 import { parseWorkflowCliView } from "../src/tui/workflowTree.js"
 
@@ -326,6 +327,80 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("Commit View")
     expect(stdout).toContain("Initial commit")
     expect(stdout).toContain("worktrees: main clean +0/-0")
+  })
+
+  it("prints managed agents for a real project by joining persisted bindings to worktrees", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-tui-agent-projection-"))
+    const plainDir = path.join(root, "demo")
+    const source = path.join(root, "source")
+    const sqlitePath = path.join(root, "state.db")
+    createSourceRepo(source)
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "project",
+      "create",
+      plainDir,
+      "--repo",
+      source,
+      "--branch",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    const stateStore = new SQLiteStateStore(sqlitePath)
+    stateStore.initialize()
+    try {
+      const now = "2026-04-27T00:00:00.000Z"
+      stateStore.saveBinding({
+        threadId: "agenthub:thr-print-agent",
+        sessionId: "thr-print-agent",
+        provider: "codex",
+        backend: "app-server",
+        workspaceId: null,
+        workspaceLabel: "main",
+        workspacePath: path.join(plainDir, "main"),
+        permissionProfile: "workspace-write",
+        state: "bound_idle",
+        createdAt: now,
+        updatedAt: now,
+        lastError: null,
+        lastReadMessageId: null,
+      })
+    } finally {
+      stateStore.close()
+    }
+
+    const stdout = execFileSync("bun", [
+      "src/cli.ts",
+      "tui",
+      "--project",
+      plainDir,
+      "--view",
+      "agents",
+      "--print",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+        AGENTBRIDGE_SQLITE_PATH: sqlitePath,
+      },
+    })
+
+    expect(stdout).toContain("Demo Project (demo)")
+    expect(stdout).toContain("Agents View")
+    expect(stdout).toContain("[.] ◎ Codex codex-thr-print-agent")
+    expect(stdout).toContain("provider: Codex   mode: write   status: idle")
+    expect(stdout).toContain(`worktree: ${fs.realpathSync(path.join(plainDir, "main"))}`)
   })
 
 })

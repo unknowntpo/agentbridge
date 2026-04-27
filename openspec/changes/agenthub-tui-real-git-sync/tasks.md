@@ -11,6 +11,7 @@
 - [x] Plan direct TUI lifecycle actions for project/worktree/agent/chat flow.
 - [x] Add direct TUI agent deploy action bound to the selected worktree.
 - [x] Add direct TUI session handoff command for deployed agents.
+- [x] Join persisted agent bindings into project TUI projections.
 - [ ] Add direct TUI project create/open action.
 - [ ] Add direct TUI worktree create action bound to a selected commit/ref.
 - [ ] Add direct TUI embedded chat action for deployed agents.

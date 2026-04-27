@@ -532,8 +532,17 @@ async function loadWorkflowModelFromOptions(options: SessionCommandOptions, comm
 }
 
 async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowViewModel> {
+  const config = loadConfig()
   const service = createAgentHubProjectServiceFromEnv()
-  return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath))
+  const stateStore = new SQLiteStateStore(config.sqlitePath)
+  stateStore.initialize()
+  try {
+    return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath), {
+      bindings: stateStore.listBindings(),
+    })
+  } finally {
+    stateStore.close()
+  }
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {
