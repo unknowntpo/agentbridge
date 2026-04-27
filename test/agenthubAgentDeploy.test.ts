@@ -83,6 +83,39 @@ describe("AgentHub agent deploy", () => {
       "- repo: /repo",
     ].join("\n"))
   })
+
+  it("deploys Gemini through the selected provider adapter instead of Codex", async () => {
+    const adapter = new FakeGeminiAdapter()
+    const session = await deployAgent({
+      worktreeId: "wt-main",
+      worktreePath: "/repo/project/main",
+      provider: "gemini",
+      mode: "read",
+      profile: "workspace-read",
+      prompt: "summarize this worktree",
+    }, {
+      config,
+      adapter,
+      now: () => "2026-04-25T00:00:00.000Z",
+    })
+
+    expect(adapter.prompts).toEqual(["summarize this worktree"])
+    expect(session).toMatchObject({
+      id: "gemini-real",
+      provider: "Gemini",
+      mode: "read",
+      profile: "workspace-read",
+      workingDirectory: "/repo/project/main",
+      mocked: false,
+    })
+    expect(session.messages[0]?.text).toBe("Gemini read session started through AgentBridge daemon/CLI.")
+    expect(session.runs[0]).toMatchObject({
+      title: "Real Gemini turn",
+      command: "gemini -o json",
+      state: "completed",
+    })
+    expect(session.skills.loaded).toEqual(["gemini-cli", "agentbridge"])
+  })
 })
 
 class FakeAdapter implements SessionAdapter {
@@ -95,6 +128,25 @@ class FakeAdapter implements SessionAdapter {
     return {
       sessionId: "thr-real",
       output: "real codex output",
+      events: [],
+    }
+  }
+
+  async resumeSession(): Promise<never> {
+    throw new Error("not used")
+  }
+}
+
+class FakeGeminiAdapter implements SessionAdapter {
+  readonly provider = "gemini" as const
+  readonly backendKind = "cli" as const
+  readonly prompts: string[] = []
+
+  async startSession(prompt: string) {
+    this.prompts.push(prompt)
+    return {
+      sessionId: "gemini-real",
+      output: "real gemini output",
       events: [],
     }
   }

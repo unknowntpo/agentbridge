@@ -66,6 +66,10 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **WHEN** the user presses Enter, up, or down
 - **THEN** the current row is accepted and focus moves to the next row.
 - **AND** the provider field can switch between Codex and Gemini before deployment.
+- **WHEN** the user confirms deployment
+- **THEN** AgentBridge deploys using the selected provider rather than falling back to Codex
+- **AND** Gemini deployments use the Gemini CLI backend without starting the Codex app-server
+- **AND** the persisted handoff command and binding use the same selected provider.
 
 ### Requirement: Workflow projections are explicit
 

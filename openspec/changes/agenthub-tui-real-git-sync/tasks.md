@@ -14,6 +14,7 @@
 - [x] Add TUI deploy draft with permission, workspace, and initial prompt.
 - [x] Make TUI deploy draft keyboard-selectable by field.
 - [x] Add TUI deploy draft provider selection with Tab value switching and Enter/arrow row navigation.
+- [x] Honor selected provider in TUI deploy and route Gemini through its CLI backend.
 - [x] Join persisted agent bindings into project TUI projections.
 - [x] Show provider icons on tasks and dependencies with linked agents.
 - [x] Show copyable session open commands for focused agents.

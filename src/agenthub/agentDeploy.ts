@@ -3,6 +3,7 @@ import net from "node:net"
 import { CodexAppServerAdapter } from "../codex/codexAppServerAdapter.js"
 import { CodexAppServerSupervisor } from "../codex/appServerSupervisor.js"
 import { loadConfig, type BridgeConfig } from "../config/config.js"
+import { GeminiCliAdapter } from "../gemini/geminiCliAdapter.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "../runtime/sessionPermissions.js"
 import type { PermissionProfile, ProviderKind, ResolvedWorkspace, SessionAdapter, TrustedWorkspace } from "../types.js"
 
@@ -70,21 +71,17 @@ export async function deployAgent(request: AgentDeployRequest, options: {
       trustedWorkspaces: config.trustedWorkspaces,
     }))
   }
-  if (request.provider !== "codex") {
-    throw new Error("AgentHub real deploy currently supports Codex only.")
+  if (options.adapter && options.adapter.provider !== request.provider) {
+    throw new Error(`Injected ${options.adapter.provider} adapter cannot deploy ${request.provider} sessions.`)
   }
 
-  const stop = options.adapter ? async () => {} : await ensureCodexAppServer(config)
+  const stop = options.adapter || request.provider !== "codex" ? async () => {} : await ensureCodexAppServer(config)
   try {
-    const adapter = options.adapter ?? new CodexAppServerAdapter(
-      `ws://${config.codexAppServerHost}:${config.codexAppServerPort}`,
-      permission.workspace.path,
-      profile,
-      config.codexAppServerApprovalPolicy,
-    )
+    const adapter = options.adapter ?? createProviderAdapter(request.provider, config, permission.workspace.path, profile)
     const result = await adapter.startSession(request.prompt)
     const now = options.now?.() ?? new Date().toISOString()
     const provider = displayProvider(request.provider)
+    const backendLabel = adapter.backendKind === "app-server" ? "app-server" : "CLI"
     return {
       id: result.sessionId,
       worktreeId: request.worktreeId,
@@ -96,28 +93,46 @@ export async function deployAgent(request: AgentDeployRequest, options: {
       workingDirectory: permission.workspace.path,
       mocked: false,
       messages: [
-        message("system", `${provider} ${request.mode} session started through AgentBridge daemon/app-server.`, now),
+        message("system", `${provider} ${request.mode} session started through AgentBridge daemon/${backendLabel}.`, now),
         message("user", request.prompt, now),
         message("assistant", result.output || "(no output)", now),
       ],
       runs: [{
         id: `run-${result.sessionId}`,
-        title: "Real Codex turn",
-        command: "codex app-server turn/start",
+        title: `Real ${provider} turn`,
+        command: providerCommand(request.provider, adapter.backendKind),
         state: "completed",
         elapsed: "now",
       }],
       artifacts: [],
       skills: {
-        loaded: ["codex-app-server", "agentbridge"],
+        loaded: providerSkills(request.provider),
         suggested: ["frontend-feedback-loop"],
         blocked: [],
-        events: [`${now} real Codex session ${result.sessionId} started`],
+        events: [`${now} real ${provider} session ${result.sessionId} started`],
       },
     }
   } finally {
     await stop()
   }
+}
+
+function createProviderAdapter(
+  provider: ProviderKind,
+  config: BridgeConfig,
+  cwd: string,
+  profile: PermissionProfile,
+): SessionAdapter {
+  if (provider === "gemini") {
+    return new GeminiCliAdapter(config.geminiCommand, config.geminiArgs, cwd, profile)
+  }
+
+  return new CodexAppServerAdapter(
+    `ws://${config.codexAppServerHost}:${config.codexAppServerPort}`,
+    cwd,
+    profile,
+    config.codexAppServerApprovalPolicy,
+  )
 }
 
 function formatDeployApprovalRequiredMessage(options: {
@@ -172,6 +187,20 @@ function isPortOpen(host: string, port: number): Promise<boolean> {
 
 function displayProvider(provider: ProviderKind): "Codex" | "Gemini" {
   return provider === "gemini" ? "Gemini" : "Codex"
+}
+
+function providerCommand(provider: ProviderKind, backendKind: SessionAdapter["backendKind"]): string {
+  if (provider === "gemini") {
+    return "gemini -o json"
+  }
+
+  return backendKind === "app-server" ? "codex app-server turn/start" : "codex"
+}
+
+function providerSkills(provider: ProviderKind): string[] {
+  return provider === "gemini"
+    ? ["gemini-cli", "agentbridge"]
+    : ["codex-app-server", "agentbridge"]
 }
 
 function message(role: "user" | "assistant" | "system", text: string, at: string) {

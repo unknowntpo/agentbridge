@@ -132,7 +132,7 @@ async function main(): Promise<void> {
     .requiredOption("--worktree-id <id>", "Frontend/worktree id to attach the session to.")
     .requiredOption("--worktree-path <path>", "Worktree directory used as provider working directory.")
     .requiredOption("--prompt <text>", "Initial task prompt for the agent.")
-    .option("--provider <provider>", "Provider to use (`codex`).", "codex")
+    .option("--provider <provider>", "Provider to use (`codex` or `gemini`).", "codex")
     .option("--mode <mode>", "Agent mode (`read` or `write`).", "write")
     .option("--profile <profile>", "Permission profile.", "workspace-write")
     .option("--json", "Emit machine-readable JSON.")
@@ -776,7 +776,7 @@ async function runSessionOpen(options: SessionCommandOptions): Promise<void> {
 
 function createTuiDeployAgentHandler() {
   return async (request: WorkflowTuiDeployRequest): Promise<WorkflowTuiDeployResult> => {
-    const provider: ProviderKind = "codex"
+    const provider: ProviderKind = request.provider
     const profile = parsePermissionProfile(request.profile)
     const session = await deployAgentHandler({
       worktreeId: request.worktreeId,
@@ -796,7 +796,7 @@ function createTuiDeployAgentHandler() {
         threadId: `agenthub:${session.id}`,
         sessionId: session.id,
         provider,
-        backend: "app-server",
+        backend: provider === "codex" ? "app-server" : "cli",
         workspaceId: null,
         workspaceLabel: request.worktreeId,
         workspacePath: session.workingDirectory,
