@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Box, render, Text, useInput, useWindowSize } from "ink"
 
 import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
@@ -17,6 +17,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
+  "6    lifecycle",
   "r    refresh project",
   "q    quit",
 ] as const
@@ -31,6 +32,7 @@ interface WorkflowTuiProps {
   model: WorkflowViewModel
   initialView?: WorkflowCliViewType
   reloadModel?: () => Promise<WorkflowViewModel>
+  subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
   onExit?: () => void
 }
 
@@ -40,9 +42,16 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Ready,
   WorkflowCliView.Agents,
   WorkflowCliView.Commits,
+  WorkflowCliView.Lifecycle,
 ]
 
-export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, reloadModel, onExit }: WorkflowTuiProps): React.ReactElement {
+export function WorkflowTui({
+  model,
+  initialView = WorkflowCliView.TaskTree,
+  reloadModel,
+  subscribeModelUpdates,
+  onExit,
+}: WorkflowTuiProps): React.ReactElement {
   const { rows } = useWindowSize()
   const [currentModel, setCurrentModel] = useState(model)
   const [notice, setNotice] = useState<string | null>(null)
@@ -58,6 +67,21 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, rel
     : renderWorkflowView(currentModel, view).split(/\r?\n/)
   const currentViewSize = getViewSize(view, items.length, project.agents.length, projectionLines.length)
 
+  useEffect(() => {
+    if (!subscribeModelUpdates) return undefined
+    return subscribeModelUpdates(
+      (nextModel) => {
+        setCurrentModel(nextModel)
+        setProjectIndex(0)
+        setItemIndex(0)
+        setNotice("project auto-refreshed")
+      },
+      (error) => {
+        setNotice(error instanceof Error ? error.message : "project auto-refresh failed")
+      },
+    )
+  }, [subscribeModelUpdates])
+
   useInput((input, key) => {
     if (input === "q") {
       onExit?.()
@@ -68,6 +92,7 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, rel
     if (input === "3") switchView(WorkflowCliView.Ready, setView, setItemIndex)
     if (input === "4") switchView(WorkflowCliView.Agents, setView, setItemIndex)
     if (input === "5") switchView(WorkflowCliView.Commits, setView, setItemIndex)
+    if (input === "6") switchView(WorkflowCliView.Lifecycle, setView, setItemIndex)
     if (input === "r" && reloadModel) {
       setNotice("refreshing project...")
       void reloadModel()
@@ -131,9 +156,18 @@ export async function runWorkflowTui(
   model: WorkflowViewModel,
   initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
   reloadModel?: () => Promise<WorkflowViewModel>,
+  subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void,
 ): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
-  instance = render(<WorkflowTui model={model} initialView={initialView} reloadModel={reloadModel} onExit={() => instance?.unmount()} />)
+  instance = render(
+    <WorkflowTui
+      model={model}
+      initialView={initialView}
+      reloadModel={reloadModel}
+      subscribeModelUpdates={subscribeModelUpdates}
+      onExit={() => instance?.unmount()}
+    />,
+  )
   await instance.waitUntilExit()
 }
 

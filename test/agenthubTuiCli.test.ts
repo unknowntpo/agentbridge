@@ -16,6 +16,7 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
+      "6    lifecycle",
       "r    refresh project",
       "q    quit",
     ])
@@ -151,6 +152,16 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("Commit View")
     expect(stdout).toContain("Initial commit")
     expect(stdout).toContain("worktrees: main clean +0/-0")
+  })
+
+  it("prints lifecycle commands for a real project", () => {
+    const stdout = runWorkflowView("lifecycle")
+
+    expect(stdout).toContain("Lifecycle View")
+    expect(stdout).toContain("agentbridge project create <project-dir> --repo <repo-url-or-path> --branch main")
+    expect(stdout).toContain("agentbridge worktree create")
+    expect(stdout).toContain("agentbridge agent deploy")
+    expect(stdout).toContain("agentbridge session open --latest --provider codex")
   })
 })
 

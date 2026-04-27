@@ -62,6 +62,11 @@ interface SessionCommandOptions {
   mode?: string
 }
 
+type ProjectModelSubscriber = (
+  onUpdate: (model: WorkflowViewModel) => void,
+  onError: (error: unknown) => void,
+) => () => void
+
 async function main(): Promise<void> {
   const program = new Command()
     .name("agentbridge")
@@ -171,7 +176,7 @@ async function main(): Promise<void> {
     .description("Preview an AgentHub workflow YAML or real Git project in the terminal.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
-    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits.", "task-tree")
+    .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits, lifecycle.", "task-tree")
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
       await runTui(options)
@@ -182,7 +187,7 @@ async function main(): Promise<void> {
     .description("Print read-only AgentHub workflow projections from YAML or real Git project state.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
-    .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits.", "task-tree")
+    .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits, lifecycle.", "task-tree")
     .action(async (options: SessionCommandOptions) => {
       await runWorkflow(options)
     })
@@ -505,7 +510,8 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
   }
 
   const reloadModel = options.project ? async () => loadProjectWorkflowModel(options.project!) : undefined
-  await runWorkflowTui(model, view, reloadModel)
+  const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project) : undefined
+  await runWorkflowTui(model, view, reloadModel, subscribeModelUpdates)
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {
@@ -529,6 +535,53 @@ async function loadWorkflowModelFromOptions(options: SessionCommandOptions, comm
 async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowViewModel> {
   const service = createAgentHubProjectServiceFromEnv()
   return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath))
+}
+
+function createProjectModelSubscriber(projectPath: string): ProjectModelSubscriber {
+  return (onUpdate, onError) => {
+    const watchRoot = path.resolve(projectPath)
+    let closed = false
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+    const scheduleReload = () => {
+      if (closed) return
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        void loadProjectWorkflowModel(watchRoot)
+          .then((model) => {
+            if (!closed) onUpdate(model)
+          })
+          .catch((error: unknown) => {
+            if (!closed) onError(error)
+          })
+      }, 250)
+    }
+
+    let watcher: fs.FSWatcher | undefined
+    try {
+      watcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
+        if (filename && shouldIgnoreWatchPath(filename.toString())) return
+        scheduleReload()
+      })
+    } catch (error) {
+      onError(error)
+    }
+
+    return () => {
+      closed = true
+      if (debounceTimer) clearTimeout(debounceTimer)
+      watcher?.close()
+    }
+  }
+}
+
+function shouldIgnoreWatchPath(filename: string): boolean {
+  return (
+    filename.includes("node_modules/") ||
+    filename.includes("/dist/") ||
+    filename.includes("/test-results/") ||
+    filename.endsWith(".tmp")
+  )
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {
