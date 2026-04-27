@@ -47,9 +47,10 @@
 - 相關測試：`test/sessionNew.test.ts`、`test/sessionOpen.test.ts`、`test/sessionAttach.test.ts`、`test/agentBridge.test.ts`、`test/discordGatewayAdapter.test.ts`。
 
 5. 目前 TUI 是否能直接做上述 lifecycle 操作。
-- 不能。
-- 目前 TUI 只做 workflow / project scan 的瀏覽與視圖切換，沒有 project create、worktree create、agent deploy、session open/attach 的互動入口。
-- 相關程式碼：`[src/tui/WorkflowTui.tsx](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/tui/WorkflowTui.tsx:13)` 只有視圖、游標與模型更新，沒有 lifecycle action。
+- 部分可以。
+- 目前 TUI 已支援第一個真 lifecycle action：按 `d` 從可用 worktree 部署 Codex write agent，並顯示 `agentbridge session open ...` handoff command。
+- 目前 TUI 仍不支援直接建立 Project、建立 Worktree、或內嵌聊天。
+- 相關程式碼：`[src/tui/WorkflowTui.tsx](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/tui/WorkflowTui.tsx:13)` 目前包含 view switching、auto-sync model update、deploy action 與 handoff panel。
 
 6. 目前 TUI 是否已移除 manual refresh。
 - 是，已移除。
@@ -59,7 +60,7 @@
 7. auto-sync 是否存在並合理。
 - 存在，且已補直接測試。
 - CLI 端：`[src/cli.ts](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/cli.ts:512)` 會在 `--project` interactive TUI 模式把 `createProjectModelSubscriber(...)` 注入 TUI。
-- Auto-sync 模組：`[src/tui/projectModelSubscriber.ts](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/tui/projectModelSubscriber.ts:19)` 使用 `fs.watch(watchRoot, { recursive: true }, ...)`，並加上 polling fallback。這是必要的，因為 Bun runtime 在本環境的 `node:fs.watch` probe 沒有穩定觸發。
+- Auto-sync 模組：`[src/tui/projectModelSubscriber.ts](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/tui/projectModelSubscriber.ts:19)` 使用 `fs.watch(watchRoot, { recursive: true }, ...)`，並加上低頻 polling fallback。這是必要的，因為 Bun runtime 在本環境的 `node:fs.watch` probe 沒有穩定觸發。
 - TUI 端：`[src/tui/WorkflowTui.tsx](/Users/unknowntpo/repo/unknowntpo/agentbridge/main/src/tui/WorkflowTui.tsx:66)` 在 `subscribeModelUpdates` 回傳的 `onUpdate` 裡會 `setCurrentModel(nextModel)`、重置游標，並顯示 `project auto-refreshed`。
 - 測試覆蓋：`test/agenthubTuiCli.test.ts` 已驗證 auto-sync 觀察到 project file change 後會 reload model，也驗證 TUI subscriber 收到新 model 後會重繪並顯示 `project auto-refreshed`。
 
@@ -71,7 +72,8 @@
 9. 目前缺口與下一步實作建議。
 - 需要補更高層級 interactive TUI smoke：啟動真 TUI、修改真 Git branch/worktree、觀察 terminal UI 自動更新。
 - 需要再補一個穩定的非 sandbox deploy smoke，讓一般 `bun run test` 也能跑 CLI deploy e2e，而不是在 sandbox 裡 skip。
-- 如果要把 TUI 真的變成 lifecycle 操作入口，還需要新增明確的 action layer，不只是 workflow preview。
+- TUI 已有最小 deploy action，但還需要補 Project create、Worktree create，以及 provider/permission/prompt 選擇流程。
+- 內嵌 chat 先不是主路徑；目前主路徑是 handoff command，讓使用者在另一個 terminal 繼續。
 
 ## 最終判定
 
@@ -79,6 +81,6 @@
 - worktree create：已支援。
 - agent deploy：已支援，核心測試通過；升權允許 loopback 後 CLI e2e deploy 通過。
 - chat/open handoff：已支援，但分散在 `session new/open/attach` 與 Discord `/codex chat` 路徑。
-- TUI lifecycle 操作：未支援，仍是 preview / scan 型態。
+- TUI lifecycle 操作：已支援最小 deploy + handoff；Project create、Worktree create、embedded chat 尚未支援。
 - manual refresh：已移除。
 - auto-sync：已接上 `fs.watch` + polling fallback + TUI model update，並已有直接測試覆蓋 project file change reload 與 TUI 重繪。

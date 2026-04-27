@@ -23,7 +23,7 @@ export function createProjectModelSubscriber(
   return (onUpdate, onError) => {
     const watchRoot = path.resolve(projectPath)
     const debounceMs = options.debounceMs ?? 250
-    const pollIntervalMs = options.pollIntervalMs ?? 2_000
+    const pollIntervalMs = options.pollIntervalMs ?? 5_000
     let closed = false
     let debounceTimer: ReturnType<typeof setTimeout> | undefined
     let lastSnapshot = snapshotProjectTree(watchRoot)

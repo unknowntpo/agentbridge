@@ -9,10 +9,11 @@
 - [x] Add project file watch auto-refresh for interactive project TUI.
 - [x] Test lifecycle command handlers for project/worktree/agent/chat flow.
 - [x] Plan direct TUI lifecycle actions for project/worktree/agent/chat flow.
+- [x] Add direct TUI agent deploy action bound to the selected worktree.
+- [x] Add direct TUI session handoff command for deployed agents.
 - [ ] Add direct TUI project create/open action.
 - [ ] Add direct TUI worktree create action bound to a selected commit/ref.
-- [ ] Add direct TUI agent deploy action bound to the selected worktree.
-- [ ] Add direct TUI session/chat handoff action for deployed agents.
+- [ ] Add direct TUI embedded chat action for deployed agents.
 - [ ] Add end-to-end TUI lifecycle coverage once action handlers exist.
 - [x] Add tests for commit scanning/projection and CLI project rendering.
 - [x] Run targeted tests.

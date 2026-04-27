@@ -29,6 +29,15 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **THEN** project creation, worktree creation, agent deployment, and session chat/open are verified through AgentBridge command handlers where those handlers exist
 - **AND** unsupported direct TUI actions are tracked as implementation gaps instead of being presented as a lifecycle view.
 
+#### Scenario: User deploys an agent from the TUI
+
+- **GIVEN** the user opened `agentbridge tui --project <path>` interactively
+- **AND** a worktree is available from the selected task or project snapshot
+- **WHEN** the user presses `d`
+- **THEN** AgentBridge deploys a Codex write agent with workspace-write permissions for that worktree
+- **AND** persists enough session state for handoff
+- **AND** shows a copyable `agentbridge session open ...` command for continuing in another terminal.
+
 ### Requirement: Workflow projections are explicit
 
 AgentBridge SHALL expose named workflow projections so task breakdown, dependency graph, ready queue, agent state, and Git commit state do not get confused.

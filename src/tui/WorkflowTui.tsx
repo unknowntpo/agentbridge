@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react"
 import { Box, render, Text, useInput, useWindowSize } from "ink"
 
-import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
+import type { PermissionProfile, ProviderKind } from "../types.js"
+import type { AgentMode, WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView, WorkflowWorktreeConfig } from "../agenthub/workflowConfig.js"
 import {
   formatAgentProviderBadge,
   formatAgentProviderLabel,
@@ -17,6 +18,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
+  "d    deploy codex",
   "q    quit",
 ] as const
 
@@ -30,8 +32,32 @@ interface WorkflowTuiProps {
   model: WorkflowViewModel
   initialView?: WorkflowCliViewType
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
+  deployAgent?: WorkflowTuiDeployHandler
   onExit?: () => void
 }
+
+export interface WorkflowTuiDeployRequest {
+  projectId: string
+  worktreeId: string
+  worktreePath: string
+  branch: string
+  provider: ProviderKind
+  mode: AgentMode
+  profile: PermissionProfile
+  prompt: string
+}
+
+export interface WorkflowTuiDeployResult {
+  sessionId: string
+  provider: ProviderKind
+  mode: AgentMode
+  profile: PermissionProfile
+  worktreeId: string
+  worktreePath: string
+  handoffCommand: string
+}
+
+export type WorkflowTuiDeployHandler = (request: WorkflowTuiDeployRequest) => Promise<WorkflowTuiDeployResult>
 
 const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.TaskTree,
@@ -45,6 +71,7 @@ export function WorkflowTui({
   model,
   initialView = WorkflowCliView.TaskTree,
   subscribeModelUpdates,
+  deployAgent,
   onExit,
 }: WorkflowTuiProps): React.ReactElement {
   const { rows } = useWindowSize()
@@ -53,6 +80,7 @@ export function WorkflowTui({
   const [projectIndex, setProjectIndex] = useState(0)
   const [itemIndex, setItemIndex] = useState(0)
   const [view, setView] = useState<WorkflowCliViewType>(initialView)
+  const [handoff, setHandoff] = useState<WorkflowTuiDeployResult | null>(null)
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
@@ -87,6 +115,26 @@ export function WorkflowTui({
     if (input === "3") switchView(WorkflowCliView.Ready, setView, setItemIndex)
     if (input === "4") switchView(WorkflowCliView.Agents, setView, setItemIndex)
     if (input === "5") switchView(WorkflowCliView.Commits, setView, setItemIndex)
+    if (input === "d") {
+      const request = buildDeployRequest(project, selected)
+      if (!request) {
+        setNotice("no worktree available for deploy")
+        return
+      }
+      if (!deployAgent) {
+        setNotice("deploy is unavailable in this TUI mode")
+        return
+      }
+      setNotice(`deploying codex on ${request.worktreeId}...`)
+      void deployAgent(request)
+        .then((result) => {
+          setHandoff(result)
+          setNotice(`deployed ${result.provider} ${result.mode} session ${result.sessionId}`)
+        })
+        .catch((error: unknown) => {
+          setNotice(error instanceof Error ? error.message : "agent deploy failed")
+        })
+    }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
       setItemIndex(0)
@@ -111,6 +159,7 @@ export function WorkflowTui({
       <ControlsHelp />
       {notice ? <Text color="yellow">{notice}</Text> : null}
       <ProjectHeader project={project} />
+      {handoff ? <HandoffPanel handoff={handoff} /> : null}
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
         ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} maxRows={bodyRows} />
@@ -137,6 +186,7 @@ export async function runWorkflowTui(
   model: WorkflowViewModel,
   initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void,
+  deployAgent?: WorkflowTuiDeployHandler,
 ): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
   instance = render(
@@ -144,10 +194,23 @@ export async function runWorkflowTui(
       model={model}
       initialView={initialView}
       subscribeModelUpdates={subscribeModelUpdates}
+      deployAgent={deployAgent}
       onExit={() => instance?.unmount()}
     />,
   )
   await instance.waitUntilExit()
+}
+
+function HandoffPanel({ handoff }: { handoff: WorkflowTuiDeployResult }): React.ReactElement {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1} paddingY={1} marginTop={1}>
+      <Text bold color="green">Agent deployed</Text>
+      <Text>session: {handoff.sessionId}</Text>
+      <Text>worktree: {handoff.worktreePath}</Text>
+      <Text color="yellow">open another terminal and run:</Text>
+      <Text>{handoff.handoffCommand}</Text>
+    </Box>
+  )
 }
 
 function TaskTreeView({
@@ -343,4 +406,28 @@ function switchView(
 ): void {
   setView(next)
   setItemIndex(0)
+}
+
+function buildDeployRequest(project: WorkflowProjectView, selected: FlattenedWorkItem | undefined): WorkflowTuiDeployRequest | null {
+  const worktree = selected?.worktree ?? project.worktrees[0]
+  if (!worktree) return null
+  return buildDeployRequestForWorktree(project, worktree, selected)
+}
+
+export function buildDeployRequestForWorktree(
+  project: WorkflowProjectView,
+  worktree: WorkflowWorktreeConfig,
+  selected?: Pick<WorkflowWorkItemView, "id" | "title">,
+): WorkflowTuiDeployRequest {
+  const taskLabel = selected ? `${selected.id} ${selected.title}` : worktree.branch
+  return {
+    projectId: project.id,
+    worktreeId: worktree.id,
+    worktreePath: worktree.path,
+    branch: worktree.branch,
+    provider: "codex",
+    mode: "write",
+    profile: "workspace-write",
+    prompt: `Work on ${taskLabel}`,
+  }
 }

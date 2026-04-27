@@ -19,16 +19,18 @@ import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
-import { deployAgent as deployAgentHandler } from "./agenthub/agentDeploy.js"
+import { deployAgent as deployAgentHandler, ensureCodexAppServer } from "./agenthub/agentDeploy.js"
 import { loadWorkflowFile } from "./agenthub/workflowConfig.js"
 import type { WorkflowViewModel } from "./agenthub/workflowConfig.js"
 import { attachLocalSession } from "./local/sessionAttach.js"
 import { resolveManagedBinding as selectManagedBinding } from "./local/sessionBindingResolver.js"
+import { buildSessionOpenCommand } from "./local/handoffCommand.js"
 import { createManagedLocalSession } from "./local/sessionNew.js"
 import { openManagedSession } from "./local/sessionOpen.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runtime/sessionPermissions.js"
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
 import { runWorkflowTui } from "./tui/WorkflowTui.js"
+import type { WorkflowTuiDeployRequest, WorkflowTuiDeployResult } from "./tui/WorkflowTui.js"
 import { createProjectModelSubscriber } from "./tui/projectModelSubscriber.js"
 import { parseWorkflowCliView, renderWorkflowTree, renderWorkflowView } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
@@ -506,7 +508,7 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
   }
 
   const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project, loadProjectWorkflowModel) : undefined
-  await runWorkflowTui(model, view, subscribeModelUpdates)
+  await runWorkflowTui(model, view, subscribeModelUpdates, createTuiDeployAgentHandler())
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {
@@ -747,9 +749,67 @@ async function runSessionOpen(options: SessionCommandOptions): Promise<void> {
   try {
     const binding = resolveManagedBinding(stateStore, options)
     const cwd = options.cwd ?? process.cwd()
-    await openManagedSession(buildOpenOptionsForBinding(binding, cwd, config))
+    const stop = binding.provider === "codex" ? await ensureCodexAppServer(config) : async () => {}
+    try {
+      await openManagedSession(buildOpenOptionsForBinding(binding, cwd, config))
+    } finally {
+      await stop()
+    }
   } finally {
     stateStore.close()
+  }
+}
+
+function createTuiDeployAgentHandler() {
+  return async (request: WorkflowTuiDeployRequest): Promise<WorkflowTuiDeployResult> => {
+    const provider: ProviderKind = "codex"
+    const profile = parsePermissionProfile(request.profile)
+    const session = await deployAgentHandler({
+      worktreeId: request.worktreeId,
+      worktreePath: request.worktreePath,
+      provider,
+      mode: request.mode,
+      profile,
+      prompt: request.prompt,
+    })
+
+    const config = loadConfig()
+    const now = new Date().toISOString()
+    const stateStore = new SQLiteStateStore(config.sqlitePath)
+    stateStore.initialize()
+    try {
+      stateStore.saveBinding({
+        threadId: `agenthub:${session.id}`,
+        sessionId: session.id,
+        provider,
+        backend: "app-server",
+        workspaceId: null,
+        workspaceLabel: request.worktreeId,
+        workspacePath: session.workingDirectory,
+        permissionProfile: profile,
+        state: "bound_idle",
+        createdAt: now,
+        updatedAt: now,
+        lastError: null,
+        lastReadMessageId: null,
+      })
+    } finally {
+      stateStore.close()
+    }
+
+    return {
+      sessionId: session.id,
+      provider,
+      mode: request.mode,
+      profile,
+      worktreeId: request.worktreeId,
+      worktreePath: session.workingDirectory,
+      handoffCommand: buildSessionOpenCommand({
+        sessionId: session.id,
+        provider,
+        cwd: session.workingDirectory,
+      }),
+    }
   }
 }
 

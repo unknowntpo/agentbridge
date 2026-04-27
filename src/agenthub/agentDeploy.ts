@@ -116,7 +116,7 @@ export async function deployAgent(request: AgentDeployRequest, options: {
   }
 }
 
-async function ensureCodexAppServer(config: BridgeConfig): Promise<() => Promise<void>> {
+export async function ensureCodexAppServer(config: BridgeConfig): Promise<() => Promise<void>> {
   if (await isPortOpen(config.codexAppServerHost, config.codexAppServerPort)) {
     return async () => {}
   }

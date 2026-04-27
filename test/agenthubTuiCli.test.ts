@@ -9,7 +9,8 @@ import { render } from "ink"
 import React from "react"
 
 import type { WorkflowViewModel } from "../src/agenthub/workflowConfig.js"
-import { getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
+import { buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
+import { buildSessionOpenCommand } from "../src/local/handoffCommand.js"
 import { createProjectModelSubscriber, shouldIgnoreWatchPath } from "../src/tui/projectModelSubscriber.js"
 import { parseWorkflowCliView } from "../src/tui/workflowTree.js"
 
@@ -22,6 +23,7 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
+      "d    deploy codex",
       "q    quit",
     ])
   })
@@ -121,6 +123,84 @@ describe("AgentHub TUI CLI", () => {
     expect(shouldIgnoreWatchPath("dist/cli.js")).toBe(true)
     expect(shouldIgnoreWatchPath("test-results/screenshot.png")).toBe(true)
     expect(shouldIgnoreWatchPath("src/cli.ts")).toBe(false)
+  })
+
+  it("builds a selected-worktree deploy request with a handoff-safe prompt", () => {
+    const model = minimalModel("Deploy Demo", 1)
+    const project = model.projects[0]!
+    const worktree = project.worktrees[0]!
+    const request = buildDeployRequestForWorktree(project, worktree, {
+      id: "gh-121",
+      title: "Add checkout retry metrics",
+    })
+
+    expect(request).toEqual({
+      projectId: "demo",
+      worktreeId: "wt-0",
+      worktreePath: "/tmp/demo/wt-0",
+      branch: "agent/test-0",
+      provider: "codex",
+      mode: "write",
+      profile: "workspace-write",
+      prompt: "Work on gh-121 Add checkout retry metrics",
+    })
+  })
+
+  it("quotes handoff command arguments that are not shell-safe", () => {
+    const command = buildSessionOpenCommand({
+      sessionId: "session with spaces",
+      provider: "codex",
+      cwd: "/tmp/demo/o'hara worktree",
+    })
+
+    expect(command).toBe("agentbridge session open --session-id 'session with spaces' --provider codex --cwd '/tmp/demo/o'\\''hara worktree'")
+  })
+
+  it("renders a handoff command after deploying from the TUI", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const deployCalls: unknown[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: minimalModel("Deploy Demo", 1),
+        deployAgent: async (request) => {
+          deployCalls.push(request)
+          return {
+            sessionId: "thr-tui",
+            provider: "codex",
+            mode: "write",
+            profile: "workspace-write",
+            worktreeId: request.worktreeId,
+            worktreePath: request.worktreePath,
+            handoffCommand: buildSessionOpenCommand({
+              sessionId: "thr-tui",
+              provider: "codex",
+              cwd: request.worktreePath,
+            }),
+          }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("d")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(deployCalls).toHaveLength(1)
+    expect(stdout.output).toContain("Agent deployed")
+    expect(stdout.output).toContain("agentbridge session open --session-id thr-tui --provider codex --cwd /tmp/demo/wt-0")
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
