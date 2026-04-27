@@ -29,6 +29,7 @@ import { openManagedSession } from "./local/sessionOpen.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runtime/sessionPermissions.js"
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
 import { runWorkflowTui } from "./tui/WorkflowTui.js"
+import { createProjectModelSubscriber } from "./tui/projectModelSubscriber.js"
 import { parseWorkflowCliView, renderWorkflowTree, renderWorkflowView } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
 
@@ -61,11 +62,6 @@ interface SessionCommandOptions {
   worktreePath?: string
   mode?: string
 }
-
-type ProjectModelSubscriber = (
-  onUpdate: (model: WorkflowViewModel) => void,
-  onError: (error: unknown) => void,
-) => () => void
 
 async function main(): Promise<void> {
   const program = new Command()
@@ -509,7 +505,7 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
     return
   }
 
-  const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project) : undefined
+  const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project, loadProjectWorkflowModel) : undefined
   await runWorkflowTui(model, view, subscribeModelUpdates)
 }
 
@@ -534,53 +530,6 @@ async function loadWorkflowModelFromOptions(options: SessionCommandOptions, comm
 async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowViewModel> {
   const service = createAgentHubProjectServiceFromEnv()
   return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath))
-}
-
-function createProjectModelSubscriber(projectPath: string): ProjectModelSubscriber {
-  return (onUpdate, onError) => {
-    const watchRoot = path.resolve(projectPath)
-    let closed = false
-    let debounceTimer: ReturnType<typeof setTimeout> | undefined
-
-    const scheduleReload = () => {
-      if (closed) return
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
-        void loadProjectWorkflowModel(watchRoot)
-          .then((model) => {
-            if (!closed) onUpdate(model)
-          })
-          .catch((error: unknown) => {
-            if (!closed) onError(error)
-          })
-      }, 250)
-    }
-
-    let watcher: fs.FSWatcher | undefined
-    try {
-      watcher = fs.watch(watchRoot, { recursive: true }, (_event, filename) => {
-        if (filename && shouldIgnoreWatchPath(filename.toString())) return
-        scheduleReload()
-      })
-    } catch (error) {
-      onError(error)
-    }
-
-    return () => {
-      closed = true
-      if (debounceTimer) clearTimeout(debounceTimer)
-      watcher?.close()
-    }
-  }
-}
-
-function shouldIgnoreWatchPath(filename: string): boolean {
-  return (
-    filename.includes("node_modules/") ||
-    filename.includes("/dist/") ||
-    filename.includes("/test-results/") ||
-    filename.endsWith(".tmp")
-  )
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

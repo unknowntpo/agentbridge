@@ -2,10 +2,15 @@ import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { PassThrough, Writable } from "node:stream"
 
 import { describe, expect, it } from "bun:test"
+import { render } from "ink"
+import React from "react"
 
-import { getViewportWindow, WORKFLOW_TUI_CONTROLS } from "../src/tui/WorkflowTui.js"
+import type { WorkflowViewModel } from "../src/agenthub/workflowConfig.js"
+import { getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
+import { createProjectModelSubscriber, shouldIgnoreWatchPath } from "../src/tui/projectModelSubscriber.js"
 import { parseWorkflowCliView } from "../src/tui/workflowTree.js"
 
 describe("AgentHub TUI CLI", () => {
@@ -30,6 +35,92 @@ describe("AgentHub TUI CLI", () => {
 
   it("does not expose the removed lifecycle view as a workflow projection", () => {
     expect(() => parseWorkflowCliView("lifecycle")).toThrow("workflow view must be one of: task-tree, dependency, ready, agents, commits")
+  })
+
+  it("updates the interactive TUI model through the auto-sync subscriber path", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    let pushUpdate: ((model: WorkflowViewModel) => void) | undefined
+    let unsubscribed = false
+
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: minimalModel("Before Sync", 0),
+        subscribeModelUpdates: (onUpdate) => {
+          pushUpdate = onUpdate
+          return () => {
+            unsubscribed = true
+          }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: new FakeTtyInput() as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: false,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("Before Sync")
+    expect(pushUpdate).toBeDefined()
+
+    pushUpdate?.(minimalModel("After Sync", 1))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("project auto-refreshed")
+    expect(stdout.output).toContain("After Sync")
+    expect(unsubscribed).toBe(true)
+  })
+
+  it("reloads the project model when auto-sync observes a project file change", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-watch-"))
+    const watchedFile = path.join(root, "change.txt")
+    fs.writeFileSync(watchedFile, "initial\n")
+    let loads = 0
+    let unsubscribe: (() => void) | undefined
+
+    try {
+      const subscriber = createProjectModelSubscriber(root, async (projectPath) => {
+        loads += 1
+        expect(projectPath).toBe(path.resolve(root))
+        return minimalModel("Watched Sync", loads)
+      }, { debounceMs: 20, pollIntervalMs: 50 })
+      const update = new Promise<WorkflowViewModel>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("fs.watch did not trigger project reload")), 3_000)
+        unsubscribe = subscriber(
+          (model) => {
+            clearTimeout(timeout)
+            resolve(model)
+          },
+          (error) => {
+            clearTimeout(timeout)
+            reject(error)
+          },
+        )
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      fs.writeFileSync(watchedFile, "changed\n")
+
+      const model = await update
+      expect(model.projects[0]?.name).toBe("Watched Sync")
+      expect(loads).toBe(1)
+    } finally {
+      unsubscribe?.()
+    }
+  })
+
+  it("keeps noisy generated paths out of project auto-sync", () => {
+    expect(shouldIgnoreWatchPath("node_modules/pkg/index.js")).toBe(true)
+    expect(shouldIgnoreWatchPath("dist/cli.js")).toBe(true)
+    expect(shouldIgnoreWatchPath("test-results/screenshot.png")).toBe(true)
+    expect(shouldIgnoreWatchPath("src/cli.ts")).toBe(false)
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
@@ -172,6 +263,69 @@ function runWorkflowView(view: string): string {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   })
+}
+
+class CaptureStream extends Writable {
+  readonly columns = 120
+  readonly rows = 40
+  readonly isTTY = false
+  readonly chunks: string[] = []
+
+  get output(): string {
+    return this.chunks.join("")
+  }
+
+  _write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    this.chunks.push(chunk.toString())
+    callback()
+  }
+}
+
+class FakeTtyInput extends PassThrough {
+  readonly isTTY = true
+  isRaw = false
+
+  setRawMode(enabled: boolean): this {
+    this.isRaw = enabled
+    return this
+  }
+
+  ref(): this {
+    return this
+  }
+
+  unref(): this {
+    return this
+  }
+}
+
+function minimalModel(projectName: string, worktreeCount: number): WorkflowViewModel {
+  return {
+    projects: [{
+      id: "demo",
+      name: projectName,
+      root: "/tmp/demo",
+      workItems: [],
+      rootItems: [],
+      worktrees: Array.from({ length: worktreeCount }, (_, index) => ({
+        id: `wt-${index}`,
+        name: `wt-${index}`,
+        path: `/tmp/demo/wt-${index}`,
+        branch: `agent/test-${index}`,
+      })),
+      agents: [],
+      pullRequests: [],
+      commits: [],
+      summary: {
+        epics: 0,
+        issues: 0,
+        worktrees: worktreeCount,
+        agents: 0,
+        pullRequests: 0,
+        commits: 0,
+      },
+    }],
+  }
 }
 
 function createSourceRepo(dir: string): void {
