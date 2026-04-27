@@ -46,13 +46,21 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **GIVEN** AgentBridge has persisted a managed session binding for a worktree path
 - **WHEN** the user opens or prints `agentbridge tui --project <path> --view agents`
 - **THEN** AgentBridge joins the persisted binding to the scanned worktree by canonical workspace path
-- **AND** renders the provider, mode, status, branch, and worktree path in the agents projection.
+- **AND** renders the provider, mode, status, branch, and worktree path in the agents projection
+- **AND** exposes a copyable `agentbridge session open ...` handoff command when a managed session id is available.
 
 #### Scenario: Tasks and dependencies show agent presence
 
 - **GIVEN** a task or commit has one or more linked agents
 - **WHEN** AgentBridge renders task-tree, dependency, ready, selected-detail, or agents projections
 - **THEN** the task or dependency label includes provider icons so the user can see active agent ownership without switching to the agents view.
+
+#### Scenario: User navigates the deploy draft as a keyboard form
+
+- **GIVEN** the deploy draft is open
+- **WHEN** the user presses up/down or tab
+- **THEN** the focused form field changes
+- **AND** permission, prompt, deploy, and cancel are distinct focus targets.
 
 ### Requirement: Workflow projections are explicit
 

@@ -12,8 +12,10 @@
 - [x] Add direct TUI agent deploy action bound to the selected worktree.
 - [x] Add direct TUI session handoff command for deployed agents.
 - [x] Add TUI deploy draft with permission, workspace, and initial prompt.
+- [x] Make TUI deploy draft keyboard-selectable by field.
 - [x] Join persisted agent bindings into project TUI projections.
 - [x] Show provider icons on tasks and dependencies with linked agents.
+- [x] Show copyable session open commands for focused agents.
 - [ ] Add direct TUI project create/open action.
 - [ ] Add direct TUI worktree create action bound to a selected commit/ref.
 - [ ] Add direct TUI embedded chat action for deployed agents.

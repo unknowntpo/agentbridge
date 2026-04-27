@@ -3,6 +3,7 @@ import { Box, render, Text, useInput, useWindowSize } from "ink"
 
 import type { PermissionProfile, ProviderKind } from "../types.js"
 import type { AgentMode, WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView, WorkflowWorktreeConfig } from "../agenthub/workflowConfig.js"
+import { buildSessionOpenCommand } from "../local/handoffCommand.js"
 import {
   formatAgentProviderBadge,
   formatAgentProviderIcon,
@@ -68,9 +69,12 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Commits,
 ]
 const DEPLOY_PROFILES: PermissionProfile[] = ["workspace-write", "workspace-read", "full-access"]
+const DEPLOY_FORM_FIELDS = ["permission", "prompt", "deploy", "cancel"] as const
+type DeployFormField = (typeof DEPLOY_FORM_FIELDS)[number]
 
 interface DeployDraft {
   request: WorkflowTuiDeployRequest
+  field: DeployFormField
 }
 
 export function WorkflowTui({
@@ -119,14 +123,34 @@ export function WorkflowTui({
         setNotice("deploy cancelled")
         return
       }
-      if (input === "p") {
+      if (key.upArrow) {
         setDeployDraft((current) => current ? {
+          ...current,
+          field: previousDeployField(current.field),
+        } : current)
+        return
+      }
+      if (key.downArrow || key.tab) {
+        setDeployDraft((current) => current ? {
+          ...current,
+          field: nextDeployField(current.field),
+        } : current)
+        return
+      }
+      if (input === "p" || (deployDraft.field === "permission" && (key.leftArrow || key.rightArrow))) {
+        setDeployDraft((current) => current ? {
+          ...current,
           request: withNextPermissionProfile(current.request),
         } : current)
         return
       }
-      if (key.backspace || key.delete) {
+      if (input === "s" && deployDraft.field !== "prompt") {
+        submitDeployDraft(deployDraft.request, deployAgent, setDeployDraft, setNotice, setHandoff)
+        return
+      }
+      if (deployDraft.field === "prompt" && (key.backspace || key.delete)) {
         setDeployDraft((current) => current ? {
+          ...current,
           request: {
             ...current.request,
             prompt: current.request.prompt.slice(0, -1),
@@ -135,26 +159,31 @@ export function WorkflowTui({
         return
       }
       if (key.return) {
-        if (!deployAgent) {
-          setNotice("deploy is unavailable in this TUI mode")
+        if (deployDraft.field === "cancel") {
           setDeployDraft(null)
+          setNotice("deploy cancelled")
           return
         }
-        const request = deployDraft.request
-        setDeployDraft(null)
-        setNotice(`deploying codex on ${request.worktreeId}...`)
-        void deployAgent(request)
-          .then((result) => {
-            setHandoff(result)
-            setNotice(`deployed ${result.provider} ${result.mode} session ${result.sessionId}`)
-          })
-          .catch((error: unknown) => {
-            setNotice(error instanceof Error ? error.message : "agent deploy failed")
-          })
+        if (deployDraft.field === "permission") {
+          setDeployDraft((current) => current ? {
+            ...current,
+            request: withNextPermissionProfile(current.request),
+          } : current)
+          return
+        }
+        if (deployDraft.field !== "deploy") {
+          setDeployDraft((current) => current ? {
+            ...current,
+            field: nextDeployField(current.field),
+          } : current)
+          return
+        }
+        submitDeployDraft(deployDraft.request, deployAgent, setDeployDraft, setNotice, setHandoff)
         return
       }
-      if (input && !key.ctrl && !key.meta && !key.tab) {
+      if (deployDraft.field === "prompt" && input && !key.ctrl && !key.meta && !key.tab) {
         setDeployDraft((current) => current ? {
+          ...current,
           request: {
             ...current.request,
             prompt: `${current.request.prompt}${input}`,
@@ -183,8 +212,8 @@ export function WorkflowTui({
         setNotice("deploy is unavailable in this TUI mode")
         return
       }
-      setDeployDraft({ request })
-      setNotice("deploy draft opened; edit prompt, press p to switch permission, Enter to deploy")
+      setDeployDraft({ request, field: "permission" })
+      setNotice("deploy draft opened; ↑↓ choose field, ←→ switch permission, Enter confirm")
     }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
@@ -229,7 +258,7 @@ function ControlsHelp(): React.ReactElement {
       {WORKFLOW_TUI_CONTROLS.map((control) => (
         <Text key={control} color="gray">{control}</Text>
       ))}
-      <Text color="gray">↑↓   scroll/focus current view</Text>
+      <Text color="gray">↑↓   scroll/focus current view or form field</Text>
     </Box>
   )
 }
@@ -269,13 +298,20 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
       <Text bold color="yellow">Deploy agent</Text>
-      <Text>provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text></Text>
-      <Text>permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(p cycles)</Text></Text>
+      <Text>{fieldMarker(draft.field, "permission")} permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(←/→ or p)</Text></Text>
+      <Text>  provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text></Text>
       <Text>workspace: <Text color="cyan">{draft.request.worktreePath}</Text></Text>
       <Text>branch: <Text color="cyan">{draft.request.branch}</Text></Text>
-      <Text>initial prompt:</Text>
-      <Text color="green">{draft.request.prompt}<Text color="gray">_</Text></Text>
-      <Text color="gray">Enter deploy · p permission · Backspace edit · c/Esc cancel</Text>
+      <Text>{fieldMarker(draft.field, "prompt")} initial prompt:</Text>
+      <Text color={draft.field === "prompt" ? "green" : "gray"}>  {draft.request.prompt}{draft.field === "prompt" ? <Text color="gray">_</Text> : null}</Text>
+      <Box>
+        <Text>{fieldMarker(draft.field, "deploy")} </Text>
+        <Text color={draft.field === "deploy" ? "green" : "gray"}>[ Deploy ]</Text>
+        <Text>  </Text>
+        <Text>{fieldMarker(draft.field, "cancel")} </Text>
+        <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
+      </Box>
+      <Text color="gray">↑↓/Tab select · Enter activate · s deploy · Backspace edit prompt · c/Esc cancel</Text>
     </Box>
   )
 }
@@ -330,7 +366,7 @@ function ProjectionView({ lines, itemIndex, maxRows }: { lines: string[]; itemIn
 }
 
 function AgentsProjectionView({ project, itemIndex, maxRows }: { project: WorkflowProjectView; itemIndex: number; maxRows: number }): React.ReactElement {
-  const visibleCardCount = Math.max(1, Math.floor(maxRows / 7))
+  const visibleCardCount = Math.max(1, Math.floor(maxRows / 8))
   const viewport = getViewportWindow(itemIndex, project.agents.length, visibleCardCount)
   const visibleAgents = project.agents.slice(viewport.start, viewport.end)
 
@@ -339,24 +375,47 @@ function AgentsProjectionView({ project, itemIndex, maxRows }: { project: Workfl
       <ViewportHeader title="Agents View" viewport={viewport} />
       {project.agents.length === 0
         ? <Text color="gray">No agents.</Text>
-        : visibleAgents.map((agent) => <AgentCard key={agent.id} agent={agent} project={project} />)}
+        : visibleAgents.map((agent, visibleIndex) => (
+          <AgentCard
+            key={agent.id}
+            agent={agent}
+            project={project}
+            selected={viewport.start + visibleIndex === itemIndex}
+          />
+        ))}
     </Box>
   )
 }
 
-function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: WorkflowProjectView }): React.ReactElement {
+function AgentCard({
+  agent,
+  project,
+  selected,
+}: {
+  agent: WorkflowAgentConfig
+  project: WorkflowProjectView
+  selected: boolean
+}): React.ReactElement {
   const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
   const item = agent.work_item ? project.workItems.find((candidate) => candidate.id === agent.work_item) : undefined
   const statusColor = agent.status === "running" ? "green" : "gray"
   const modeColor = agent.mode === "write" ? "yellow" : "blue"
   const providerColor = getProviderColor(agent.provider)
+  const handoffCommand = agent.session_id && worktree && isSessionOpenProvider(agent.provider)
+    ? buildSessionOpenCommand({
+      sessionId: agent.session_id,
+      provider: agent.provider,
+      cwd: worktree.path,
+    })
+    : null
   const deps = item?.dependencies.length
     ? item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id}(${dependency.status})`).join(", ")
     : "none"
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor={statusColor} paddingX={1} paddingY={1} marginTop={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={selected ? "cyan" : statusColor} paddingX={1} paddingY={1} marginTop={1}>
       <Box>
+        <Text color={selected ? "cyan" : "gray"}>{selected ? "> " : "  "}</Text>
         <Text color={statusColor}>{agent.status === "running" ? "[*]" : "[.]"} </Text>
         <Text color={providerColor}>{formatAgentProviderBadge(agent.provider)} </Text>
         <Text bold>{agent.id}</Text>
@@ -368,6 +427,9 @@ function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: Wo
       <Text>worktree: <Text color="cyan">{worktree?.path ?? agent.worktree}</Text></Text>
       <Text>task: {item ? <Text color="yellow">{item.id} {item.title} [{item.status}]</Text> : <Text color="gray">none</Text>}</Text>
       <Text>deps: <Text color={deps === "none" ? "gray" : "red"}>{deps}</Text></Text>
+      {selected
+        ? <Text>open: <Text color={handoffCommand ? "green" : "gray"}>{handoffCommand ?? "no managed session id"}</Text></Text>
+        : null}
     </Box>
   )
 }
@@ -479,6 +541,49 @@ function switchView(
 ): void {
   setView(next)
   setItemIndex(0)
+}
+
+function fieldMarker(current: DeployFormField, field: DeployFormField): string {
+  return current === field ? ">" : " "
+}
+
+function isSessionOpenProvider(provider: WorkflowAgentConfig["provider"]): provider is ProviderKind {
+  return provider === "codex" || provider === "gemini"
+}
+
+function nextDeployField(field: DeployFormField): DeployFormField {
+  const index = DEPLOY_FORM_FIELDS.indexOf(field)
+  return DEPLOY_FORM_FIELDS[(index + 1) % DEPLOY_FORM_FIELDS.length]!
+}
+
+function previousDeployField(field: DeployFormField): DeployFormField {
+  const index = DEPLOY_FORM_FIELDS.indexOf(field)
+  return DEPLOY_FORM_FIELDS[(index + DEPLOY_FORM_FIELDS.length - 1) % DEPLOY_FORM_FIELDS.length]!
+}
+
+function submitDeployDraft(
+  request: WorkflowTuiDeployRequest,
+  deployAgent: WorkflowTuiDeployHandler | undefined,
+  setDeployDraft: (value: DeployDraft | null) => void,
+  setNotice: (value: string | null) => void,
+  setHandoff: (value: WorkflowTuiDeployResult | null) => void,
+): void {
+  if (!deployAgent) {
+    setNotice("deploy is unavailable in this TUI mode")
+    setDeployDraft(null)
+    return
+  }
+
+  setDeployDraft(null)
+  setNotice(`deploying codex on ${request.worktreeId}...`)
+  void deployAgent(request)
+    .then((result) => {
+      setHandoff(result)
+      setNotice(`deployed ${result.provider} ${result.mode} session ${result.sessionId}`)
+    })
+    .catch((error: unknown) => {
+      setNotice(error instanceof Error ? error.message : "agent deploy failed")
+    })
 }
 
 function withNextPermissionProfile(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {

@@ -119,6 +119,7 @@ function projectAgentsFromBindings(
       provider: binding.provider,
       mode: modeFromPermissionProfile(binding.permissionProfile),
       status: agentStatusFromBindingState(binding.state),
+      session_id: binding.sessionId,
       profile: binding.permissionProfile,
       worktree: worktree.id,
       work_item: worktree.work_item,

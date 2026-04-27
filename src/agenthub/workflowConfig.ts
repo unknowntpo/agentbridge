@@ -55,6 +55,7 @@ export interface WorkflowAgentConfig {
   provider: AgentProvider
   mode: AgentMode
   status: string
+  session_id?: string
   profile?: string
   worktree: string
   work_item?: string
@@ -347,6 +348,7 @@ function parseAgent(value: unknown, context: string): WorkflowAgentConfig {
     provider: requireEnum(record.provider, ["codex", "gemini", "claude", "openai"], `${context}.provider`),
     mode: requireEnum(record.mode, ["read", "write"], `${context}.mode`),
     status: requireString(record.status, `${context}.status`),
+    session_id: optionalString(record.session_id, `${context}.session_id`),
     profile: optionalString(record.profile, `${context}.profile`),
     worktree: requireString(record.worktree, `${context}.worktree`),
     work_item: optionalString(record.work_item, `${context}.work_item`),

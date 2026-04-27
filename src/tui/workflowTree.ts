@@ -1,4 +1,6 @@
 import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
+import { buildSessionOpenCommand } from "../local/handoffCommand.js"
+import type { ProviderKind } from "../types.js"
 
 export const WorkflowCliView = {
   TaskTree: "task-tree",
@@ -147,6 +149,7 @@ function renderAgentsProject(project: WorkflowProjectView): string {
     lines.push(`  worktree: ${worktree?.path ?? agent.worktree}`)
     lines.push(`  task: ${item ? `${item.id} ${item.title} [${item.status}]` : "none"}`)
     lines.push(`  deps: ${item ? formatDependencies(item) : "none"}`)
+    lines.push(`  open: ${formatAgentOpenCommand(agent, worktree?.path)}`)
   }
 
   return lines.join("\n")
@@ -232,6 +235,19 @@ function formatCommitWorktrees(worktrees: WorkflowProjectView["commits"][number]
 
 function agentStatusIcon(status: string): string {
   return status === "running" ? "[*]" : "[.]"
+}
+
+function formatAgentOpenCommand(agent: WorkflowAgentConfig, cwd: string | undefined): string {
+  if (!agent.session_id || !cwd || !isSessionOpenProvider(agent.provider)) return "none"
+  return buildSessionOpenCommand({
+    sessionId: agent.session_id,
+    provider: agent.provider,
+    cwd,
+  })
+}
+
+function isSessionOpenProvider(provider: WorkflowAgentConfig["provider"]): provider is ProviderKind {
+  return provider === "codex" || provider === "gemini"
 }
 
 function formatTaskAgentMarker(agents: WorkflowAgentConfig[]): string {

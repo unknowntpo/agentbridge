@@ -198,10 +198,10 @@ describe("AgentHub TUI CLI", () => {
     await instance.waitUntilRenderFlush()
     expect(deployCalls).toHaveLength(0)
     expect(stdout.output).toContain("Deploy agent")
-    expect(stdout.output).toContain("permission: workspace-write")
+    expect(stdout.output).toContain("> permission: workspace-write")
     expect(stdout.output).toContain("initial prompt:")
 
-    stdin.write("\r")
+    stdin.write("s")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     instance.unmount()
@@ -210,6 +210,32 @@ describe("AgentHub TUI CLI", () => {
     expect(deployCalls).toHaveLength(1)
     expect(stdout.output).toContain("Agent deployed")
     expect(stdout.output).toContain("agentbridge session open --session-id thr-tui --provider codex --cwd /tmp/demo/wt-0")
+  })
+
+  it("renders a selected agent handoff command in the agents view", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithManagedAgent(),
+        initialView: "agents",
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: new FakeTtyInput() as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: false,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("> [.] ◎ Codex codex-thr-managed")
+    expect(stdout.output).toContain("open: agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0")
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
@@ -485,6 +511,69 @@ function minimalModel(projectName: string, worktreeCount: number): WorkflowViewM
         issues: 0,
         worktrees: worktreeCount,
         agents: 0,
+        pullRequests: 0,
+        commits: 0,
+      },
+    }],
+  }
+}
+
+function modelWithManagedAgent(): WorkflowViewModel {
+  return {
+    projects: [{
+      id: "demo",
+      name: "Agent Demo",
+      root: "/tmp/demo",
+      workItems: [{
+        id: "commit-abc",
+        type: "ticket",
+        title: "Managed task",
+        status: "done",
+        children: [],
+        dependencies: [],
+        dependents: [],
+        agents: [{
+          id: "codex-thr-managed",
+          provider: "codex",
+          mode: "write",
+          status: "idle",
+          session_id: "thr-managed",
+          worktree: "wt-0",
+          work_item: "commit-abc",
+        }],
+        worktree: {
+          id: "wt-0",
+          name: "wt-0",
+          path: "/tmp/demo/wt-0",
+          branch: "agent/test-0",
+          work_item: "commit-abc",
+        },
+        pullRequest: null,
+      }],
+      rootItems: [],
+      worktrees: [{
+        id: "wt-0",
+        name: "wt-0",
+        path: "/tmp/demo/wt-0",
+        branch: "agent/test-0",
+        work_item: "commit-abc",
+      }],
+      agents: [{
+        id: "codex-thr-managed",
+        provider: "codex",
+        mode: "write",
+        status: "idle",
+        session_id: "thr-managed",
+        worktree: "wt-0",
+        work_item: "commit-abc",
+      }],
+      pullRequests: [],
+      commits: [],
+      summary: {
+        epics: 0,
+        issues: 1,
+        worktrees: 1,
+        agents: 1,
         pullRequests: 0,
         commits: 0,
       },
