@@ -279,6 +279,7 @@ async function runDaemon(): Promise<void> {
   acquireProcessLock()
 
   const config = loadConfig()
+  requireDiscordConfig(config, "agentbridge daemon")
   const appServer = new CodexAppServerSupervisor(
     config.codexCommand,
     config.codexAppServerHost,
@@ -360,6 +361,7 @@ async function runDaemon(): Promise<void> {
 
 async function runSessionSummaryThread(options: SessionCommandOptions): Promise<void> {
   const config = loadConfig()
+  requireDiscordConfig(config, "agentbridge session-summary-thread")
   const snapshot = loadSessionSnapshot({
     codexHome: config.codexHome,
     cwd: options.cwd ?? process.cwd(),
@@ -536,6 +538,7 @@ async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowVi
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {
   const config = loadConfig()
+  requireDiscordConfig(config, "agentbridge session attach")
   const snapshot = loadSessionSnapshot({
     codexHome: config.codexHome,
     cwd: options.cwd ?? process.cwd(),
@@ -602,6 +605,7 @@ async function runSessionNew(options: SessionCommandOptions): Promise<void> {
   }
 
   const config = loadConfig()
+  requireDiscordConfig(config, "agentbridge session new")
   const provider = resolveProvider(options.provider, config.defaultProvider) ?? config.defaultProvider
   const workspaceInput = options.workspace ?? options.cwd ?? process.cwd()
   const profile = parsePermissionProfile(options.profile)
@@ -688,6 +692,7 @@ async function runApprovalsList(): Promise<void> {
 
 async function runApprovalsApprove(requestId: string | undefined, options: SessionCommandOptions): Promise<void> {
   const config = loadConfig()
+  requireDiscordConfig(config, "agentbridge approvals approve")
   const stateStore = new SQLiteStateStore(config.sqlitePath)
   stateStore.initialize()
   try {
@@ -810,6 +815,15 @@ function createTuiDeployAgentHandler() {
         cwd: session.workingDirectory,
       }),
     }
+  }
+}
+
+function requireDiscordConfig(config: ReturnType<typeof loadConfig>, commandName: string): void {
+  if (!config.discordToken) {
+    throw new Error(`${commandName} requires DISCORD_TOKEN. Local-only commands such as session open do not require it.`)
+  }
+  if (config.allowedChannelIds.length === 0) {
+    console.warn("AGENTBRIDGE_ALLOWED_CHANNEL_IDS is empty; Discord commands and mentions will be denied by default.")
   }
 }
 

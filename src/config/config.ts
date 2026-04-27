@@ -26,9 +26,6 @@ export interface BridgeConfig {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfig {
   const discordToken = env.DISCORD_TOKEN ?? ""
-  if (!discordToken) {
-    throw new Error("DISCORD_TOKEN is required")
-  }
 
   const codexAppServerHost = env.AGENTBRIDGE_CODEX_APP_SERVER_HOST ?? "127.0.0.1"
   if (!isLoopbackHost(codexAppServerHost)) {
@@ -38,12 +35,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BridgeConfig {
   }
 
   const allowedChannelIds = splitCsv(env.AGENTBRIDGE_ALLOWED_CHANNEL_IDS ?? "")
-  if (allowedChannelIds.length === 0) {
-    console.warn("AGENTBRIDGE_ALLOWED_CHANNEL_IDS is empty; Discord commands and mentions will be denied by default.")
-  }
 
   return {
-    sqlitePath: resolveHomePath(env.AGENTBRIDGE_SQLITE_PATH ?? ".agentbridge/state.db"),
+    sqlitePath: resolveHomePath(env.AGENTBRIDGE_SQLITE_PATH ?? "~/.agentbridge/state.db"),
     codexCommand: env.AGENTBRIDGE_CODEX_COMMAND ?? "codex",
     codexArgs: splitArgs(env.AGENTBRIDGE_CODEX_ARGS ?? ""),
     geminiCommand: env.AGENTBRIDGE_GEMINI_COMMAND ?? "gemini",
