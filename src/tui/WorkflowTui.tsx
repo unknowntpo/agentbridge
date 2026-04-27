@@ -72,7 +72,8 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Commits,
 ]
 const DEPLOY_PROFILES: PermissionProfile[] = ["workspace-write", "workspace-read", "full-access"]
-const DEPLOY_FORM_FIELDS = ["permission", "prompt", "deploy", "cancel"] as const
+const DEPLOY_PROVIDERS: ProviderKind[] = ["codex", "gemini"]
+const DEPLOY_FORM_FIELDS = ["provider", "permission", "prompt", "deploy", "cancel"] as const
 type DeployFormField = (typeof DEPLOY_FORM_FIELDS)[number]
 
 interface DeployDraft {
@@ -163,17 +164,17 @@ export function WorkflowTui({
         setNotice("deploy cancelled")
         return
       }
-      if (key.upArrow) {
+      if (key.tab) {
         setDeployDraft((current) => current ? {
           ...current,
-          field: previousDeployField(current.field),
+          field: key.shift ? previousDeployField(current.field) : nextDeployField(current.field),
         } : current)
         return
       }
-      if (key.downArrow || key.tab) {
+      if (deployDraft.field === "provider" && (key.leftArrow || key.rightArrow)) {
         setDeployDraft((current) => current ? {
           ...current,
-          field: nextDeployField(current.field),
+          request: withNextProvider(current.request),
         } : current)
         return
       }
@@ -204,10 +205,17 @@ export function WorkflowTui({
           setNotice("deploy cancelled")
           return
         }
+        if (deployDraft.field === "provider") {
+          setDeployDraft((current) => current ? {
+            ...current,
+            field: nextDeployField(current.field),
+          } : current)
+          return
+        }
         if (deployDraft.field === "permission") {
           setDeployDraft((current) => current ? {
             ...current,
-            request: withNextPermissionProfile(current.request),
+            field: nextDeployField(current.field),
           } : current)
           return
         }
@@ -260,8 +268,8 @@ export function WorkflowTui({
         setNotice("deploy is unavailable in this TUI mode")
         return
       }
-      setDeployDraft({ request, field: "permission" })
-      setNotice("deploy draft opened; ↑↓ choose field, ←→ switch permission, Enter confirm")
+      setDeployDraft({ request, field: "provider" })
+      setNotice("deploy draft opened; Tab/Shift+Tab choose field, ←→ switch option, Enter select")
     }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
@@ -346,8 +354,8 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
       <Text bold color="yellow">Deploy agent</Text>
+      <Text>{fieldMarker(draft.field, "provider")} provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text> <Text color="gray">(←/→)</Text></Text>
       <Text>{fieldMarker(draft.field, "permission")} permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(←/→ or p)</Text></Text>
-      <Text>  provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text></Text>
       <Text>workspace: <Text color="cyan">{draft.request.worktreePath}</Text></Text>
       <Text>branch: <Text color="cyan">{draft.request.branch}</Text></Text>
       <Text>{fieldMarker(draft.field, "prompt")} initial prompt:</Text>
@@ -359,7 +367,7 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
         <Text>{fieldMarker(draft.field, "cancel")} </Text>
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
-      <Text color="gray">↑↓/Tab select · Enter activate · s deploy · Backspace edit prompt · c/Esc cancel</Text>
+      <Text color="gray">Tab next · Shift+Tab previous · Enter select/current row then next · ←/→ switch option · s deploy · c/Esc cancel</Text>
     </Box>
   )
 }
@@ -656,6 +664,15 @@ function previousDeployField(field: DeployFormField): DeployFormField {
   return DEPLOY_FORM_FIELDS[(index + DEPLOY_FORM_FIELDS.length - 1) % DEPLOY_FORM_FIELDS.length]!
 }
 
+function withNextProvider(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
+  const currentIndex = DEPLOY_PROVIDERS.indexOf(request.provider)
+  const provider = DEPLOY_PROVIDERS[(currentIndex + 1) % DEPLOY_PROVIDERS.length]!
+  return normalizeDeployRequestForProvider({
+    ...request,
+    provider,
+  })
+}
+
 function submitDeployDraft(
   request: WorkflowTuiDeployRequest,
   deployAgent: WorkflowTuiDeployHandler | undefined,
@@ -682,8 +699,9 @@ function submitDeployDraft(
 }
 
 function withNextPermissionProfile(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
-  const currentIndex = DEPLOY_PROFILES.indexOf(request.profile)
-  const profile = DEPLOY_PROFILES[(currentIndex + 1) % DEPLOY_PROFILES.length]!
+  const profiles = deployProfilesForProvider(request.provider)
+  const currentIndex = profiles.indexOf(request.profile)
+  const profile = profiles[(currentIndex + 1) % profiles.length]!
   return {
     ...request,
     profile,
@@ -713,4 +731,20 @@ export function buildDeployRequestForWorktree(
     profile: "workspace-write",
     prompt: `Work on ${taskLabel}`,
   }
+}
+
+function normalizeDeployRequestForProvider(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
+  const profiles = deployProfilesForProvider(request.provider)
+  const profile = profiles.includes(request.profile) ? request.profile : profiles[0]!
+  return {
+    ...request,
+    profile,
+    mode: profile === "workspace-read" ? "read" : "write",
+  }
+}
+
+function deployProfilesForProvider(provider: ProviderKind): PermissionProfile[] {
+  return provider === "gemini"
+    ? ["workspace-write", "workspace-read"]
+    : DEPLOY_PROFILES
 }

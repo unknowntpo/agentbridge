@@ -60,9 +60,12 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 #### Scenario: User navigates the deploy draft as a keyboard form
 
 - **GIVEN** the deploy draft is open
-- **WHEN** the user presses up/down or tab
+- **WHEN** the user presses Tab or Shift+Tab
 - **THEN** the focused form field changes
-- **AND** permission, prompt, deploy, and cancel are distinct focus targets.
+- **AND** provider, permission, prompt, deploy, and cancel are distinct focus targets.
+- **WHEN** the user presses Enter on a non-terminal field
+- **THEN** the current row is accepted and focus moves to the next row.
+- **AND** the provider field can switch between Codex and Gemini before deployment.
 
 ### Requirement: Workflow projections are explicit
 

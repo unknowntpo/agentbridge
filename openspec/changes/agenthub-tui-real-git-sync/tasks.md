@@ -13,6 +13,7 @@
 - [x] Add direct TUI session handoff command for deployed agents.
 - [x] Add TUI deploy draft with permission, workspace, and initial prompt.
 - [x] Make TUI deploy draft keyboard-selectable by field.
+- [x] Add TUI deploy draft provider selection and Tab/Shift+Tab row navigation.
 - [x] Join persisted agent bindings into project TUI projections.
 - [x] Show provider icons on tasks and dependencies with linked agents.
 - [x] Show copyable session open commands for focused agents.

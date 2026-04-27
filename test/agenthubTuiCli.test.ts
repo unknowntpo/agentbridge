@@ -199,7 +199,8 @@ describe("AgentHub TUI CLI", () => {
     await instance.waitUntilRenderFlush()
     expect(deployCalls).toHaveLength(0)
     expect(stdout.output).toContain("Deploy agent")
-    expect(stdout.output).toContain("> permission: workspace-write")
+    expect(stdout.output).toContain("> provider: ◎ Codex")
+    expect(stdout.output).toContain("permission: workspace-write")
     expect(stdout.output).toContain("initial prompt:")
 
     stdin.write("s")
@@ -211,6 +212,92 @@ describe("AgentHub TUI CLI", () => {
     expect(deployCalls).toHaveLength(1)
     expect(stdout.output).toContain("Agent deployed")
     expect(stdout.output).toContain("agentbridge session open --session-id thr-tui --provider codex --cwd /tmp/demo/wt-0")
+  })
+
+  it("navigates the deploy draft with Tab, Shift+Tab, and Enter row selection", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const deployCalls: unknown[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: minimalModel("Deploy Demo", 1),
+        deployAgent: async (request) => {
+          deployCalls.push(request)
+          return {
+            sessionId: "thr-gemini",
+            provider: request.provider,
+            mode: request.mode,
+            profile: request.profile,
+            worktreeId: request.worktreeId,
+            worktreePath: request.worktreePath,
+            handoffCommand: buildSessionOpenCommand({
+              sessionId: "thr-gemini",
+              provider: request.provider,
+              cwd: request.worktreePath,
+            }),
+          }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("d")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> provider: ◎ Codex")
+
+    stdin.write("\u001b[C")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> provider: ✦ Gemini")
+
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> permission: workspace-write")
+
+    stdin.write("\t")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> initial prompt:")
+
+    stdin.write("\u001b[Z")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> permission: workspace-write")
+
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> initial prompt:")
+
+    stdin.write("\t")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> [ Deploy ]")
+
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(deployCalls).toHaveLength(1)
+    expect(deployCalls[0]).toMatchObject({
+      provider: "gemini",
+      profile: "workspace-write",
+      mode: "write",
+    })
+    expect(stdout.output).toContain("agentbridge session open --session-id thr-gemini --provider gemini --cwd /tmp/demo/wt-0")
   })
 
   it("renders a selected agent handoff command in the agents view", async () => {
