@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { Box, render, Text, useInput } from "ink"
+import { Box, render, Text, useInput, useWindowSize } from "ink"
 
 import type { WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView } from "../agenthub/workflowConfig.js"
 import {
@@ -21,6 +21,12 @@ export const WORKFLOW_TUI_CONTROLS = [
   "q    quit",
 ] as const
 
+export interface ViewportWindow {
+  start: number
+  end: number
+  total: number
+}
+
 interface WorkflowTuiProps {
   model: WorkflowViewModel
   initialView?: WorkflowCliViewType
@@ -37,6 +43,7 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
 ]
 
 export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, reloadModel, onExit }: WorkflowTuiProps): React.ReactElement {
+  const { rows } = useWindowSize()
   const [currentModel, setCurrentModel] = useState(model)
   const [notice, setNotice] = useState<string | null>(null)
   const [projectIndex, setProjectIndex] = useState(0)
@@ -45,17 +52,22 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, rel
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
+  const bodyRows = Math.max(6, rows - 14)
+  const projectionLines = view === WorkflowCliView.TaskTree || view === WorkflowCliView.Agents
+    ? []
+    : renderWorkflowView(currentModel, view).split(/\r?\n/)
+  const currentViewSize = getViewSize(view, items.length, project.agents.length, projectionLines.length)
 
   useInput((input, key) => {
     if (input === "q") {
       onExit?.()
       return
     }
-    if (input === "1") setView(WorkflowCliView.TaskTree)
-    if (input === "2") setView(WorkflowCliView.Dependency)
-    if (input === "3") setView(WorkflowCliView.Ready)
-    if (input === "4") setView(WorkflowCliView.Agents)
-    if (input === "5") setView(WorkflowCliView.Commits)
+    if (input === "1") switchView(WorkflowCliView.TaskTree, setView, setItemIndex)
+    if (input === "2") switchView(WorkflowCliView.Dependency, setView, setItemIndex)
+    if (input === "3") switchView(WorkflowCliView.Ready, setView, setItemIndex)
+    if (input === "4") switchView(WorkflowCliView.Agents, setView, setItemIndex)
+    if (input === "5") switchView(WorkflowCliView.Commits, setView, setItemIndex)
     if (input === "r" && reloadModel) {
       setNotice("refreshing project...")
       void reloadModel()
@@ -71,9 +83,10 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, rel
     }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
+      setItemIndex(0)
     }
     if (key.upArrow) setItemIndex((current) => Math.max(0, current - 1))
-    if (key.downArrow) setItemIndex((current) => Math.min(items.length - 1, current + 1))
+    if (key.downArrow) setItemIndex((current) => Math.min(Math.max(0, currentViewSize - 1), current + 1))
     if (key.leftArrow) {
       setProjectIndex((current) => Math.max(0, current - 1))
       setItemIndex(0)
@@ -94,10 +107,10 @@ export function WorkflowTui({ model, initialView = WorkflowCliView.TaskTree, rel
       <ProjectHeader project={project} />
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
-        ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} />
+        ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} maxRows={bodyRows} />
         : view === WorkflowCliView.Agents
-          ? <AgentsProjectionView project={project} />
-        : <ProjectionView model={currentModel} view={view} />}
+          ? <AgentsProjectionView project={project} itemIndex={itemIndex} maxRows={bodyRows} />
+        : <ProjectionView lines={projectionLines} itemIndex={itemIndex} maxRows={bodyRows} />}
     </Box>
   )
 }
@@ -109,7 +122,7 @@ function ControlsHelp(): React.ReactElement {
       {WORKFLOW_TUI_CONTROLS.map((control) => (
         <Text key={control} color="gray">{control}</Text>
       ))}
-      <Text color="gray">↑↓   focus task in task-tree</Text>
+      <Text color="gray">↑↓   scroll/focus current view</Text>
     </Box>
   )
 }
@@ -124,16 +137,32 @@ export async function runWorkflowTui(
   await instance.waitUntilExit()
 }
 
-function TaskTreeView({ items, itemIndex, selected }: { items: FlattenedWorkItem[]; itemIndex: number; selected: FlattenedWorkItem | undefined }): React.ReactElement {
+function TaskTreeView({
+  items,
+  itemIndex,
+  selected,
+  maxRows,
+}: {
+  items: FlattenedWorkItem[]
+  itemIndex: number
+  selected: FlattenedWorkItem | undefined
+  maxRows: number
+}): React.ReactElement {
+  const viewport = getViewportWindow(itemIndex, items.length, maxRows)
+  const visibleItems = items.slice(viewport.start, viewport.end)
+
   return (
     <Box marginTop={1}>
       <Box flexDirection="column" width="58%" marginRight={2}>
-        <Text bold>Work Items</Text>
-        {items.map((item, index) => (
-          <Text key={item.id} color={index === itemIndex ? "cyan" : undefined}>
-            {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{item.type} {item.id} {item.title} [{item.status}]
-          </Text>
-        ))}
+        <ViewportHeader title="Work Items" viewport={viewport} />
+        {visibleItems.map((item, visibleIndex) => {
+          const index = viewport.start + visibleIndex
+          return (
+            <Text key={item.id} color={index === itemIndex ? "cyan" : undefined} wrap="truncate-end">
+              {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{item.type} {item.id} {item.title} [{item.status}]
+            </Text>
+          )
+        })}
       </Box>
       <Box flexDirection="column" width="42%">
         <Text bold>Selected</Text>
@@ -143,21 +172,31 @@ function TaskTreeView({ items, itemIndex, selected }: { items: FlattenedWorkItem
   )
 }
 
-function ProjectionView({ model, view }: { model: WorkflowViewModel; view: WorkflowCliViewType }): React.ReactElement {
+function ProjectionView({ lines, itemIndex, maxRows }: { lines: string[]; itemIndex: number; maxRows: number }): React.ReactElement {
+  const viewport = getViewportWindow(itemIndex, lines.length, maxRows)
+  const visibleLines = lines.slice(viewport.start, viewport.end)
+
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text>{renderWorkflowView(model, view)}</Text>
+      <ViewportHeader title="Projection" viewport={viewport} />
+      {visibleLines.map((line, index) => (
+        <Text key={`${viewport.start + index}:${line}`} wrap="truncate-end">{line || " "}</Text>
+      ))}
     </Box>
   )
 }
 
-function AgentsProjectionView({ project }: { project: WorkflowProjectView }): React.ReactElement {
+function AgentsProjectionView({ project, itemIndex, maxRows }: { project: WorkflowProjectView; itemIndex: number; maxRows: number }): React.ReactElement {
+  const visibleCardCount = Math.max(1, Math.floor(maxRows / 7))
+  const viewport = getViewportWindow(itemIndex, project.agents.length, visibleCardCount)
+  const visibleAgents = project.agents.slice(viewport.start, viewport.end)
+
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text bold>Agents View</Text>
+      <ViewportHeader title="Agents View" viewport={viewport} />
       {project.agents.length === 0
         ? <Text color="gray">No agents.</Text>
-        : project.agents.map((agent) => <AgentCard key={agent.id} agent={agent} project={project} />)}
+        : visibleAgents.map((agent) => <AgentCard key={agent.id} agent={agent} project={project} />)}
     </Box>
   )
 }
@@ -214,6 +253,15 @@ function ProjectHeader({ project }: { project: WorkflowProjectView }): React.Rea
   )
 }
 
+function ViewportHeader({ title, viewport }: { title: string; viewport: ViewportWindow }): React.ReactElement {
+  return (
+    <Box justifyContent="space-between">
+      <Text bold>{title}</Text>
+      <Text color="gray">{formatViewport(viewport)}</Text>
+    </Box>
+  )
+}
+
 function SelectedItem({ item }: { item: FlattenedWorkItem }): React.ReactElement {
   const agents = item.agents.length === 0
     ? "none"
@@ -249,4 +297,37 @@ function flattenItems(items: WorkflowWorkItemView[], depth = 0): FlattenedWorkIt
     { ...item, depth },
     ...flattenItems(item.children, depth + 1),
   ])
+}
+
+export function getViewportWindow(focusIndex: number, total: number, maxRows: number): ViewportWindow {
+  const safeTotal = Math.max(0, total)
+  const safeMaxRows = Math.max(1, maxRows)
+  if (safeTotal === 0) return { start: 0, end: 0, total: 0 }
+
+  const clampedFocus = Math.min(Math.max(0, focusIndex), safeTotal - 1)
+  const half = Math.floor(safeMaxRows / 2)
+  const maxStart = Math.max(0, safeTotal - safeMaxRows)
+  const start = Math.min(Math.max(0, clampedFocus - half), maxStart)
+  const end = Math.min(safeTotal, start + safeMaxRows)
+  return { start, end, total: safeTotal }
+}
+
+function formatViewport(viewport: ViewportWindow): string {
+  if (viewport.total === 0) return "0/0"
+  return `${viewport.start + 1}-${viewport.end}/${viewport.total}`
+}
+
+function getViewSize(view: WorkflowCliViewType, taskCount: number, agentCount: number, projectionLineCount: number): number {
+  if (view === WorkflowCliView.TaskTree) return taskCount
+  if (view === WorkflowCliView.Agents) return agentCount
+  return projectionLineCount
+}
+
+function switchView(
+  next: WorkflowCliViewType,
+  setView: (view: WorkflowCliViewType) => void,
+  setItemIndex: (value: number) => void,
+): void {
+  setView(next)
+  setItemIndex(0)
 }

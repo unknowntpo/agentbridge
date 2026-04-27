@@ -5,7 +5,7 @@ import path from "node:path"
 
 import { describe, expect, it } from "bun:test"
 
-import { WORKFLOW_TUI_CONTROLS } from "../src/tui/WorkflowTui.js"
+import { getViewportWindow, WORKFLOW_TUI_CONTROLS } from "../src/tui/WorkflowTui.js"
 
 describe("AgentHub TUI CLI", () => {
   it("keeps TUI view-switching controls visible as a product contract", () => {
@@ -19,6 +19,13 @@ describe("AgentHub TUI CLI", () => {
       "r    refresh project",
       "q    quit",
     ])
+  })
+
+  it("keeps focused rows inside a bounded viewport for long TUI views", () => {
+    expect(getViewportWindow(0, 80, 6)).toEqual({ start: 0, end: 6, total: 80 })
+    expect(getViewportWindow(20, 80, 6)).toEqual({ start: 17, end: 23, total: 80 })
+    expect(getViewportWindow(79, 80, 6)).toEqual({ start: 74, end: 80, total: 80 })
+    expect(getViewportWindow(0, 0, 6)).toEqual({ start: 0, end: 0, total: 0 })
   })
 
   it("prints a deterministic workflow tree without starting an interactive terminal", () => {
