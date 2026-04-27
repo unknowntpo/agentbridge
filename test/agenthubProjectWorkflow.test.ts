@@ -47,6 +47,22 @@ describe("AgentHub real Git workflow projection", () => {
     expect(output).toContain("refs: agent/checkout-retry")
     expect(output).toContain("worktrees: checkout-retry clean +0/-0")
   })
+
+  it("can scan one unlisted local repository for CLI project onboarding", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-unlisted-"))
+    createSourceRepo(root)
+
+    const service = new AgentHubProjectService({
+      git: new GitCommandRunner({ timeoutMs: 10_000 }),
+      projects: [],
+    })
+
+    const scan = await service.scanProject(root)
+    expect(scan.id).toStartWith("local-agenthub-unlisted")
+    expect(scan.label).toBe(path.basename(root))
+    expect(scan.worktrees).toHaveLength(1)
+    expect(scan.commits.map((commit) => commit.subject)).toContain("Initial commit")
+  })
 })
 
 function createSourceRepo(dir: string): void {

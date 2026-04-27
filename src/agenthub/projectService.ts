@@ -148,10 +148,21 @@ export class AgentHubProjectService {
     const project = this.#projects
       .map((candidate) => ({ ...candidate, path: canonicalPath(candidate.path) }))
       .find((candidate) => requested === candidate.path || isPathInside(requested, candidate.path))
-    if (!project) {
-      throw new Error(`Path is outside AgentHub project allowlist: ${requested}`)
+    if (project) {
+      return project
     }
-    return project
+
+    try {
+      findAnchorWorktree(requested)
+    } catch {
+      throw new Error(`Path is not a Git project or known AgentHub project: ${requested}`)
+    }
+
+    return {
+      id: `local-${slugifyPathLabel(path.basename(requested))}`,
+      label: path.basename(requested),
+      path: requested,
+    }
   }
 }
 
@@ -225,6 +236,13 @@ function canonicalPath(inputPath: string): string {
 function isPathInside(candidate: string, parent: string): boolean {
   const relative = path.relative(path.resolve(parent), path.resolve(candidate))
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+function slugifyPathLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "project"
 }
 
 function parseGitCommitLine(line: string): GitCommitScan {
