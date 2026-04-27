@@ -12,11 +12,11 @@ export type WorkflowCliView = (typeof WorkflowCliView)[keyof typeof WorkflowCliV
 
 const WORKFLOW_CLI_VIEW_VALUES = new Set<string>(Object.values(WorkflowCliView))
 
-const AGENT_PROVIDER_DISPLAY: Record<WorkflowAgentConfig["provider"], { badge: string; label: string }> = {
-  claude: { badge: "[CC]", label: "Claude Code" },
-  codex: { badge: "[Cx]", label: "Codex" },
-  gemini: { badge: "[Gm]", label: "Gemini" },
-  openai: { badge: "[OA]", label: "OpenAI" },
+const AGENT_PROVIDER_DISPLAY: Record<WorkflowAgentConfig["provider"], { icon: string; badge: string; label: string }> = {
+  claude: { icon: "✳", badge: "✳ Claude Code", label: "Claude Code" },
+  codex: { icon: "◎", badge: "◎ Codex", label: "Codex" },
+  gemini: { icon: "✦", badge: "✦ Gemini", label: "Gemini" },
+  openai: { icon: "◌", badge: "◌ OpenAI", label: "OpenAI" },
 }
 
 export function renderWorkflowTree(model: WorkflowViewModel): string {
@@ -48,6 +48,10 @@ export function parseWorkflowCliView(input: string | undefined): WorkflowCliView
 
 export function formatAgentProviderBadge(provider: WorkflowAgentConfig["provider"]): string {
   return AGENT_PROVIDER_DISPLAY[provider].badge
+}
+
+export function formatAgentProviderIcon(provider: WorkflowAgentConfig["provider"]): string {
+  return AGENT_PROVIDER_DISPLAY[provider].icon
 }
 
 export function formatAgentProviderLabel(provider: WorkflowAgentConfig["provider"]): string {

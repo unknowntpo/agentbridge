@@ -74,7 +74,14 @@ describe("AgentHub agent deploy", () => {
     }, {
       config,
       adapter: new FakeAdapter(),
-    })).rejects.toThrow(/approval|required|trusted|outside/i)
+    })).rejects.toThrow([
+      "Local approval is required before deploying this agent.",
+      "Reason: worktree path is outside trusted workspace roots.",
+      "Worktree path: /tmp/outside",
+      "Permission profile: workspace-write",
+      "Trusted workspace roots:",
+      "- repo: /repo",
+    ].join("\n"))
   })
 })
 

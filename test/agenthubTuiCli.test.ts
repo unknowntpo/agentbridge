@@ -239,7 +239,7 @@ describe("AgentHub TUI CLI", () => {
     })
 
     expect(stdout).toContain("Agents View")
-    expect(stdout).toContain("[*] [Cx] codex-gh-121")
+    expect(stdout).toContain("[*] ◎ Codex codex-gh-121")
     expect(stdout).toContain("provider: Codex   mode: write   status: running")
     expect(stdout).not.toContain("summary: 2 epics")
   })
@@ -270,13 +270,13 @@ describe("AgentHub TUI CLI", () => {
     const stdout = runWorkflowView("agents")
 
     expect(stdout).toContain("Agents View")
-    expect(stdout).toContain("[*] [Cx] codex-gh-121")
+    expect(stdout).toContain("[*] ◎ Codex codex-gh-121")
     expect(stdout).toContain("provider: Codex   mode: write   status: running")
     expect(stdout).toContain("branch: agent/gh-121-checkout-retry")
     expect(stdout).toContain("worktree: wt/checkout-retry")
     expect(stdout).toContain("task: gh-121 Add checkout retry metrics [in_progress]")
     expect(stdout).toContain("deps: gh-120(todo)")
-    expect(stdout).toContain("[.] [CC] claude-gh-130")
+    expect(stdout).toContain("[.] ✳ Claude Code claude-gh-130")
     expect(stdout).toContain("provider: Claude Code   mode: read   status: idle")
   })
 

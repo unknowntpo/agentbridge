@@ -4,7 +4,7 @@ import { CodexAppServerAdapter } from "../codex/codexAppServerAdapter.js"
 import { CodexAppServerSupervisor } from "../codex/appServerSupervisor.js"
 import { loadConfig, type BridgeConfig } from "../config/config.js"
 import { evaluateSessionPermissionRequest, parsePermissionProfile } from "../runtime/sessionPermissions.js"
-import type { PermissionProfile, ProviderKind, SessionAdapter } from "../types.js"
+import type { PermissionProfile, ProviderKind, ResolvedWorkspace, SessionAdapter, TrustedWorkspace } from "../types.js"
 
 export interface AgentDeployRequest {
   worktreeId: string
@@ -64,7 +64,11 @@ export async function deployAgent(request: AgentDeployRequest, options: {
     throw new Error(permission.reason ?? "Unsupported permission request.")
   }
   if (permission.action === "require_local_approval") {
-    throw new Error("Local approval is required before deploying this agent.")
+    throw new Error(formatDeployApprovalRequiredMessage({
+      profile,
+      workspace: permission.workspace,
+      trustedWorkspaces: config.trustedWorkspaces,
+    }))
   }
   if (request.provider !== "codex") {
     throw new Error("AgentHub real deploy currently supports Codex only.")
@@ -114,6 +118,28 @@ export async function deployAgent(request: AgentDeployRequest, options: {
   } finally {
     await stop()
   }
+}
+
+function formatDeployApprovalRequiredMessage(options: {
+  profile: PermissionProfile
+  workspace: ResolvedWorkspace
+  trustedWorkspaces: TrustedWorkspace[]
+}): string {
+  const reason = options.workspace.trusted
+    ? `permission profile \`${options.profile}\` requires local approval`
+    : "worktree path is outside trusted workspace roots"
+  const trustedRoots = options.trustedWorkspaces.length === 0
+    ? "- none configured"
+    : options.trustedWorkspaces.map((workspace) => `- ${workspace.id}: ${workspace.path}`).join("\n")
+
+  return [
+    "Local approval is required before deploying this agent.",
+    `Reason: ${reason}.`,
+    `Worktree path: ${options.workspace.path}`,
+    `Permission profile: ${options.profile}`,
+    "Trusted workspace roots:",
+    trustedRoots,
+  ].join("\n")
 }
 
 export async function ensureCodexAppServer(config: BridgeConfig): Promise<() => Promise<void>> {
