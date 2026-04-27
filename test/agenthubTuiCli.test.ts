@@ -24,7 +24,7 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
-      "d    deploy codex",
+      "d    deploy agent",
       "y    copy selected agent open command",
       "q    quit",
     ])
@@ -203,7 +203,16 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout.output).toContain("permission: workspace-write")
     expect(stdout.output).toContain("initial prompt:")
 
-    stdin.write("s")
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await instance.waitUntilRenderFlush()
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await instance.waitUntilRenderFlush()
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await instance.waitUntilRenderFlush()
+    stdin.write("\r")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     instance.unmount()
@@ -214,7 +223,7 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout.output).toContain("agentbridge session open --session-id thr-tui --provider codex --cwd /tmp/demo/wt-0")
   })
 
-  it("navigates the deploy draft with Tab, Shift+Tab, and Enter row selection", async () => {
+  it("navigates the deploy draft with Tab value switching and Enter or arrows for rows", async () => {
     const stdout = new CaptureStream()
     const stderr = new CaptureStream()
     const stdin = new FakeTtyInput()
@@ -255,7 +264,7 @@ describe("AgentHub TUI CLI", () => {
     await instance.waitUntilRenderFlush()
     expect(stdout.output).toContain("> provider: ◎ Codex")
 
-    stdin.write("\u001b[C")
+    stdin.write("\t")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     expect(stdout.output).toContain("> provider: ✦ Gemini")
@@ -268,19 +277,24 @@ describe("AgentHub TUI CLI", () => {
     stdin.write("\t")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
-    expect(stdout.output).toContain("> initial prompt:")
+    expect(stdout.output).toContain("> permission: workspace-read")
 
-    stdin.write("\u001b[Z")
+    stdin.write("\u001b[B")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
-    expect(stdout.output).toContain("> permission: workspace-write")
+    expect(stdout.output).toContain("> initial prompt:")
+
+    stdin.write("\u001b[A")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> permission: workspace-read")
 
     stdin.write("\r")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     expect(stdout.output).toContain("> initial prompt:")
 
-    stdin.write("\t")
+    stdin.write("\r")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     expect(stdout.output).toContain("> [ Deploy ]")
@@ -294,8 +308,8 @@ describe("AgentHub TUI CLI", () => {
     expect(deployCalls).toHaveLength(1)
     expect(deployCalls[0]).toMatchObject({
       provider: "gemini",
-      profile: "workspace-write",
-      mode: "write",
+      profile: "workspace-read",
+      mode: "read",
     })
     expect(stdout.output).toContain("agentbridge session open --session-id thr-gemini --provider gemini --cwd /tmp/demo/wt-0")
   })

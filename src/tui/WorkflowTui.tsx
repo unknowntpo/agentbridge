@@ -21,7 +21,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
-  "d    deploy codex",
+  "d    deploy agent",
   "y    copy selected agent open command",
   "q    quit",
 ] as const
@@ -164,29 +164,31 @@ export function WorkflowTui({
         setNotice("deploy cancelled")
         return
       }
-      if (key.tab) {
+      if (key.upArrow) {
         setDeployDraft((current) => current ? {
           ...current,
-          field: key.shift ? previousDeployField(current.field) : nextDeployField(current.field),
+          field: previousDeployField(current.field),
         } : current)
         return
       }
-      if (deployDraft.field === "provider" && (key.leftArrow || key.rightArrow)) {
-        setDeployDraft((current) => current ? {
-          ...current,
-          request: withNextProvider(current.request),
-        } : current)
+      if (key.return && deployDraft.field === "cancel") {
+        setDeployDraft(null)
+        setNotice("deploy cancelled")
         return
       }
-      if (input === "p" || (deployDraft.field === "permission" && (key.leftArrow || key.rightArrow))) {
-        setDeployDraft((current) => current ? {
-          ...current,
-          request: withNextPermissionProfile(current.request),
-        } : current)
-        return
-      }
-      if (input === "s" && deployDraft.field !== "prompt") {
+      if (key.return && deployDraft.field === "deploy") {
         submitDeployDraft(deployDraft.request, deployAgent, setDeployDraft, setNotice, setHandoff)
+        return
+      }
+      if (key.downArrow || key.return) {
+        setDeployDraft((current) => current ? {
+          ...current,
+          field: nextDeployField(current.field),
+        } : current)
+        return
+      }
+      if (key.tab) {
+        setDeployDraft((current) => current ? toggleCurrentDeployFieldValue(current) : current)
         return
       }
       if (deployDraft.field === "prompt" && (key.backspace || key.delete)) {
@@ -197,36 +199,6 @@ export function WorkflowTui({
             prompt: current.request.prompt.slice(0, -1),
           },
         } : current)
-        return
-      }
-      if (key.return) {
-        if (deployDraft.field === "cancel") {
-          setDeployDraft(null)
-          setNotice("deploy cancelled")
-          return
-        }
-        if (deployDraft.field === "provider") {
-          setDeployDraft((current) => current ? {
-            ...current,
-            field: nextDeployField(current.field),
-          } : current)
-          return
-        }
-        if (deployDraft.field === "permission") {
-          setDeployDraft((current) => current ? {
-            ...current,
-            field: nextDeployField(current.field),
-          } : current)
-          return
-        }
-        if (deployDraft.field !== "deploy") {
-          setDeployDraft((current) => current ? {
-            ...current,
-            field: nextDeployField(current.field),
-          } : current)
-          return
-        }
-        submitDeployDraft(deployDraft.request, deployAgent, setDeployDraft, setNotice, setHandoff)
         return
       }
       if (deployDraft.field === "prompt" && input && !key.ctrl && !key.meta && !key.tab) {
@@ -269,7 +241,7 @@ export function WorkflowTui({
         return
       }
       setDeployDraft({ request, field: "provider" })
-      setNotice("deploy draft opened; Tab/Shift+Tab choose field, ←→ switch option, Enter select")
+      setNotice("deploy draft opened; Tab switch current option, Enter/↑/↓ move row")
     }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
@@ -354,8 +326,8 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
       <Text bold color="yellow">Deploy agent</Text>
-      <Text>{fieldMarker(draft.field, "provider")} provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text> <Text color="gray">(←/→)</Text></Text>
-      <Text>{fieldMarker(draft.field, "permission")} permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(←/→ or p)</Text></Text>
+      <Text>{fieldMarker(draft.field, "provider")} provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text> <Text color="gray">(Tab switch)</Text></Text>
+      <Text>{fieldMarker(draft.field, "permission")} permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(Tab switch)</Text></Text>
       <Text>workspace: <Text color="cyan">{draft.request.worktreePath}</Text></Text>
       <Text>branch: <Text color="cyan">{draft.request.branch}</Text></Text>
       <Text>{fieldMarker(draft.field, "prompt")} initial prompt:</Text>
@@ -367,7 +339,7 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
         <Text>{fieldMarker(draft.field, "cancel")} </Text>
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
-      <Text color="gray">Tab next · Shift+Tab previous · Enter select/current row then next · ←/→ switch option · s deploy · c/Esc cancel</Text>
+      <Text color="gray">Tab switch current option · Enter/↓ next row · ↑ previous row · Enter on Deploy/Cancel activates · c/Esc cancel</Text>
     </Box>
   )
 }
@@ -662,6 +634,22 @@ function nextDeployField(field: DeployFormField): DeployFormField {
 function previousDeployField(field: DeployFormField): DeployFormField {
   const index = DEPLOY_FORM_FIELDS.indexOf(field)
   return DEPLOY_FORM_FIELDS[(index + DEPLOY_FORM_FIELDS.length - 1) % DEPLOY_FORM_FIELDS.length]!
+}
+
+function toggleCurrentDeployFieldValue(draft: DeployDraft): DeployDraft {
+  if (draft.field === "provider") {
+    return {
+      ...draft,
+      request: withNextProvider(draft.request),
+    }
+  }
+  if (draft.field === "permission") {
+    return {
+      ...draft,
+      request: withNextPermissionProfile(draft.request),
+    }
+  }
+  return draft
 }
 
 function withNextProvider(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
