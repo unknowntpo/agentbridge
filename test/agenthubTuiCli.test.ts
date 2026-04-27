@@ -196,6 +196,14 @@ describe("AgentHub TUI CLI", () => {
     stdin.write("d")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
+    expect(deployCalls).toHaveLength(0)
+    expect(stdout.output).toContain("Deploy agent")
+    expect(stdout.output).toContain("permission: workspace-write")
+    expect(stdout.output).toContain("initial prompt:")
+
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
     instance.unmount()
     await instance.waitUntilExit()
 
@@ -219,9 +227,10 @@ describe("AgentHub TUI CLI", () => {
 
     expect(stdout).toContain("MiniShop Demo")
     expect(stdout).toContain("issue gh-130 Extract benchmark result dashboard [review]")
+    expect(stdout).toContain("◎✦ issue gh-121 Add checkout retry metrics [in_progress]")
     expect(stdout).toContain("agents: claude read idle")
     expect(stdout).toContain("pr: pr-45 review_requested checks:passing")
-    expect(stdout).toContain("deps: gh-121(in_progress), gh-120(todo)")
+    expect(stdout).toContain("deps: ◎✦ gh-121(in_progress), gh-120(todo)")
   })
 
   it("prints a selected TUI view in non-interactive mode", () => {
@@ -250,10 +259,10 @@ describe("AgentHub TUI CLI", () => {
 
     expect(stdout).toContain("Dependency View")
     expect(stdout).toContain("gh-120 [todo] Fix checkout timeout")
-    expect(stdout).toContain("├─> gh-121 [in_progress] Add checkout retry metrics")
-    expect(stdout).toContain("└─> gh-130 [review] Extract benchmark result dashboard")
-    expect(stdout).toContain("gh-121 [in_progress] Add checkout retry metrics")
-    expect(stdout).toContain("└─> gh-130 [review] Extract benchmark result dashboard")
+    expect(stdout).toContain("├─> ◎✦ gh-121 [in_progress] Add checkout retry metrics")
+    expect(stdout).toContain("└─> ✳ gh-130 [review] Extract benchmark result dashboard")
+    expect(stdout).toContain("◎✦ gh-121 [in_progress] Add checkout retry metrics")
+    expect(stdout).toContain("└─> ✳ gh-130 [review] Extract benchmark result dashboard")
   })
 
   it("prints a ready queue view", () => {
@@ -264,7 +273,7 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain("gh-120 Fix checkout timeout [todo]")
     expect(stdout).toContain("Blocked")
     expect(stdout).toContain("gh-130 Extract benchmark result dashboard [review]")
-    expect(stdout).toContain("blocked by: gh-121(in_progress), gh-120(todo)")
+    expect(stdout).toContain("blocked by: ◎✦ gh-121(in_progress), gh-120(todo)")
   })
 
   it("prints an agents view", () => {

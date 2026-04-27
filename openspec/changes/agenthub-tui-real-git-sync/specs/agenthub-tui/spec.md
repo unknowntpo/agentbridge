@@ -34,7 +34,10 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **GIVEN** the user opened `agentbridge tui --project <path>` interactively
 - **AND** a worktree is available from the selected task or project snapshot
 - **WHEN** the user presses `d`
-- **THEN** AgentBridge deploys a Codex write agent with workspace-write permissions for that worktree
+- **THEN** AgentBridge opens a deploy draft that shows provider, permission profile, workspace path, branch, and initial prompt
+- **AND** the workspace path defaults to the target worktree location
+- **WHEN** the user confirms the draft
+- **THEN** AgentBridge deploys a Codex agent with the selected permission profile for that worktree
 - **AND** persists enough session state for handoff
 - **AND** shows a copyable `agentbridge session open ...` command for continuing in another terminal.
 
@@ -44,6 +47,12 @@ The TUI SHALL not expose a fake lifecycle view. Project creation, worktree creat
 - **WHEN** the user opens or prints `agentbridge tui --project <path> --view agents`
 - **THEN** AgentBridge joins the persisted binding to the scanned worktree by canonical workspace path
 - **AND** renders the provider, mode, status, branch, and worktree path in the agents projection.
+
+#### Scenario: Tasks and dependencies show agent presence
+
+- **GIVEN** a task or commit has one or more linked agents
+- **WHEN** AgentBridge renders task-tree, dependency, ready, selected-detail, or agents projections
+- **THEN** the task or dependency label includes provider icons so the user can see active agent ownership without switching to the agents view.
 
 ### Requirement: Workflow projections are explicit
 

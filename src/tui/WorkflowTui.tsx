@@ -5,6 +5,7 @@ import type { PermissionProfile, ProviderKind } from "../types.js"
 import type { AgentMode, WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel, WorkflowWorkItemView, WorkflowWorktreeConfig } from "../agenthub/workflowConfig.js"
 import {
   formatAgentProviderBadge,
+  formatAgentProviderIcon,
   formatAgentProviderLabel,
   renderWorkflowView,
   WorkflowCliView,
@@ -66,6 +67,11 @@ const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.Agents,
   WorkflowCliView.Commits,
 ]
+const DEPLOY_PROFILES: PermissionProfile[] = ["workspace-write", "workspace-read", "full-access"]
+
+interface DeployDraft {
+  request: WorkflowTuiDeployRequest
+}
 
 export function WorkflowTui({
   model,
@@ -81,6 +87,7 @@ export function WorkflowTui({
   const [itemIndex, setItemIndex] = useState(0)
   const [view, setView] = useState<WorkflowCliViewType>(initialView)
   const [handoff, setHandoff] = useState<WorkflowTuiDeployResult | null>(null)
+  const [deployDraft, setDeployDraft] = useState<DeployDraft | null>(null)
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
   const selected = items[Math.min(itemIndex, items.length - 1)]
@@ -106,6 +113,57 @@ export function WorkflowTui({
   }, [subscribeModelUpdates])
 
   useInput((input, key) => {
+    if (deployDraft) {
+      if (key.escape || input === "\u001b" || input === "c") {
+        setDeployDraft(null)
+        setNotice("deploy cancelled")
+        return
+      }
+      if (input === "p") {
+        setDeployDraft((current) => current ? {
+          request: withNextPermissionProfile(current.request),
+        } : current)
+        return
+      }
+      if (key.backspace || key.delete) {
+        setDeployDraft((current) => current ? {
+          request: {
+            ...current.request,
+            prompt: current.request.prompt.slice(0, -1),
+          },
+        } : current)
+        return
+      }
+      if (key.return) {
+        if (!deployAgent) {
+          setNotice("deploy is unavailable in this TUI mode")
+          setDeployDraft(null)
+          return
+        }
+        const request = deployDraft.request
+        setDeployDraft(null)
+        setNotice(`deploying codex on ${request.worktreeId}...`)
+        void deployAgent(request)
+          .then((result) => {
+            setHandoff(result)
+            setNotice(`deployed ${result.provider} ${result.mode} session ${result.sessionId}`)
+          })
+          .catch((error: unknown) => {
+            setNotice(error instanceof Error ? error.message : "agent deploy failed")
+          })
+        return
+      }
+      if (input && !key.ctrl && !key.meta && !key.tab) {
+        setDeployDraft((current) => current ? {
+          request: {
+            ...current.request,
+            prompt: `${current.request.prompt}${input}`,
+          },
+        } : current)
+      }
+      return
+    }
+
     if (input === "q") {
       onExit?.()
       return
@@ -125,15 +183,8 @@ export function WorkflowTui({
         setNotice("deploy is unavailable in this TUI mode")
         return
       }
-      setNotice(`deploying codex on ${request.worktreeId}...`)
-      void deployAgent(request)
-        .then((result) => {
-          setHandoff(result)
-          setNotice(`deployed ${result.provider} ${result.mode} session ${result.sessionId}`)
-        })
-        .catch((error: unknown) => {
-          setNotice(error instanceof Error ? error.message : "agent deploy failed")
-        })
+      setDeployDraft({ request })
+      setNotice("deploy draft opened; edit prompt, press p to switch permission, Enter to deploy")
     }
     if (key.tab) {
       setView((current) => VIEW_ORDER[(VIEW_ORDER.indexOf(current) + 1) % VIEW_ORDER.length]!)
@@ -160,6 +211,7 @@ export function WorkflowTui({
       {notice ? <Text color="yellow">{notice}</Text> : null}
       <ProjectHeader project={project} />
       {handoff ? <HandoffPanel handoff={handoff} /> : null}
+      {deployDraft ? <DeployDraftPanel draft={deployDraft} /> : null}
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
         ? <TaskTreeView items={items} itemIndex={itemIndex} selected={selected} maxRows={bodyRows} />
@@ -213,6 +265,21 @@ function HandoffPanel({ handoff }: { handoff: WorkflowTuiDeployResult }): React.
   )
 }
 
+function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
+      <Text bold color="yellow">Deploy agent</Text>
+      <Text>provider: <Text color="cyan">{formatAgentProviderBadge(draft.request.provider)}</Text></Text>
+      <Text>permission: <Text color="yellow">{draft.request.profile}</Text> <Text color="gray">(p cycles)</Text></Text>
+      <Text>workspace: <Text color="cyan">{draft.request.worktreePath}</Text></Text>
+      <Text>branch: <Text color="cyan">{draft.request.branch}</Text></Text>
+      <Text>initial prompt:</Text>
+      <Text color="green">{draft.request.prompt}<Text color="gray">_</Text></Text>
+      <Text color="gray">Enter deploy · p permission · Backspace edit · c/Esc cancel</Text>
+    </Box>
+  )
+}
+
 function TaskTreeView({
   items,
   itemIndex,
@@ -235,7 +302,7 @@ function TaskTreeView({
           const index = viewport.start + visibleIndex
           return (
             <Text key={item.id} color={index === itemIndex ? "cyan" : undefined} wrap="truncate-end">
-              {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{item.type} {item.id} {item.title} [{item.status}]
+              {index === itemIndex ? ">" : " "} {item.depth > 0 ? "  ".repeat(item.depth) : ""}{formatTaskAgentMarker(item.agents)}{item.type} {item.id} {item.title} [{item.status}]
             </Text>
           )
         })}
@@ -284,7 +351,7 @@ function AgentCard({ agent, project }: { agent: WorkflowAgentConfig; project: Wo
   const modeColor = agent.mode === "write" ? "yellow" : "blue"
   const providerColor = getProviderColor(agent.provider)
   const deps = item?.dependencies.length
-    ? item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
+    ? item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id}(${dependency.status})`).join(", ")
     : "none"
 
   return (
@@ -318,6 +385,12 @@ function getProviderColor(provider: WorkflowAgentConfig["provider"]): "blue" | "
   }
 }
 
+function formatTaskAgentMarker(agents: WorkflowAgentConfig[]): string {
+  if (agents.length === 0) return ""
+  const icons = [...new Set(agents.map((agent) => formatAgentProviderIcon(agent.provider)))]
+  return `${icons.join("")} `
+}
+
 function ProjectHeader({ project }: { project: WorkflowProjectView }): React.ReactElement {
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} paddingY={1}>
@@ -346,10 +419,10 @@ function SelectedItem({ item }: { item: FlattenedWorkItem }): React.ReactElement
   const pullRequest = item.pullRequest ? `${item.pullRequest.id} ${item.pullRequest.status}${item.pullRequest.checks ? ` checks:${item.pullRequest.checks}` : ""}` : "none"
   const dependencies = item.dependencies.length === 0
     ? "none"
-    : item.dependencies.map((dependency) => `${dependency.id} ${dependency.status}`).join(", ")
+    : item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id} ${dependency.status}`).join(", ")
   const dependents = item.dependents.length === 0
     ? "none"
-    : item.dependents.map((dependent) => `${dependent.id} ${dependent.status}`).join(", ")
+    : item.dependents.map((dependent) => `${formatTaskAgentMarker(dependent.agents)}${dependent.id} ${dependent.status}`).join(", ")
 
   return (
     <Box flexDirection="column" borderStyle="round" paddingX={1} paddingY={1}>
@@ -406,6 +479,16 @@ function switchView(
 ): void {
   setView(next)
   setItemIndex(0)
+}
+
+function withNextPermissionProfile(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
+  const currentIndex = DEPLOY_PROFILES.indexOf(request.profile)
+  const profile = DEPLOY_PROFILES[(currentIndex + 1) % DEPLOY_PROFILES.length]!
+  return {
+    ...request,
+    profile,
+    mode: profile === "workspace-read" ? "read" : "write",
+  }
 }
 
 function buildDeployRequest(project: WorkflowProjectView, selected: FlattenedWorkItem | undefined): WorkflowTuiDeployRequest | null {

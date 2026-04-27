@@ -127,6 +127,7 @@ export interface WorkflowWorkItemDependencyView {
   id: string
   title: string
   status: WorkItemStatus
+  agents: WorkflowAgentConfig[]
 }
 
 export async function loadWorkflowFile(filePath: string): Promise<WorkflowViewModel> {
@@ -216,10 +217,13 @@ function deriveProjectView(project: WorkflowProjectConfig): WorkflowProjectView 
     const linkedAgents = agents.filter((agent) => agent.work_item === item.id)
     const linkedWorktree = worktrees.find((worktree) => worktree.work_item === item.id) ?? null
     const linkedPullRequest = pullRequests.find((pullRequest) => pullRequest.work_item === item.id) ?? null
-    const dependencies = (item.depends_on ?? []).map((dependencyId) => toDependencyView(workItemById.get(dependencyId)!))
+    const dependencies = (item.depends_on ?? []).map((dependencyId) => toDependencyView(
+      workItemById.get(dependencyId)!,
+      agents,
+    ))
     const dependents = workItems
       .filter((candidate) => (candidate.depends_on ?? []).includes(item.id))
-      .map(toDependencyView)
+      .map((dependent) => toDependencyView(dependent, agents))
     return {
       ...item,
       children: (item.children ?? []).map((childId) => buildItem(workItemById.get(childId)!)),
@@ -290,11 +294,12 @@ function parseWorkItem(value: unknown, context: string): WorkflowWorkItemConfig 
   }
 }
 
-function toDependencyView(item: WorkflowWorkItemConfig): WorkflowWorkItemDependencyView {
+function toDependencyView(item: WorkflowWorkItemConfig, agents: WorkflowAgentConfig[]): WorkflowWorkItemDependencyView {
   return {
     id: item.id,
     title: item.title,
     status: item.status,
+    agents: agents.filter((agent) => agent.work_item === item.id),
   }
 }
 

@@ -47,12 +47,12 @@ describe("AgentHub workflow config", () => {
 
     expect(output).toContain("MiniShop Demo")
     expect(output).toContain("├─ epic epic-checkout Checkout reliability [in_progress]")
-    expect(output).toContain("│  └─ issue gh-121 Add checkout retry metrics [in_progress]")
+    expect(output).toContain("│  └─ ◎✦ issue gh-121 Add checkout retry metrics [in_progress]")
     expect(output).toContain("│     ├─ worktree: wt/checkout-retry (agent/gh-121-checkout-retry)")
     expect(output).toContain("│     ├─ agents: codex write running, gemini read idle")
     expect(output).toContain("│     ├─ pr: pr-44 open checks:pending")
     expect(output).toContain("│     └─ deps: gh-120(todo)")
-    expect(output).toContain("   └─ deps: gh-121(in_progress), gh-120(todo)")
+    expect(output).toContain("   └─ deps: ◎✦ gh-121(in_progress), gh-120(todo)")
     expect(output).not.toContain("└─ pr: none\n│  ├─ issue")
   })
 

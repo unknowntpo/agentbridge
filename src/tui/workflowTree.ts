@@ -84,14 +84,14 @@ function renderDependencyProject(project: WorkflowProjectView): string {
 
   const items = project.workItems.filter((item) => item.type !== "epic")
   for (const item of items) {
-    lines.push(`${item.id} [${item.status}] ${item.title}`)
+    lines.push(`${formatTaskAgentMarker(item.agents)}${item.id} [${item.status}] ${item.title}`)
     if (item.dependents.length === 0) {
       lines.push("  └─> none")
       continue
     }
     item.dependents.forEach((dependent, index) => {
       const connector = index === item.dependents.length - 1 ? "└─>" : "├─>"
-      lines.push(`  ${connector} ${dependent.id} [${dependent.status}] ${dependent.title}`)
+      lines.push(`  ${connector} ${formatTaskAgentMarker(dependent.agents)}${dependent.id} [${dependent.status}] ${dependent.title}`)
     })
   }
 
@@ -111,7 +111,7 @@ function renderReadyProject(project: WorkflowProjectView): string {
   if (ready.length === 0) {
     lines.push("- none")
   } else {
-    for (const item of ready) lines.push(`- ${item.id} ${item.title} [${item.status}]`)
+    for (const item of ready) lines.push(`- ${formatTaskAgentMarker(item.agents)}${item.id} ${item.title} [${item.status}]`)
   }
 
   lines.push("Blocked")
@@ -119,7 +119,7 @@ function renderReadyProject(project: WorkflowProjectView): string {
     lines.push("- none")
   } else {
     for (const item of blocked) {
-      lines.push(`- ${item.id} ${item.title} [${item.status}]`)
+      lines.push(`- ${formatTaskAgentMarker(item.agents)}${item.id} ${item.title} [${item.status}]`)
       lines.push(`  blocked by: ${formatDependencies(item)}`)
     }
   }
@@ -176,7 +176,7 @@ function renderItem(item: WorkflowWorkItemView, prefix: string, last: boolean): 
   const branch = last ? "└─" : "├─"
   const childPrefix = `${prefix}${last ? "   " : "│  "}`
   const lines = [
-    `${prefix}${branch} ${item.type} ${item.id} ${item.title} [${item.status}]`,
+    `${prefix}${branch} ${formatTaskAgentMarker(item.agents)}${item.type} ${item.id} ${item.title} [${item.status}]`,
   ]
 
   const details = [
@@ -220,7 +220,7 @@ function formatPullRequest(item: WorkflowWorkItemView): string {
 
 function formatDependencies(item: WorkflowWorkItemView): string {
   if (item.dependencies.length === 0) return "none"
-  return item.dependencies.map((dependency) => `${dependency.id}(${dependency.status})`).join(", ")
+  return item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id}(${dependency.status})`).join(", ")
 }
 
 function formatCommitWorktrees(worktrees: WorkflowProjectView["commits"][number]["worktrees"]): string {
@@ -232,4 +232,10 @@ function formatCommitWorktrees(worktrees: WorkflowProjectView["commits"][number]
 
 function agentStatusIcon(status: string): string {
   return status === "running" ? "[*]" : "[.]"
+}
+
+function formatTaskAgentMarker(agents: WorkflowAgentConfig[]): string {
+  if (agents.length === 0) return ""
+  const icons = [...new Set(agents.map((agent) => formatAgentProviderIcon(agent.provider)))]
+  return `${icons.join("")} `
 }
