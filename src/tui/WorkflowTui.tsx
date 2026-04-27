@@ -439,10 +439,10 @@ function AgentsProjectionView({
             key={agent.id}
             agent={agent}
             project={project}
+            copyEffect={copyEffect}
             selected={viewport.start + visibleIndex === itemIndex}
           />
         ))}
-      {selectedAgent ? <SelectedAgentCommandPanel agent={selectedAgent} project={project} copyEffect={copyEffect} /> : null}
     </Box>
   )
 }
@@ -450,10 +450,12 @@ function AgentsProjectionView({
 function AgentCard({
   agent,
   project,
+  copyEffect,
   selected,
 }: {
   agent: WorkflowAgentConfig
   project: WorkflowProjectView
+  copyEffect: CopyEffect | null
   selected: boolean
 }): React.ReactElement {
   const worktree = project.worktrees.find((candidate) => candidate.id === agent.worktree)
@@ -464,6 +466,8 @@ function AgentCard({
   const deps = item?.dependencies.length
     ? item.dependencies.map((dependency) => `${formatTaskAgentMarker(dependency.agents)}${dependency.id}(${dependency.status})`).join(", ")
     : "none"
+  const command = getAgentHandoffCommand(project, agent)
+  const copied = Boolean(command && copyEffect?.command === command)
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={selected ? "cyan" : statusColor} paddingX={1} paddingY={1} marginTop={1}>
@@ -480,30 +484,12 @@ function AgentCard({
       <Text>worktree: <Text color="cyan">{worktree?.path ?? agent.worktree}</Text></Text>
       <Text>task: {item ? <Text color="yellow">{item.id} {item.title} [{item.status}]</Text> : <Text color="gray">none</Text>}</Text>
       <Text>deps: <Text color={deps === "none" ? "gray" : "red"}>{deps}</Text></Text>
-    </Box>
-  )
-}
-
-function SelectedAgentCommandPanel({
-  agent,
-  project,
-  copyEffect,
-}: {
-  agent: WorkflowAgentConfig
-  project: WorkflowProjectView
-  copyEffect: CopyEffect | null
-}): React.ReactElement {
-  const command = getAgentHandoffCommand(project, agent)
-  const copied = Boolean(command && copyEffect?.command === command)
-  return (
-    <Box flexDirection="column" marginTop={1} paddingX={1}>
-      <Text color="gray">
-        copy command for selected agent: <Text color="yellow">press y</Text> or click while this panel is visible
-        {copied ? <Text color="green">  copied</Text> : null}
-      </Text>
-      <Text color={copied ? "green" : command ? "cyan" : "gray"} inverse={copied} wrap="truncate-end">
-        {command ?? "no managed session id"}
-      </Text>
+      {selected
+        ? <>
+          <Text color="gray">open: <Text color={copied ? "green" : command ? "cyan" : "gray"} inverse={copied}>{command ?? "no managed session id"}</Text></Text>
+          <Text color={copied ? "green" : "gray"}>{copied ? "copied" : "press y or click this card to copy open command"}</Text>
+        </>
+        : null}
     </Box>
   )
 }

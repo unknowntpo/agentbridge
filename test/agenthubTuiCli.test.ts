@@ -236,7 +236,7 @@ describe("AgentHub TUI CLI", () => {
     await instance.waitUntilExit()
 
     expect(stdout.output).toContain("> [.] ◎ Codex codex-thr-managed")
-    expect(stdout.output).toContain("copy command for selected agent")
+    expect(stdout.output).toContain("open:")
     expect(stdout.output).toContain("agentbridge session open --session-id thr-managed --provider codex --cwd /tmp/demo/wt-0")
   })
 
