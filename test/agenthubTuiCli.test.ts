@@ -84,6 +84,46 @@ describe("AgentHub TUI CLI", () => {
     expect(unsubscribed).toBe(true)
   })
 
+  it("preserves the selected issue across auto-sync model refreshes", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    let pushUpdate: ((model: WorkflowViewModel) => void) | undefined
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithTwoIssues("Before Sync"),
+        subscribeModelUpdates: (onUpdate) => {
+          pushUpdate = onUpdate
+          return () => {}
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("\u001b[B")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("> issue github:unknowntpo/tw-example#2 hello nico [todo]")
+
+    pushUpdate?.(modelWithTwoIssues("After Sync"))
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("project auto-refreshed")
+    expect(stdout.output).toContain("> issue github:unknowntpo/tw-example#2 hello nico [todo]")
+    expect(stdout.output).toContain("hello nico")
+  })
+
   it("reloads the project model when auto-sync observes a project file change", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-watch-"))
     const watchedFile = path.join(root, "change.txt")
@@ -1162,6 +1202,52 @@ function modelWithUnboundIssue(): WorkflowViewModel {
         commits: 0,
       },
     }],
+  }
+}
+
+function modelWithTwoIssues(projectName: string): WorkflowViewModel {
+  const issues = [
+    issueItem("github:unknowntpo/tw-example#1", "Refactor hello.txt", "unknowntpo/tw-example#1"),
+    issueItem("github:unknowntpo/tw-example#2", "hello nico", "unknowntpo/tw-example#2"),
+  ]
+  return {
+    projects: [{
+      id: "demo",
+      name: projectName,
+      root: "/tmp/demo",
+      workItemSource: "issue-bindings",
+      workItems: issues,
+      rootItems: issues,
+      worktrees: [],
+      agents: [],
+      pullRequests: [],
+      commits: [],
+      summary: {
+        epics: 0,
+        issues: 2,
+        worktrees: 0,
+        agents: 0,
+        pullRequests: 0,
+        commits: 0,
+      },
+    }],
+  }
+}
+
+function issueItem(id: string, title: string, externalId: string) {
+  return {
+    id,
+    type: "issue" as const,
+    title,
+    status: "todo" as const,
+    source: "github",
+    external_id: externalId,
+    children: [],
+    dependencies: [],
+    dependents: [],
+    agents: [],
+    worktree: null,
+    pullRequest: null,
   }
 }
 

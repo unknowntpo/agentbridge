@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Box, render, Text, useInput, useStdin, useStdout, useWindowSize } from "ink"
 
 import type { PermissionProfile, ProviderKind } from "../types.js"
@@ -172,14 +172,28 @@ export function WorkflowTui({
   const selectedAgentCommand = view === WorkflowCliView.Agents
     ? getSelectedAgentHandoffCommand(project, itemIndex)
     : null
+  const selectionRef = useRef<WorkflowTuiSelectionSnapshot>({
+    projectId: project.id,
+    view,
+    itemId: selected?.id,
+    agentId: project.agents[Math.min(itemIndex, Math.max(0, project.agents.length - 1))]?.id,
+  })
+
+  selectionRef.current = {
+    projectId: project.id,
+    view,
+    itemId: selected?.id,
+    agentId: project.agents[Math.min(itemIndex, Math.max(0, project.agents.length - 1))]?.id,
+  }
 
   useEffect(() => {
     if (!subscribeModelUpdates) return undefined
     return subscribeModelUpdates(
       (nextModel) => {
+        const nextFocus = resolveAutoRefreshFocus(nextModel, selectionRef.current)
         setCurrentModel(nextModel)
-        setProjectIndex(0)
-        setItemIndex(0)
+        setProjectIndex(nextFocus.projectIndex)
+        setItemIndex(nextFocus.itemIndex)
         setNotice("project auto-refreshed")
       },
       (error) => {
@@ -704,11 +718,39 @@ interface FlattenedWorkItem extends WorkflowWorkItemView {
   depth: number
 }
 
+interface WorkflowTuiSelectionSnapshot {
+  projectId: string
+  view: WorkflowCliViewType
+  itemId?: string
+  agentId?: string
+}
+
 function flattenItems(items: WorkflowWorkItemView[], depth = 0): FlattenedWorkItem[] {
   return items.flatMap((item) => [
     { ...item, depth },
     ...flattenItems(item.children, depth + 1),
   ])
+}
+
+function resolveAutoRefreshFocus(
+  model: WorkflowViewModel,
+  selection: WorkflowTuiSelectionSnapshot,
+): { projectIndex: number; itemIndex: number } {
+  const projectIndex = Math.max(0, model.projects.findIndex((candidate) => candidate.id === selection.projectId))
+  const project = model.projects[projectIndex]
+  if (!project) return { projectIndex: 0, itemIndex: 0 }
+
+  if (selection.view === WorkflowCliView.Agents && selection.agentId) {
+    const agentIndex = project.agents.findIndex((agent) => agent.id === selection.agentId)
+    return { projectIndex, itemIndex: Math.max(0, agentIndex) }
+  }
+
+  if (selection.itemId) {
+    const itemIndex = flattenItems(project.rootItems).findIndex((item) => item.id === selection.itemId)
+    return { projectIndex, itemIndex: Math.max(0, itemIndex) }
+  }
+
+  return { projectIndex, itemIndex: 0 }
 }
 
 export function getViewportWindow(focusIndex: number, total: number, maxRows: number): ViewportWindow {
