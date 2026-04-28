@@ -2,11 +2,13 @@ import fs from "node:fs"
 import path from "node:path"
 
 import type { ThreadBinding, ThreadBindingState } from "../types.js"
+import type { IssueBinding } from "./issueBindings.js"
 import type { ProjectScan, WorktreeScan } from "./types.js"
 import type { AgentMode, WorkflowAgentConfig, WorkflowProjectView, WorkflowViewModel } from "./workflowConfig.js"
 
 export interface ProjectWorkflowProjectionOptions {
   bindings?: ThreadBinding[]
+  issueBindings?: IssueBinding[]
 }
 
 export function deriveWorkflowViewModelFromProjectScan(
@@ -31,28 +33,47 @@ export function deriveWorkflowViewModelFromProjectScan(
   })
 
   const commitIds = new Set(commits.map((commit) => commit.id))
+  const issueByBranch = new Map(
+    (options.issueBindings ?? [])
+      .filter((issue) => issue.branch)
+      .map((issue) => [issue.branch!, issue]),
+  )
+  const hasIssueBindings = options.issueBindings !== undefined
+
   const worktrees = scan.worktrees.map((worktree) => {
     const commitId = `commit-${worktree.head}`
+    const issue = worktree.branch ? issueByBranch.get(worktree.branch) : undefined
     return {
       id: worktree.id,
       name: worktree.name,
       path: worktree.path,
       branch: worktree.branch ?? "detached",
-      work_item: commitIds.has(commitId) ? commitId : undefined,
+      work_item: issue?.id ?? (!hasIssueBindings && commitIds.has(commitId) ? commitId : undefined),
     }
   })
   const worktreeByPath = new Map(worktrees.map((worktree) => [normalizePath(worktree.path), worktree]))
   const agents = projectAgentsFromBindings(options.bindings ?? [], worktreeByPath)
 
-  const workItems = commits.map((commit) => ({
-    id: commit.id,
-    type: "ticket" as const,
-    title: commit.subject,
-    status: "done" as const,
-    source: "git",
-    external_id: commit.shortHash,
-    branch: preferredLocalRef(commit.refs),
-  }))
+  const workItems = hasIssueBindings
+    ? options.issueBindings!.map((issue) => ({
+      id: issue.id,
+      type: "issue" as const,
+      title: issue.title,
+      status: issue.state === "closed" ? "done" as const : "todo" as const,
+      source: issue.provider,
+      external_id: `${issue.repo}#${issue.number}`,
+      branch: issue.branch,
+      labels: issue.labels,
+    }))
+    : commits.map((commit) => ({
+      id: commit.id,
+      type: "ticket" as const,
+      title: commit.subject,
+      status: "done" as const,
+      source: "git",
+      external_id: commit.shortHash,
+      branch: preferredLocalRef(commit.refs),
+    }))
 
   const project: WorkflowProjectView = {
     id: scan.id,

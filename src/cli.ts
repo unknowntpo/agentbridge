@@ -17,6 +17,7 @@ import { DiscordGatewayAdapter } from "./discord/discordGatewayAdapter.js"
 import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
+import { loadIssueBindings } from "./agenthub/issueBindings.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
 import { deployAgent as deployAgentHandler, ensureCodexAppServer } from "./agenthub/agentDeploy.js"
@@ -60,6 +61,7 @@ interface SessionCommandOptions {
   print?: boolean
   view?: string
   project?: string
+  issuesFile?: string
   worktreeId?: string
   worktreePath?: string
   mode?: string
@@ -174,6 +176,7 @@ async function main(): Promise<void> {
     .description("Preview an AgentHub workflow YAML or real Git project in the terminal.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
+    .option("--issues-file <path>", "Local IssueBinding JSON file for tracked issue work items.")
     .option("--view <view>", "Initial view: task-tree, dependency, ready, agents, commits.", "task-tree")
     .option("--print", "Print a deterministic tree and exit without interactive Ink rendering.")
     .action(async (options: SessionCommandOptions) => {
@@ -185,6 +188,7 @@ async function main(): Promise<void> {
     .description("Print read-only AgentHub workflow projections from YAML or real Git project state.")
     .option("--file <path>", "AgentHub workflow YAML file.")
     .option("--project <path>", "AgentHub project/worktree path to scan from real Git state.")
+    .option("--issues-file <path>", "Local IssueBinding JSON file for tracked issue work items.")
     .option("--view <view>", "View to print: task-tree, dependency, ready, agents, commits.", "task-tree")
     .action(async (options: SessionCommandOptions) => {
       await runWorkflow(options)
@@ -509,7 +513,9 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
     return
   }
 
-  const subscribeModelUpdates = options.project ? createProjectModelSubscriber(options.project, loadProjectWorkflowModel) : undefined
+  const subscribeModelUpdates = options.project
+    ? createProjectModelSubscriber(options.project, (projectPath) => loadProjectWorkflowModel(projectPath, options.issuesFile))
+    : undefined
   await runWorkflowTui(model, view, subscribeModelUpdates, createTuiDeployAgentHandler())
 }
 
@@ -522,23 +528,28 @@ async function loadWorkflowModelFromOptions(options: SessionCommandOptions, comm
   if (options.file && options.project) {
     throw new Error(`${commandName} accepts either --file or --project, not both.`)
   }
+  if (options.file && options.issuesFile) {
+    throw new Error(`${commandName} accepts --issues-file only with --project.`)
+  }
   if (options.file) {
     return loadWorkflowFile(path.resolve(options.file))
   }
   if (options.project) {
-    return loadProjectWorkflowModel(options.project)
+    return loadProjectWorkflowModel(options.project, options.issuesFile)
   }
   throw new Error(`${commandName} requires --file <path> or --project <path>.`)
 }
 
-async function loadProjectWorkflowModel(projectPath: string): Promise<WorkflowViewModel> {
+async function loadProjectWorkflowModel(projectPath: string, issuesFile?: string): Promise<WorkflowViewModel> {
   const config = loadConfig()
   const service = createAgentHubProjectServiceFromEnv()
   const stateStore = new SQLiteStateStore(config.sqlitePath)
   stateStore.initialize()
   try {
+    const issueBindings = issuesFile ? await loadIssueBindings(path.resolve(issuesFile)) : undefined
     return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath), {
       bindings: stateStore.listBindings(),
+      issueBindings,
     })
   } finally {
     stateStore.close()

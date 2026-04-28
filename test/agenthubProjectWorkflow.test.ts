@@ -9,6 +9,7 @@ import { GitCommandRunner } from "../src/agenthub/gitRunner.js"
 import { AgentHubProjectService } from "../src/agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "../src/agenthub/projectWorkflow.js"
 import { renderWorkflowView, WorkflowCliView } from "../src/tui/workflowTree.js"
+import type { IssueBinding } from "../src/agenthub/issueBindings.js"
 import type { ThreadBinding } from "../src/types.js"
 
 describe("AgentHub real Git workflow projection", () => {
@@ -103,6 +104,75 @@ describe("AgentHub real Git workflow projection", () => {
     expect(scan.label).toBe(path.basename(root))
     expect(scan.worktrees).toHaveLength(1)
     expect(scan.commits.map((commit) => commit.subject)).toContain("Initial commit")
+  })
+
+  it("projects explicit issue bindings as work items instead of synthetic commit tickets", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-issue-bindings-"))
+    const source = path.join(root, "source")
+    const plainDir = path.join(root, "demo")
+    createSourceRepo(source)
+
+    const service = new AgentHubProjectService({
+      git: new GitCommandRunner({ timeoutMs: 10_000 }),
+      projects: [{ id: "demo", label: "Demo Project", path: plainDir }],
+    })
+
+    await service.createProject({ plainDir, repo: source, branch: "main" })
+    await service.createWorktree({
+      projectPath: plainDir,
+      slug: "refactor-hello",
+      branch: "refactor-hellotxt",
+      base: "main",
+    })
+
+    const refactorPath = path.join(plainDir, "refactor-hello")
+    const issueBindings: IssueBinding[] = [{
+      id: "github:unknowntpo/tw-example#1",
+      provider: "github",
+      repo: "unknowntpo/tw-example",
+      number: 1,
+      title: "Refactor hello.txt",
+      state: "open",
+      labels: ["agentbridge"],
+      assignee: "unknowntpo",
+      branch: "refactor-hellotxt",
+    }]
+
+    const scan = await service.scanProject(plainDir)
+    const model = deriveWorkflowViewModelFromProjectScan(scan, {
+      issueBindings,
+      bindings: [testBinding({
+        threadId: "agenthub:thr-issue",
+        sessionId: "thr-issue",
+        workspacePath: refactorPath,
+        state: "bound_idle",
+      })],
+    })
+
+    const project = model.projects[0]!
+    expect(project.workItems).toHaveLength(1)
+    expect(project.workItems[0]).toMatchObject({
+      id: "github:unknowntpo/tw-example#1",
+      type: "issue",
+      title: "Refactor hello.txt",
+      status: "todo",
+      source: "github",
+      external_id: "unknowntpo/tw-example#1",
+      branch: "refactor-hellotxt",
+    })
+    expect(project.workItems[0]?.worktree).toMatchObject({
+      name: "refactor-hello",
+      branch: "refactor-hellotxt",
+    })
+    expect(project.workItems[0]?.agents).toHaveLength(1)
+
+    const taskOutput = renderWorkflowView(model, WorkflowCliView.TaskTree)
+    expect(taskOutput).toContain("issue github:unknowntpo/tw-example#1 Refactor hello.txt [todo]")
+    expect(taskOutput).not.toContain("ticket commit-")
+
+    const commitOutput = renderWorkflowView(model, WorkflowCliView.Commits)
+    expect(commitOutput).toContain("Commit View")
+    expect(commitOutput).toContain("Initial commit")
   })
 })
 

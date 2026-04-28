@@ -619,6 +619,89 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).toContain(`worktree: ${fs.realpathSync(path.join(plainDir, "main"))}`)
   })
 
+  it("prints tracked issues from an issues file instead of commit tickets", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-tui-issues-file-"))
+    const plainDir = path.join(root, "demo")
+    const source = path.join(root, "source")
+    const issuesFile = path.join(root, "issues.json")
+    createSourceRepo(source)
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "project",
+      "create",
+      plainDir,
+      "--repo",
+      source,
+      "--branch",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "worktree",
+      "create",
+      "refactor-hello",
+      "--project",
+      plainDir,
+      "--branch",
+      "refactor-hellotxt",
+      "--base",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    fs.writeFileSync(issuesFile, JSON.stringify({
+      issues: [{
+        id: "github:unknowntpo/tw-example#1",
+        provider: "github",
+        repo: "unknowntpo/tw-example",
+        number: 1,
+        title: "Refactor hello.txt",
+        state: "open",
+        labels: ["agentbridge"],
+        assignee: "unknowntpo",
+        branch: "refactor-hellotxt",
+      }],
+    }))
+
+    const stdout = execFileSync("bun", [
+      "src/cli.ts",
+      "tui",
+      "--project",
+      plainDir,
+      "--issues-file",
+      issuesFile,
+      "--print",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    expect(stdout).toContain("issue github:unknowntpo/tw-example#1 Refactor hello.txt [todo]")
+    expect(stdout).toContain("worktree:")
+    expect(stdout).toContain("refactor-hellotxt")
+    expect(stdout).not.toContain("ticket commit-")
+  })
+
 })
 
 function runWorkflowView(view: string): string {

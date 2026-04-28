@@ -1,0 +1,15 @@
+{
+  "issues": [
+    {
+      "id": "github:unknowntpo/tw-example#1",
+      "provider": "github",
+      "repo": "unknowntpo/tw-example",
+      "number": 1,
+      "title": "Refactor hello.txt",
+      "state": "open",
+      "labels": ["agentbridge"],
+      "assignee": "unknowntpo",
+      "branch": "refactor-hellotxt"
+    }
+  ]
+}
