@@ -25,6 +25,18 @@ export async function loadIssueBindings(filePath: string): Promise<IssueBinding[
   return parseIssueBindingsFile(parsed, filePath).issues
 }
 
+export async function updateIssueBindingBranch(filePath: string, issueId: string, branch: string): Promise<void> {
+  const source = await fs.readFile(filePath, "utf8")
+  const parsed = JSON.parse(source) as unknown
+  const file = parseIssueBindingsFile(parsed, filePath)
+  const issue = file.issues.find((candidate) => candidate.id === issueId)
+  if (!issue) {
+    throw new Error(`Issue binding not found: ${issueId}`)
+  }
+  issue.branch = branch
+  await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
+}
+
 export function parseIssueBindingsFile(value: unknown, context = "issue bindings file"): IssueBindingsFile {
   const record = requireRecord(value, context)
   if (!Array.isArray(record.issues)) {

@@ -21,6 +21,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
+  "w    create worktree for selected issue",
   "d    deploy agent",
   "y    copy selected agent open command",
   "q    quit",
@@ -37,6 +38,7 @@ interface WorkflowTuiProps {
   initialView?: WorkflowCliViewType
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
   deployAgent?: WorkflowTuiDeployHandler
+  createWorktree?: WorkflowTuiCreateWorktreeHandler
   copyToClipboard?: ClipboardCopy
   onExit?: () => void
 }
@@ -63,6 +65,24 @@ export interface WorkflowTuiDeployResult {
 }
 
 export type WorkflowTuiDeployHandler = (request: WorkflowTuiDeployRequest) => Promise<WorkflowTuiDeployResult>
+
+export interface WorkflowTuiCreateWorktreeRequest {
+  projectId: string
+  issueId: string
+  issueTitle: string
+  projectRoot: string
+  branch: string
+  slug: string
+  base: string
+}
+
+export interface WorkflowTuiCreateWorktreeResult {
+  branch: string
+  slug: string
+  path: string
+}
+
+export type WorkflowTuiCreateWorktreeHandler = (request: WorkflowTuiCreateWorktreeRequest) => Promise<WorkflowTuiCreateWorktreeResult>
 
 const VIEW_ORDER: WorkflowCliViewType[] = [
   WorkflowCliView.TaskTree,
@@ -94,6 +114,7 @@ export function WorkflowTui({
   initialView = WorkflowCliView.TaskTree,
   subscribeModelUpdates,
   deployAgent,
+  createWorktree,
   copyToClipboard = copyTextToClipboard,
   onExit,
 }: WorkflowTuiProps): React.ReactElement {
@@ -225,6 +246,26 @@ export function WorkflowTui({
       void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice, setCopyEffect)
       return
     }
+    if (input === "w") {
+      const request = buildCreateWorktreeRequest(project, selected)
+      if (!request) {
+        setNotice("selected issue already has a worktree or cannot create one")
+        return
+      }
+      if (!createWorktree) {
+        setNotice("worktree creation is unavailable in this TUI mode")
+        return
+      }
+      setNotice(`creating worktree ${request.slug}...`)
+      void createWorktree(request)
+        .then((result) => {
+          setNotice(`created worktree ${result.slug} on ${result.branch}`)
+        })
+        .catch((error: unknown) => {
+          setNotice(error instanceof Error ? error.message : "worktree create failed")
+        })
+      return
+    }
     if (input === "1") switchView(WorkflowCliView.TaskTree, setView, setItemIndex)
     if (input === "2") switchView(WorkflowCliView.Dependency, setView, setItemIndex)
     if (input === "3") switchView(WorkflowCliView.Ready, setView, setItemIndex)
@@ -296,6 +337,7 @@ export async function runWorkflowTui(
   initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void,
   deployAgent?: WorkflowTuiDeployHandler,
+  createWorktree?: WorkflowTuiCreateWorktreeHandler,
 ): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
   instance = render(
@@ -304,6 +346,7 @@ export async function runWorkflowTui(
       initialView={initialView}
       subscribeModelUpdates={subscribeModelUpdates}
       deployAgent={deployAgent}
+      createWorktree={createWorktree}
       onExit={() => instance?.unmount()}
     />,
   )
@@ -680,7 +723,7 @@ function submitDeployDraft(
   }
 
   setDeployDraft(null)
-  setNotice(`deploying codex on ${request.worktreeId}...`)
+  setNotice(`deploying ${request.provider} on ${request.worktreeId}...`)
   void deployAgent(request)
     .then((result) => {
       setHandoff(result)
@@ -706,6 +749,29 @@ function buildDeployRequest(project: WorkflowProjectView, selected: FlattenedWor
   const worktree = selected?.worktree ?? project.worktrees[0]
   if (!worktree) return null
   return buildDeployRequestForWorktree(project, worktree, selected)
+}
+
+export function buildCreateWorktreeRequest(
+  project: WorkflowProjectView,
+  selected: FlattenedWorkItem | undefined,
+): WorkflowTuiCreateWorktreeRequest | null {
+  if (!selected || selected.type === "epic" || selected.source === "git" || selected.worktree || !project.root) {
+    return null
+  }
+  const suffix = selected.external_id
+    ? slugifyWorktreeSegment(selected.external_id.split("#").at(-1) ?? selected.id)
+    : slugifyWorktreeSegment(selected.id)
+  const titleSlug = slugifyWorktreeSegment(selected.title).slice(0, 40)
+  const slug = titleSlug ? `${suffix}-${titleSlug}` : suffix
+  return {
+    projectId: project.id,
+    issueId: selected.id,
+    issueTitle: selected.title,
+    projectRoot: project.root,
+    branch: selected.branch ?? `agent/${slug}`,
+    slug,
+    base: "main",
+  }
 }
 
 export function buildDeployRequestForWorktree(
@@ -740,4 +806,13 @@ function deployProfilesForProvider(provider: ProviderKind): PermissionProfile[] 
   return provider === "gemini"
     ? ["workspace-write", "workspace-read"]
     : DEPLOY_PROFILES
+}
+
+function slugifyWorktreeSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64) || "issue"
 }

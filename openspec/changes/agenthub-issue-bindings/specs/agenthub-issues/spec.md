@@ -40,6 +40,14 @@ AgentHub SHALL represent tracked work items from explicit issue bindings rather 
 - **WHEN** AgentBridge derives the workflow view model
 - **THEN** the issue work item links to that worktree.
 
+#### Scenario: User creates a worktree from a tracked issue
+
+- **GIVEN** the interactive TUI is showing a tracked issue with no linked worktree
+- **WHEN** the user presses `w`
+- **THEN** AgentBridge creates a sibling worktree for the issue
+- **AND** updates the issue binding with the created branch
+- **AND** the TUI can show the worktree after project auto-sync reloads the model.
+
 #### Scenario: Agent sessions attach to issue work items through worktrees
 
 - **GIVEN** an issue binding is linked to a worktree

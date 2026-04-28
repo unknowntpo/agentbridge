@@ -17,7 +17,7 @@ import { DiscordGatewayAdapter } from "./discord/discordGatewayAdapter.js"
 import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
-import { loadIssueBindings } from "./agenthub/issueBindings.js"
+import { loadIssueBindings, updateIssueBindingBranch } from "./agenthub/issueBindings.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
 import { deployAgent as deployAgentHandler, ensureCodexAppServer } from "./agenthub/agentDeploy.js"
@@ -32,6 +32,7 @@ import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runt
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
 import { runWorkflowTui } from "./tui/WorkflowTui.js"
 import type { WorkflowTuiDeployRequest, WorkflowTuiDeployResult } from "./tui/WorkflowTui.js"
+import type { WorkflowTuiCreateWorktreeRequest, WorkflowTuiCreateWorktreeResult } from "./tui/WorkflowTui.js"
 import { createProjectModelSubscriber } from "./tui/projectModelSubscriber.js"
 import { parseWorkflowCliView, renderWorkflowTree, renderWorkflowView } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
@@ -516,7 +517,13 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
   const subscribeModelUpdates = options.project
     ? createProjectModelSubscriber(options.project, (projectPath) => loadProjectWorkflowModel(projectPath, options.issuesFile))
     : undefined
-  await runWorkflowTui(model, view, subscribeModelUpdates, createTuiDeployAgentHandler())
+  await runWorkflowTui(
+    model,
+    view,
+    subscribeModelUpdates,
+    createTuiDeployAgentHandler(),
+    options.project ? createTuiCreateWorktreeHandler(options.issuesFile) : undefined,
+  )
 }
 
 async function runWorkflow(options: SessionCommandOptions): Promise<void> {
@@ -567,6 +574,10 @@ async function loadProjectIssueBindings(projectRoot: string, issuesFile?: string
     return undefined
   }
   return loadIssueBindings(defaultPath)
+}
+
+function resolveProjectIssuesFile(projectRoot: string, issuesFile?: string): string {
+  return issuesFile ? path.resolve(issuesFile) : path.join(projectRoot, ".agenthub", "issues.json")
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {
@@ -847,6 +858,25 @@ function createTuiDeployAgentHandler() {
         provider,
         cwd: session.workingDirectory,
       }),
+    }
+  }
+}
+
+function createTuiCreateWorktreeHandler(issuesFile?: string) {
+  return async (request: WorkflowTuiCreateWorktreeRequest): Promise<WorkflowTuiCreateWorktreeResult> => {
+    const service = createAgentHubProjectServiceFromEnv()
+    await service.createWorktree({
+      projectPath: request.projectRoot,
+      slug: request.slug,
+      branch: request.branch,
+      base: request.base,
+    })
+    const issueFile = resolveProjectIssuesFile(request.projectRoot, issuesFile)
+    await updateIssueBindingBranch(issueFile, request.issueId, request.branch)
+    return {
+      branch: request.branch,
+      slug: request.slug,
+      path: path.join(request.projectRoot, request.slug),
     }
   }
 }

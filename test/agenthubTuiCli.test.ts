@@ -9,7 +9,7 @@ import { render } from "ink"
 import React from "react"
 
 import type { WorkflowViewModel } from "../src/agenthub/workflowConfig.js"
-import { buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
+import { buildCreateWorktreeRequest, buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
 import { buildSessionOpenCommand } from "../src/local/handoffCommand.js"
 import { SQLiteStateStore } from "../src/state/sqliteStateStore.js"
 import { createProjectModelSubscriber, shouldIgnoreWatchPath } from "../src/tui/projectModelSubscriber.js"
@@ -24,6 +24,7 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
+      "w    create worktree for selected issue",
       "d    deploy agent",
       "y    copy selected agent open command",
       "q    quit",
@@ -145,6 +146,25 @@ describe("AgentHub TUI CLI", () => {
       mode: "write",
       profile: "workspace-write",
       prompt: "Work on gh-121 Add checkout retry metrics",
+    })
+  })
+
+  it("builds a create-worktree request from a tracked issue without a worktree", () => {
+    const model = modelWithUnboundIssue()
+    const project = model.projects[0]!
+    const issue = project.workItems[0]!
+
+    expect(buildCreateWorktreeRequest(project, {
+      ...issue,
+      depth: 0,
+    })).toEqual({
+      projectId: "demo",
+      issueId: "github:unknowntpo/tw-example#42",
+      issueTitle: "Refactor hello.txt",
+      projectRoot: "/tmp/demo",
+      branch: "agent/42-refactor-hello-txt",
+      slug: "42-refactor-hello-txt",
+      base: "main",
     })
   })
 
@@ -783,6 +803,54 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).not.toContain("ticket commit-")
   })
 
+  it("creates a worktree from the selected tracked issue in interactive TUI", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const createCalls: unknown[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithUnboundIssue(),
+        createWorktree: async (request) => {
+          createCalls.push(request)
+          return {
+            branch: request.branch,
+            slug: request.slug,
+            path: path.join(request.projectRoot, request.slug),
+          }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("Tracked Issues")
+
+    stdin.write("w")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(createCalls).toEqual([{
+      projectId: "demo",
+      issueId: "github:unknowntpo/tw-example#42",
+      issueTitle: "Refactor hello.txt",
+      projectRoot: "/tmp/demo",
+      branch: "agent/42-refactor-hello-txt",
+      slug: "42-refactor-hello-txt",
+      base: "main",
+    }])
+    expect(stdout.output).toContain("created worktree 42-refactor-hello-txt")
+  })
+
 })
 
 function runWorkflowView(view: string): string {
@@ -923,6 +991,57 @@ function modelWithManagedAgent(): WorkflowViewModel {
         issues: 1,
         worktrees: 1,
         agents: 1,
+        pullRequests: 0,
+        commits: 0,
+      },
+    }],
+  }
+}
+
+function modelWithUnboundIssue(): WorkflowViewModel {
+  return {
+    projects: [{
+      id: "demo",
+      name: "Issue Demo",
+      root: "/tmp/demo",
+      workItemSource: "issue-bindings",
+      workItems: [{
+        id: "github:unknowntpo/tw-example#42",
+        type: "issue",
+        title: "Refactor hello.txt",
+        status: "todo",
+        source: "github",
+        external_id: "unknowntpo/tw-example#42",
+        children: [],
+        dependencies: [],
+        dependents: [],
+        agents: [],
+        worktree: null,
+        pullRequest: null,
+      }],
+      rootItems: [{
+        id: "github:unknowntpo/tw-example#42",
+        type: "issue",
+        title: "Refactor hello.txt",
+        status: "todo",
+        source: "github",
+        external_id: "unknowntpo/tw-example#42",
+        children: [],
+        dependencies: [],
+        dependents: [],
+        agents: [],
+        worktree: null,
+        pullRequest: null,
+      }],
+      worktrees: [],
+      agents: [],
+      pullRequests: [],
+      commits: [],
+      summary: {
+        epics: 0,
+        issues: 1,
+        worktrees: 0,
+        agents: 0,
         pullRequests: 0,
         commits: 0,
       },
