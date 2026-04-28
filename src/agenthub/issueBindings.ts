@@ -1,4 +1,5 @@
 import fs from "node:fs/promises"
+import path from "node:path"
 
 export type IssueBindingProvider = "github"
 export type IssueBindingState = "open" | "closed"
@@ -34,6 +35,27 @@ export async function updateIssueBindingBranch(filePath: string, issueId: string
     throw new Error(`Issue binding not found: ${issueId}`)
   }
   issue.branch = branch
+  await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
+}
+
+export async function appendIssueBinding(filePath: string, issue: IssueBinding): Promise<void> {
+  let file: IssueBindingsFile
+  try {
+    const source = await fs.readFile(filePath, "utf8")
+    const parsed = JSON.parse(source) as unknown
+    file = parseIssueBindingsFile(parsed, filePath)
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
+      throw error
+    }
+    file = { issues: [] }
+  }
+
+  if (file.issues.some((candidate) => candidate.id === issue.id)) {
+    throw new Error(`Issue binding already exists: ${issue.id}`)
+  }
+  file.issues.push(issue)
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
   await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
 }
 

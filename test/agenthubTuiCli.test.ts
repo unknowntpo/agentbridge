@@ -9,7 +9,7 @@ import { render } from "ink"
 import React from "react"
 
 import type { WorkflowViewModel } from "../src/agenthub/workflowConfig.js"
-import { buildCreateWorktreeRequest, buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
+import { buildCreateIssueRequest, buildCreateWorktreeRequest, buildDeployRequestForWorktree, getViewportWindow, WORKFLOW_TUI_CONTROLS, WorkflowTui } from "../src/tui/WorkflowTui.js"
 import { buildSessionOpenCommand } from "../src/local/handoffCommand.js"
 import { SQLiteStateStore } from "../src/state/sqliteStateStore.js"
 import { createProjectModelSubscriber, shouldIgnoreWatchPath } from "../src/tui/projectModelSubscriber.js"
@@ -24,6 +24,7 @@ describe("AgentHub TUI CLI", () => {
       "3    ready",
       "4    agents",
       "5    commits",
+      "i    create GitHub issue",
       "w    create worktree for selected issue",
       "d    deploy agent",
       "y    copy selected agent open command",
@@ -165,6 +166,22 @@ describe("AgentHub TUI CLI", () => {
       branch: "agent/42-refactor-hello-txt",
       slug: "42-refactor-hello-txt",
       base: "main",
+    })
+  })
+
+  it("builds a GitHub issue create request from project context", () => {
+    const model = modelWithUnboundIssue()
+    const project = model.projects[0]!
+
+    expect(buildCreateIssueRequest(project)).toEqual({
+      projectId: "demo",
+      projectRoot: "/tmp/demo",
+      cwd: "/tmp/demo",
+      title: "",
+      body: "",
+      labels: ["agentbridge"],
+      assignee: "@me",
+      repo: "unknowntpo/tw-example",
     })
   })
 
@@ -849,6 +866,70 @@ describe("AgentHub TUI CLI", () => {
       base: "main",
     }])
     expect(stdout.output).toContain("created worktree 42-refactor-hello-txt")
+  })
+
+  it("creates a GitHub issue from the interactive TUI form", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const createCalls: unknown[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithUnboundIssue(),
+        createIssue: async (request) => {
+          createCalls.push(request)
+          return {
+            id: "github:unknowntpo/tw-example#99",
+            repo: "unknowntpo/tw-example",
+            number: 99,
+            title: request.title,
+            url: "https://github.com/unknowntpo/tw-example/issues/99",
+          }
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("i")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("Create GitHub issue")
+
+    stdin.write("New issue from TUI")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    stdin.write("Body from AgentHub")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(createCalls).toEqual([{
+      projectId: "demo",
+      projectRoot: "/tmp/demo",
+      cwd: "/tmp/demo",
+      title: "New issue from TUI",
+      body: "Body from AgentHub",
+      labels: ["agentbridge"],
+      assignee: "@me",
+      repo: "unknowntpo/tw-example",
+    }])
+    expect(stdout.output).toContain("created issue unknowntpo/tw-example#99")
   })
 
 })

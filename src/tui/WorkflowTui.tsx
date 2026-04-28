@@ -21,6 +21,7 @@ export const WORKFLOW_TUI_CONTROLS = [
   "3    ready",
   "4    agents",
   "5    commits",
+  "i    create GitHub issue",
   "w    create worktree for selected issue",
   "d    deploy agent",
   "y    copy selected agent open command",
@@ -38,6 +39,7 @@ interface WorkflowTuiProps {
   initialView?: WorkflowCliViewType
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void
   deployAgent?: WorkflowTuiDeployHandler
+  createIssue?: WorkflowTuiCreateIssueHandler
   createWorktree?: WorkflowTuiCreateWorktreeHandler
   copyToClipboard?: ClipboardCopy
   onExit?: () => void
@@ -65,6 +67,27 @@ export interface WorkflowTuiDeployResult {
 }
 
 export type WorkflowTuiDeployHandler = (request: WorkflowTuiDeployRequest) => Promise<WorkflowTuiDeployResult>
+
+export interface WorkflowTuiCreateIssueRequest {
+  projectId: string
+  projectRoot: string
+  cwd: string
+  title: string
+  body: string
+  labels: string[]
+  assignee?: string
+  repo?: string
+}
+
+export interface WorkflowTuiCreateIssueResult {
+  id: string
+  repo: string
+  number: number
+  title: string
+  url: string
+}
+
+export type WorkflowTuiCreateIssueHandler = (request: WorkflowTuiCreateIssueRequest) => Promise<WorkflowTuiCreateIssueResult>
 
 export interface WorkflowTuiCreateWorktreeRequest {
   projectId: string
@@ -95,10 +118,17 @@ const DEPLOY_PROFILES: PermissionProfile[] = ["workspace-write", "workspace-read
 const DEPLOY_PROVIDERS: ProviderKind[] = ["codex", "gemini"]
 const DEPLOY_FORM_FIELDS = ["provider", "permission", "prompt", "deploy", "cancel"] as const
 type DeployFormField = (typeof DEPLOY_FORM_FIELDS)[number]
+const ISSUE_FORM_FIELDS = ["title", "body", "labels", "create", "cancel"] as const
+type IssueFormField = (typeof ISSUE_FORM_FIELDS)[number]
 
 interface DeployDraft {
   request: WorkflowTuiDeployRequest
   field: DeployFormField
+}
+
+interface IssueDraft {
+  request: WorkflowTuiCreateIssueRequest
+  field: IssueFormField
 }
 
 interface CopyEffect {
@@ -114,6 +144,7 @@ export function WorkflowTui({
   initialView = WorkflowCliView.TaskTree,
   subscribeModelUpdates,
   deployAgent,
+  createIssue,
   createWorktree,
   copyToClipboard = copyTextToClipboard,
   onExit,
@@ -128,6 +159,7 @@ export function WorkflowTui({
   const [view, setView] = useState<WorkflowCliViewType>(initialView)
   const [handoff, setHandoff] = useState<WorkflowTuiDeployResult | null>(null)
   const [deployDraft, setDeployDraft] = useState<DeployDraft | null>(null)
+  const [issueDraft, setIssueDraft] = useState<IssueDraft | null>(null)
   const [copyEffect, setCopyEffect] = useState<CopyEffect | null>(null)
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
@@ -179,6 +211,46 @@ export function WorkflowTui({
   }, [copyEffect])
 
   useInput((input, key) => {
+    if (issueDraft) {
+      if (key.escape || input === "\u001b" || input === "c") {
+        setIssueDraft(null)
+        setNotice("issue create cancelled")
+        return
+      }
+      if (key.upArrow) {
+        setIssueDraft((current) => current ? { ...current, field: previousIssueField(current.field) } : current)
+        return
+      }
+      if (key.return && issueDraft.field === "cancel") {
+        setIssueDraft(null)
+        setNotice("issue create cancelled")
+        return
+      }
+      if (key.return && issueDraft.field === "create") {
+        submitIssueDraft(issueDraft.request, createIssue, setIssueDraft, setNotice)
+        return
+      }
+      if (key.downArrow || key.return) {
+        setIssueDraft((current) => current ? { ...current, field: nextIssueField(current.field) } : current)
+        return
+      }
+      const issueTextField = isIssueTextField(issueDraft.field) ? issueDraft.field : null
+      if ((key.backspace || key.delete) && issueTextField) {
+        setIssueDraft((current) => current ? {
+          ...current,
+          request: updateIssueDraftText(current.request, issueTextField, (value) => value.slice(0, -1)),
+        } : current)
+        return
+      }
+      if (input && !key.ctrl && !key.meta && !key.tab && issueTextField) {
+        setIssueDraft((current) => current ? {
+          ...current,
+          request: updateIssueDraftText(current.request, issueTextField, (value) => `${value}${input}`),
+        } : current)
+      }
+      return
+    }
+
     if (deployDraft) {
       if (key.escape || input === "\u001b" || input === "c") {
         setDeployDraft(null)
@@ -246,6 +318,20 @@ export function WorkflowTui({
       void copyAgentCommand(selectedAgentCommand, copyToClipboard, setNotice, setCopyEffect)
       return
     }
+    if (input === "i") {
+      const request = buildCreateIssueRequest(project)
+      if (!request) {
+        setNotice("GitHub issue creation requires a real project root")
+        return
+      }
+      if (!createIssue) {
+        setNotice("issue creation is unavailable in this TUI mode")
+        return
+      }
+      setIssueDraft({ request, field: "title" })
+      setNotice("issue draft opened; type title/body/labels, Enter/↑/↓ move row")
+      return
+    }
     if (input === "w") {
       const request = buildCreateWorktreeRequest(project, selected)
       if (!request) {
@@ -309,6 +395,7 @@ export function WorkflowTui({
       {notice ? <Text color="yellow">{notice}</Text> : null}
       <ProjectHeader project={project} />
       {handoff ? <HandoffPanel handoff={handoff} /> : null}
+      {issueDraft ? <IssueDraftPanel draft={issueDraft} /> : null}
       {deployDraft ? <DeployDraftPanel draft={deployDraft} /> : null}
       <Text color="gray">view: {view}</Text>
       {view === WorkflowCliView.TaskTree
@@ -337,6 +424,7 @@ export async function runWorkflowTui(
   initialView: WorkflowCliViewType = WorkflowCliView.TaskTree,
   subscribeModelUpdates?: (onUpdate: (model: WorkflowViewModel) => void, onError: (error: unknown) => void) => () => void,
   deployAgent?: WorkflowTuiDeployHandler,
+  createIssue?: WorkflowTuiCreateIssueHandler,
   createWorktree?: WorkflowTuiCreateWorktreeHandler,
 ): Promise<void> {
   let instance: ReturnType<typeof render> | undefined
@@ -346,6 +434,7 @@ export async function runWorkflowTui(
       initialView={initialView}
       subscribeModelUpdates={subscribeModelUpdates}
       deployAgent={deployAgent}
+      createIssue={createIssue}
       createWorktree={createWorktree}
       onExit={() => instance?.unmount()}
     />,
@@ -383,6 +472,30 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
       <Text color="gray">Tab switch current option · Enter/↓ next row · ↑ previous row · Enter on Deploy/Cancel activates · c/Esc cancel</Text>
+    </Box>
+  )
+}
+
+function IssueDraftPanel({ draft }: { draft: IssueDraft }): React.ReactElement {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
+      <Text bold color="yellow">Create GitHub issue</Text>
+      <Text>project: <Text color="cyan">{draft.request.projectRoot}</Text></Text>
+      <Text>repo: <Text color="cyan">{draft.request.repo ?? "infer from gh cwd"}</Text></Text>
+      <Text>{issueFieldMarker(draft.field, "title")} title:</Text>
+      <Text color={draft.field === "title" ? "green" : "gray"}>  {draft.request.title}{draft.field === "title" ? <Text color="gray">_</Text> : null}</Text>
+      <Text>{issueFieldMarker(draft.field, "body")} body:</Text>
+      <Text color={draft.field === "body" ? "green" : "gray"}>  {draft.request.body}{draft.field === "body" ? <Text color="gray">_</Text> : null}</Text>
+      <Text>{issueFieldMarker(draft.field, "labels")} labels:</Text>
+      <Text color={draft.field === "labels" ? "green" : "gray"}>  {draft.request.labels.join(",")}{draft.field === "labels" ? <Text color="gray">_</Text> : null}</Text>
+      <Box>
+        <Text>{issueFieldMarker(draft.field, "create")} </Text>
+        <Text color={draft.field === "create" ? "green" : "gray"}>[ Create ]</Text>
+        <Text>  </Text>
+        <Text>{issueFieldMarker(draft.field, "cancel")} </Text>
+        <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
+      </Box>
+      <Text color="gray">Enter/↓ next row · ↑ previous row · Enter on Create/Cancel activates · c/Esc cancel</Text>
     </Box>
   )
 }
@@ -635,6 +748,10 @@ function fieldMarker(current: DeployFormField, field: DeployFormField): string {
   return current === field ? ">" : " "
 }
 
+function issueFieldMarker(current: IssueFormField, field: IssueFormField): string {
+  return current === field ? ">" : " "
+}
+
 function isSessionOpenProvider(provider: WorkflowAgentConfig["provider"]): provider is ProviderKind {
   return provider === "codex" || provider === "gemini"
 }
@@ -682,6 +799,40 @@ function nextDeployField(field: DeployFormField): DeployFormField {
 function previousDeployField(field: DeployFormField): DeployFormField {
   const index = DEPLOY_FORM_FIELDS.indexOf(field)
   return DEPLOY_FORM_FIELDS[(index + DEPLOY_FORM_FIELDS.length - 1) % DEPLOY_FORM_FIELDS.length]!
+}
+
+function nextIssueField(field: IssueFormField): IssueFormField {
+  const index = ISSUE_FORM_FIELDS.indexOf(field)
+  return ISSUE_FORM_FIELDS[(index + 1) % ISSUE_FORM_FIELDS.length]!
+}
+
+function previousIssueField(field: IssueFormField): IssueFormField {
+  const index = ISSUE_FORM_FIELDS.indexOf(field)
+  return ISSUE_FORM_FIELDS[(index + ISSUE_FORM_FIELDS.length - 1) % ISSUE_FORM_FIELDS.length]!
+}
+
+function isIssueTextField(field: IssueFormField): field is "title" | "body" | "labels" {
+  return field === "title" || field === "body" || field === "labels"
+}
+
+function updateIssueDraftText(
+  request: WorkflowTuiCreateIssueRequest,
+  field: "title" | "body" | "labels",
+  update: (value: string) => string,
+): WorkflowTuiCreateIssueRequest {
+  if (field === "labels") {
+    return {
+      ...request,
+      labels: update(request.labels.join(","))
+        .split(",")
+        .map((label) => label.trim())
+        .filter(Boolean),
+    }
+  }
+  return {
+    ...request,
+    [field]: update(request[field]),
+  }
 }
 
 function toggleCurrentDeployFieldValue(draft: DeployDraft): DeployDraft {
@@ -734,6 +885,37 @@ function submitDeployDraft(
     })
 }
 
+function submitIssueDraft(
+  request: WorkflowTuiCreateIssueRequest,
+  createIssue: WorkflowTuiCreateIssueHandler | undefined,
+  setIssueDraft: (value: IssueDraft | null) => void,
+  setNotice: (value: string | null) => void,
+): void {
+  if (!createIssue) {
+    setNotice("issue creation is unavailable in this TUI mode")
+    setIssueDraft(null)
+    return
+  }
+  if (!request.title.trim()) {
+    setNotice("issue title is required")
+    return
+  }
+
+  setIssueDraft(null)
+  setNotice(`creating GitHub issue: ${request.title.trim()}...`)
+  void createIssue({
+    ...request,
+    title: request.title.trim(),
+    body: request.body.trim(),
+  })
+    .then((result) => {
+      setNotice(`created issue ${result.repo}#${result.number}: ${result.title}`)
+    })
+    .catch((error: unknown) => {
+      setNotice(error instanceof Error ? error.message : "issue create failed")
+    })
+}
+
 function withNextPermissionProfile(request: WorkflowTuiDeployRequest): WorkflowTuiDeployRequest {
   const profiles = deployProfilesForProvider(request.provider)
   const currentIndex = profiles.indexOf(request.profile)
@@ -771,6 +953,24 @@ export function buildCreateWorktreeRequest(
     branch: selected.branch ?? `agent/${slug}`,
     slug,
     base: "main",
+  }
+}
+
+export function buildCreateIssueRequest(project: WorkflowProjectView): WorkflowTuiCreateIssueRequest | null {
+  if (!project.root) return null
+  const repoFromIssues = project.workItems
+    .map((item) => item.external_id)
+    .find((externalId) => externalId?.includes("#"))
+    ?.split("#")[0]
+  return {
+    projectId: project.id,
+    projectRoot: project.root,
+    cwd: project.repo?.remote ?? project.root,
+    title: "",
+    body: "",
+    labels: ["agentbridge"],
+    assignee: "@me",
+    repo: project.repo?.owner && project.repo.name ? `${project.repo.owner}/${project.repo.name}` : repoFromIssues,
   }
 }
 

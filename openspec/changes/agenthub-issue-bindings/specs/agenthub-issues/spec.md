@@ -48,6 +48,14 @@ AgentHub SHALL represent tracked work items from explicit issue bindings rather 
 - **AND** updates the issue binding with the created branch
 - **AND** the TUI can show the worktree after project auto-sync reloads the model.
 
+#### Scenario: User creates a tracked GitHub issue from TUI
+
+- **GIVEN** the interactive TUI is attached to a real AgentHub project
+- **WHEN** the user presses `i`, fills the issue form, and confirms create
+- **THEN** AgentBridge creates the issue through GitHub CLI
+- **AND** appends the created issue to the project issue binding file
+- **AND** the TUI can show the issue after project auto-sync reloads the model.
+
 #### Scenario: Agent sessions attach to issue work items through worktrees
 
 - **GIVEN** an issue binding is linked to a worktree

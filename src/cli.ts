@@ -17,7 +17,8 @@ import { DiscordGatewayAdapter } from "./discord/discordGatewayAdapter.js"
 import { buildThreadName } from "./discord/discordGatewayAdapter.js"
 import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
-import { loadIssueBindings, updateIssueBindingBranch } from "./agenthub/issueBindings.js"
+import { appendIssueBinding, loadIssueBindings, updateIssueBindingBranch } from "./agenthub/issueBindings.js"
+import { createGitHubIssueWithGh } from "./agenthub/githubIssues.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
 import { deployAgent as deployAgentHandler, ensureCodexAppServer } from "./agenthub/agentDeploy.js"
@@ -32,13 +33,17 @@ import { evaluateSessionPermissionRequest, parsePermissionProfile } from "./runt
 import { SQLiteStateStore } from "./state/sqliteStateStore.js"
 import { runWorkflowTui } from "./tui/WorkflowTui.js"
 import type { WorkflowTuiDeployRequest, WorkflowTuiDeployResult } from "./tui/WorkflowTui.js"
-import type { WorkflowTuiCreateWorktreeRequest, WorkflowTuiCreateWorktreeResult } from "./tui/WorkflowTui.js"
+import type { WorkflowTuiCreateIssueRequest, WorkflowTuiCreateIssueResult, WorkflowTuiCreateWorktreeRequest, WorkflowTuiCreateWorktreeResult } from "./tui/WorkflowTui.js"
 import { createProjectModelSubscriber } from "./tui/projectModelSubscriber.js"
 import { parseWorkflowCliView, renderWorkflowTree, renderWorkflowView } from "./tui/workflowTree.js"
 import type { PermissionProfile, ProviderKind, SessionAdapter, ThreadBinding } from "./types.js"
 
 const RUNTIME_DIR = path.join(os.homedir(), ".agentbridge")
 const PID_FILE = path.join(RUNTIME_DIR, "agentbridge.pid")
+
+function collectValues(value: string, previous: string[]): string[] {
+  return [...previous, value]
+}
 
 interface SessionCommandOptions {
   cwd?: string
@@ -63,6 +68,10 @@ interface SessionCommandOptions {
   view?: string
   project?: string
   issuesFile?: string
+  title?: string
+  body?: string
+  label?: string[]
+  assignee?: string
   worktreeId?: string
   worktreePath?: string
   mode?: string
@@ -119,6 +128,28 @@ async function main(): Promise<void> {
     .option("--json", "Emit machine-readable JSON.")
     .action(async (plainDir: string, options: SessionCommandOptions) => {
       await runProjectCreate(plainDir, options)
+    })
+
+  const issue = program
+    .command("issue")
+    .description("Create and bind remote issue tracker work items.")
+    .showHelpAfterError()
+    .action(() => {
+      issue.help()
+    })
+
+  issue
+    .command("create")
+    .description("Create a GitHub issue with gh and append it to .agenthub/issues.json.")
+    .requiredOption("--project <path>", "AgentHub project/worktree path.")
+    .requiredOption("--title <text>", "GitHub issue title.")
+    .option("--body <text>", "GitHub issue body.", "")
+    .option("--label <name>", "GitHub label to apply. Repeatable.", collectValues, [])
+    .option("--assignee <login>", "GitHub assignee, e.g. @me.", "@me")
+    .option("--issues-file <path>", "IssueBinding JSON file to update.")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runIssueCreate(options)
     })
 
   const agent = program
@@ -439,6 +470,47 @@ async function runProjectCreate(plainDir: string, options: SessionCommandOptions
   console.log(outcome.message)
 }
 
+async function runIssueCreate(options: SessionCommandOptions): Promise<void> {
+  if (!options.project) {
+    throw new Error("`agentbridge issue create` requires `--project <path>`.")
+  }
+  if (!options.title?.trim()) {
+    throw new Error("`agentbridge issue create` requires `--title <text>`.")
+  }
+
+  const service = createAgentHubProjectServiceFromEnv()
+  const scan = await service.scanProject(options.project)
+  const labels = options.label && options.label.length > 0 ? options.label : ["agentbridge"]
+  const result = await createGitHubIssueWithGh({
+    cwd: scan.anchorPath,
+    title: options.title,
+    body: options.body,
+    labels,
+    assignee: options.assignee,
+  })
+  const issueFile = resolveProjectIssuesFile(scan.rootPath, options.issuesFile)
+  await appendIssueBinding(issueFile, {
+    id: `github:${result.repo}#${result.number}`,
+    provider: "github",
+    repo: result.repo,
+    number: result.number,
+    title: result.title,
+    state: "open",
+    labels: result.labels,
+    assignee: result.assignee,
+  })
+
+  if (options.json) {
+    writeJson({
+      ...result,
+      issueFile,
+    })
+    return
+  }
+  console.log(`created ${result.repo}#${result.number}: ${result.title}`)
+  console.log(`bound in ${issueFile}`)
+}
+
 async function runWorktreeList(options: SessionCommandOptions): Promise<void> {
   if (!options.project) {
     throw new Error("`agentbridge worktree list` requires `--project <path>`.")
@@ -522,6 +594,7 @@ async function runTui(options: SessionCommandOptions): Promise<void> {
     view,
     subscribeModelUpdates,
     createTuiDeployAgentHandler(),
+    options.project ? createTuiCreateIssueHandler(options.issuesFile) : undefined,
     options.project ? createTuiCreateWorktreeHandler(options.issuesFile) : undefined,
   )
 }
@@ -858,6 +931,38 @@ function createTuiDeployAgentHandler() {
         provider,
         cwd: session.workingDirectory,
       }),
+    }
+  }
+}
+
+function createTuiCreateIssueHandler(issuesFile?: string) {
+  return async (request: WorkflowTuiCreateIssueRequest): Promise<WorkflowTuiCreateIssueResult> => {
+    const labels = request.labels.length > 0 ? request.labels : ["agentbridge"]
+    const result = await createGitHubIssueWithGh({
+      cwd: request.cwd,
+      title: request.title,
+      body: request.body,
+      labels,
+      assignee: request.assignee,
+      repo: request.repo,
+    })
+    const issueFile = resolveProjectIssuesFile(request.projectRoot, issuesFile)
+    await appendIssueBinding(issueFile, {
+      id: `github:${result.repo}#${result.number}`,
+      provider: "github",
+      repo: result.repo,
+      number: result.number,
+      title: result.title,
+      state: "open",
+      labels: result.labels,
+      assignee: result.assignee,
+    })
+    return {
+      id: `github:${result.repo}#${result.number}`,
+      repo: result.repo,
+      number: result.number,
+      title: result.title,
+      url: result.url,
     }
   }
 }
