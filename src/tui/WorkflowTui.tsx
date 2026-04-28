@@ -24,6 +24,8 @@ export const WORKFLOW_TUI_CONTROLS = [
   "i    create GitHub issue",
   "w    create worktree for selected issue",
   "d    deploy agent",
+  "a    jump to selected issue agent",
+  "g    jump to selected issue worktree commit",
   "y    copy selected agent open command",
   "q    quit",
 ] as const
@@ -364,6 +366,32 @@ export function WorkflowTui({
         .catch((error: unknown) => {
           setNotice(error instanceof Error ? error.message : "worktree create failed")
         })
+      return
+    }
+    if (input === "a") {
+      const nextIndex = selected ? firstAgentIndexForItem(project, selected.id) : -1
+      if (nextIndex < 0) {
+        setNotice("selected issue has no agent to focus")
+        return
+      }
+      setView(WorkflowCliView.Agents)
+      setItemIndex(nextIndex)
+      setNotice("focused selected issue agent")
+      return
+    }
+    if (input === "g") {
+      if (!selected?.worktree) {
+        setNotice("selected issue has no worktree; press w to create one first")
+        return
+      }
+      const nextIndex = commitLineIndexForWorktree(project, selected.worktree.id)
+      if (nextIndex < 0) {
+        setNotice("selected issue worktree has no commit graph entry yet")
+        return
+      }
+      setView(WorkflowCliView.Commits)
+      setItemIndex(nextIndex)
+      setNotice("focused selected issue worktree commit")
       return
     }
     if (input === "1") switchView(WorkflowCliView.TaskTree, setView, setItemIndex)
@@ -775,6 +803,16 @@ function getViewSize(view: WorkflowCliViewType, taskCount: number, agentCount: n
   if (view === WorkflowCliView.TaskTree) return taskCount
   if (view === WorkflowCliView.Agents) return agentCount
   return projectionLineCount
+}
+
+function firstAgentIndexForItem(project: WorkflowProjectView, itemId: string): number {
+  return project.agents.findIndex((agent) => agent.work_item === itemId)
+}
+
+function commitLineIndexForWorktree(project: WorkflowProjectView, worktreeId: string): number {
+  const commitIndex = project.commits.findIndex((commit) => commit.worktrees.some((worktree) => worktree.id === worktreeId))
+  if (commitIndex < 0) return -1
+  return 2 + commitIndex * 3
 }
 
 function switchView(

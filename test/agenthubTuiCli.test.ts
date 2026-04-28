@@ -27,6 +27,8 @@ describe("AgentHub TUI CLI", () => {
       "i    create GitHub issue",
       "w    create worktree for selected issue",
       "d    deploy agent",
+      "a    jump to selected issue agent",
+      "g    jump to selected issue worktree commit",
       "y    copy selected agent open command",
       "q    quit",
     ])
@@ -222,6 +224,99 @@ describe("AgentHub TUI CLI", () => {
 
     expect(deployCalls).toHaveLength(0)
     expect(stdout.output).toContain("no worktree available for deploy")
+  })
+
+  it("jumps from a selected issue to its agent view", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithIssueAgentAndCommit(),
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("a")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("focused selected issue agent")
+    expect(stdout.output).toContain("Agents View")
+    expect(stdout.output).toContain("> [.] ◎ Codex codex-gh-42")
+  })
+
+  it("jumps from a selected issue to its worktree commit context", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithIssueAgentAndCommit(),
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("g")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("focused selected issue worktree commit")
+    expect(stdout.output).toContain("Commit View")
+    expect(stdout.output).toContain("abc1234 Implement issue flow")
+    expect(stdout.output).toContain("worktrees: wt-issue clean +0/-0")
+  })
+
+  it("does not jump from an issue to agent or graph before backing state exists", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithUnboundIssue(),
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("a")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    stdin.write("g")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(stdout.output).toContain("selected issue has no agent to focus")
+    expect(stdout.output).toContain("selected issue has no worktree; press w to create one first")
   })
 
   it("builds a create-worktree request from a tracked issue without a worktree", () => {
@@ -1229,6 +1324,74 @@ function modelWithTwoIssues(projectName: string): WorkflowViewModel {
         agents: 0,
         pullRequests: 0,
         commits: 0,
+      },
+    }],
+  }
+}
+
+function modelWithIssueAgentAndCommit(): WorkflowViewModel {
+  const issue = {
+    ...issueItem("github:unknowntpo/tw-example#42", "Implement issue flow", "unknowntpo/tw-example#42"),
+    agents: [{
+      id: "codex-gh-42",
+      provider: "codex" as const,
+      mode: "write" as const,
+      status: "idle",
+      session_id: "gh-42",
+      worktree: "wt-issue",
+      work_item: "github:unknowntpo/tw-example#42",
+    }],
+    worktree: {
+      id: "wt-issue",
+      name: "wt-issue",
+      path: "/tmp/demo/wt-issue",
+      branch: "agent/42-issue-flow",
+      work_item: "github:unknowntpo/tw-example#42",
+    },
+  }
+
+  return {
+    projects: [{
+      id: "demo",
+      name: "Issue Agent Demo",
+      root: "/tmp/demo",
+      workItemSource: "issue-bindings",
+      workItems: [issue],
+      rootItems: [issue],
+      worktrees: [{
+        id: "wt-issue",
+        name: "wt-issue",
+        path: "/tmp/demo/wt-issue",
+        branch: "agent/42-issue-flow",
+        work_item: "github:unknowntpo/tw-example#42",
+      }],
+      agents: issue.agents,
+      pullRequests: [],
+      commits: [{
+        id: "commit-abc1234",
+        hash: "abc1234000000000000000000000000000000000",
+        shortHash: "abc1234",
+        subject: "Implement issue flow",
+        refs: ["agent/42-issue-flow"],
+        authoredAt: "2026-04-28T00:00:00.000Z",
+        authorName: "AgentHub Test",
+        worktrees: [{
+          id: "wt-issue",
+          name: "wt-issue",
+          path: "/tmp/demo/wt-issue",
+          branch: "agent/42-issue-flow",
+          status: "clean",
+          ahead: 0,
+          behind: 0,
+        }],
+      }],
+      summary: {
+        epics: 0,
+        issues: 1,
+        worktrees: 1,
+        agents: 1,
+        pullRequests: 0,
+        commits: 1,
       },
     }],
   }
