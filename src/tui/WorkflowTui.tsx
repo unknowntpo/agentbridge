@@ -122,6 +122,8 @@ const DEPLOY_FORM_FIELDS = ["provider", "permission", "prompt", "deploy", "cance
 type DeployFormField = (typeof DEPLOY_FORM_FIELDS)[number]
 const ISSUE_FORM_FIELDS = ["title", "body", "labels", "create", "cancel"] as const
 type IssueFormField = (typeof ISSUE_FORM_FIELDS)[number]
+const WORKTREE_FORM_FIELDS = ["create", "cancel"] as const
+type WorktreeFormField = (typeof WORKTREE_FORM_FIELDS)[number]
 
 interface DeployDraft {
   request: WorkflowTuiDeployRequest
@@ -131,6 +133,11 @@ interface DeployDraft {
 interface IssueDraft {
   request: WorkflowTuiCreateIssueRequest
   field: IssueFormField
+}
+
+interface WorktreeDraft {
+  request: WorkflowTuiCreateWorktreeRequest
+  field: WorktreeFormField
 }
 
 interface CopyEffect {
@@ -162,6 +169,7 @@ export function WorkflowTui({
   const [handoff, setHandoff] = useState<WorkflowTuiDeployResult | null>(null)
   const [deployDraft, setDeployDraft] = useState<DeployDraft | null>(null)
   const [issueDraft, setIssueDraft] = useState<IssueDraft | null>(null)
+  const [worktreeDraft, setWorktreeDraft] = useState<WorktreeDraft | null>(null)
   const [copyEffect, setCopyEffect] = useState<CopyEffect | null>(null)
   const project = currentModel.projects[projectIndex]!
   const items = flattenItems(project.rootItems)
@@ -227,6 +235,30 @@ export function WorkflowTui({
   }, [copyEffect])
 
   useInput((input, key) => {
+    if (worktreeDraft) {
+      if (key.escape || input === "\u001b") {
+        setWorktreeDraft(null)
+        setNotice("worktree create cancelled")
+        return
+      }
+      if (key.upArrow || key.downArrow || key.tab) {
+        setWorktreeDraft((current) => current ? {
+          ...current,
+          field: current.field === "create" ? "cancel" : "create",
+        } : current)
+        return
+      }
+      if (key.return && worktreeDraft.field === "cancel") {
+        setWorktreeDraft(null)
+        setNotice("worktree create cancelled")
+        return
+      }
+      if (key.return && worktreeDraft.field === "create") {
+        submitWorktreeDraft(worktreeDraft.request, createWorktree, setWorktreeDraft, setNotice)
+      }
+      return
+    }
+
     if (issueDraft) {
       if (key.escape || input === "\u001b") {
         setIssueDraft(null)
@@ -350,22 +382,7 @@ export function WorkflowTui({
     }
     if (input === "w") {
       const request = buildCreateWorktreeRequest(project, selected)
-      if (!request) {
-        setNotice("selected issue already has a worktree or cannot create one")
-        return
-      }
-      if (!createWorktree) {
-        setNotice("worktree creation is unavailable in this TUI mode")
-        return
-      }
-      setNotice(`creating worktree ${request.slug}...`)
-      void createWorktree(request)
-        .then((result) => {
-          setNotice(`created worktree ${result.slug} on ${result.branch}`)
-        })
-        .catch((error: unknown) => {
-          setNotice(error instanceof Error ? error.message : "worktree create failed")
-        })
+      openWorktreeDraft(request, createWorktree, setWorktreeDraft, setNotice)
       return
     }
     if (input === "a") {
@@ -402,6 +419,11 @@ export function WorkflowTui({
     if (input === "d") {
       const request = buildDeployRequest(project, selected)
       if (!request) {
+        const worktreeRequest = buildCreateWorktreeRequest(project, selected)
+        if (worktreeRequest) {
+          openWorktreeDraft(worktreeRequest, createWorktree, setWorktreeDraft, setNotice)
+          return
+        }
         setNotice("no worktree available for deploy")
         return
       }
@@ -437,6 +459,7 @@ export function WorkflowTui({
       {notice ? <Text color="yellow">{notice}</Text> : null}
       <ProjectHeader project={project} />
       {handoff ? <HandoffPanel handoff={handoff} /> : null}
+      {worktreeDraft ? <WorktreeDraftPanel draft={worktreeDraft} /> : null}
       {issueDraft ? <IssueDraftPanel draft={issueDraft} /> : null}
       {deployDraft ? <DeployDraftPanel draft={deployDraft} /> : null}
       <Text color="gray">view: {view}</Text>
@@ -538,6 +561,27 @@ function IssueDraftPanel({ draft }: { draft: IssueDraft }): React.ReactElement {
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
       <Text color="gray">Enter/↓ next row · ↑ previous row · Enter on Create/Cancel activates · Esc cancel</Text>
+    </Box>
+  )
+}
+
+function WorktreeDraftPanel({ draft }: { draft: WorktreeDraft }): React.ReactElement {
+  return (
+    <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} paddingY={1} marginTop={1}>
+      <Text bold color="yellow">Create worktree before deploying</Text>
+      <Text>issue: <Text color="cyan">{draft.request.issueTitle}</Text></Text>
+      <Text>project: <Text color="cyan">{draft.request.projectRoot}</Text></Text>
+      <Text>slug: <Text color="cyan">{draft.request.slug}</Text></Text>
+      <Text>branch: <Text color="cyan">{draft.request.branch}</Text></Text>
+      <Text>base: <Text color="cyan">{draft.request.base}</Text></Text>
+      <Box>
+        <Text>{worktreeFieldMarker(draft.field, "create")} </Text>
+        <Text color={draft.field === "create" ? "green" : "gray"}>[ Create worktree ]</Text>
+        <Text>  </Text>
+        <Text>{worktreeFieldMarker(draft.field, "cancel")} </Text>
+        <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
+      </Box>
+      <Text color="gray">Enter creates selected action · ↑/↓/Tab switch · Esc cancel</Text>
     </Box>
   )
 }
@@ -832,6 +876,10 @@ function issueFieldMarker(current: IssueFormField, field: IssueFormField): strin
   return current === field ? ">" : " "
 }
 
+function worktreeFieldMarker(current: WorktreeFormField, field: WorktreeFormField): string {
+  return current === field ? ">" : " "
+}
+
 function isSessionOpenProvider(provider: WorkflowAgentConfig["provider"]): provider is ProviderKind {
   return provider === "codex" || provider === "gemini"
 }
@@ -993,6 +1041,46 @@ function submitIssueDraft(
     })
     .catch((error: unknown) => {
       setNotice(error instanceof Error ? error.message : "issue create failed")
+    })
+}
+
+function openWorktreeDraft(
+  request: WorkflowTuiCreateWorktreeRequest | null,
+  createWorktree: WorkflowTuiCreateWorktreeHandler | undefined,
+  setWorktreeDraft: (value: WorktreeDraft | null) => void,
+  setNotice: (value: string | null) => void,
+): void {
+  if (!request) {
+    setNotice("selected issue already has a worktree or cannot create one")
+    return
+  }
+  if (!createWorktree) {
+    setNotice("worktree creation is unavailable in this TUI mode")
+    return
+  }
+  setWorktreeDraft({ request, field: "create" })
+  setNotice("worktree draft opened; confirm before deploying an agent")
+}
+
+function submitWorktreeDraft(
+  request: WorkflowTuiCreateWorktreeRequest,
+  createWorktree: WorkflowTuiCreateWorktreeHandler | undefined,
+  setWorktreeDraft: (value: WorktreeDraft | null) => void,
+  setNotice: (value: string | null) => void,
+): void {
+  if (!createWorktree) {
+    setNotice("worktree creation is unavailable in this TUI mode")
+    setWorktreeDraft(null)
+    return
+  }
+  setWorktreeDraft(null)
+  setNotice(`creating worktree ${request.slug}...`)
+  void createWorktree(request)
+    .then((result) => {
+      setNotice(`created worktree ${result.slug} on ${result.branch}`)
+    })
+    .catch((error: unknown) => {
+      setNotice(error instanceof Error ? error.message : "worktree create failed")
     })
 }
 

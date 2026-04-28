@@ -192,17 +192,26 @@ describe("AgentHub TUI CLI", () => {
     })
   })
 
-  it("does not deploy an issue-backed selected item before a worktree exists", async () => {
+  it("opens a worktree drawer instead of deploying an issue-backed item without a worktree", async () => {
     const stdout = new CaptureStream()
     const stderr = new CaptureStream()
     const stdin = new FakeTtyInput()
     const deployCalls: unknown[] = []
+    const createCalls: unknown[] = []
     const instance = render(
       React.createElement(WorkflowTui, {
         model: modelWithUnboundIssue(),
         deployAgent: async (request) => {
           deployCalls.push(request)
           throw new Error("should not deploy")
+        },
+        createWorktree: async (request) => {
+          createCalls.push(request)
+          return {
+            branch: request.branch,
+            slug: request.slug,
+            path: path.join(request.projectRoot, request.slug),
+          }
         },
       }),
       {
@@ -219,11 +228,20 @@ describe("AgentHub TUI CLI", () => {
     stdin.write("d")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("Create worktree before deploying")
+    expect(stdout.output).toContain("slug: 42-refactor-hello-txt")
+    expect(deployCalls).toHaveLength(0)
+    expect(createCalls).toHaveLength(0)
+
+    stdin.write("\r")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
     instance.unmount()
     await instance.waitUntilExit()
 
     expect(deployCalls).toHaveLength(0)
-    expect(stdout.output).toContain("no worktree available for deploy")
+    expect(createCalls).toHaveLength(1)
+    expect(stdout.output).toContain("created worktree 42-refactor-hello-txt")
   })
 
   it("jumps from a selected issue to its agent view", async () => {
@@ -1020,6 +1038,12 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout.output).toContain("Tracked Issues")
 
     stdin.write("w")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    expect(stdout.output).toContain("Create worktree before deploying")
+    expect(createCalls).toHaveLength(0)
+
+    stdin.write("\r")
     await new Promise((resolve) => setTimeout(resolve, 80))
     await instance.waitUntilRenderFlush()
     instance.unmount()
