@@ -212,7 +212,7 @@ export function WorkflowTui({
 
   useInput((input, key) => {
     if (issueDraft) {
-      if (key.escape || input === "\u001b" || input === "c") {
+      if (key.escape || input === "\u001b") {
         setIssueDraft(null)
         setNotice("issue create cancelled")
         return
@@ -252,7 +252,7 @@ export function WorkflowTui({
     }
 
     if (deployDraft) {
-      if (key.escape || input === "\u001b" || input === "c") {
+      if (key.escape || input === "\u001b") {
         setDeployDraft(null)
         setNotice("deploy cancelled")
         return
@@ -471,7 +471,7 @@ function DeployDraftPanel({ draft }: { draft: DeployDraft }): React.ReactElement
         <Text>{fieldMarker(draft.field, "cancel")} </Text>
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
-      <Text color="gray">Tab switch current option · Enter/↓ next row · ↑ previous row · Enter on Deploy/Cancel activates · c/Esc cancel</Text>
+      <Text color="gray">Tab switch current option · Enter/↓ next row · ↑ previous row · Enter on Deploy/Cancel activates · Esc cancel</Text>
     </Box>
   )
 }
@@ -495,7 +495,7 @@ function IssueDraftPanel({ draft }: { draft: IssueDraft }): React.ReactElement {
         <Text>{issueFieldMarker(draft.field, "cancel")} </Text>
         <Text color={draft.field === "cancel" ? "red" : "gray"}>[ Cancel ]</Text>
       </Box>
-      <Text color="gray">Enter/↓ next row · ↑ previous row · Enter on Create/Cancel activates · c/Esc cancel</Text>
+      <Text color="gray">Enter/↓ next row · ↑ previous row · Enter on Create/Cancel activates · Esc cancel</Text>
     </Box>
   )
 }
