@@ -94,6 +94,7 @@ describe("AgentHub issue bindings", () => {
     })
 
     expect(stdout).toContain("created unknowntpo/tw-example#77: Issue from CLI")
+    expect(stdout).toContain("https://github.com/unknowntpo/tw-example/issues/77")
     expect(fs.readFileSync(path.join(plainDir, ".agenthub", "issues.json"), "utf8")).toContain("github:unknowntpo/tw-example#77")
   })
 })

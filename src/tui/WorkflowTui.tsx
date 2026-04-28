@@ -909,7 +909,7 @@ function submitIssueDraft(
     body: request.body.trim(),
   })
     .then((result) => {
-      setNotice(`created issue ${result.repo}#${result.number}: ${result.title}`)
+      setNotice(`created issue ${result.repo}#${result.number}: ${result.title} ${result.url}`)
     })
     .catch((error: unknown) => {
       setNotice(error instanceof Error ? error.message : "issue create failed")
@@ -928,6 +928,9 @@ function withNextPermissionProfile(request: WorkflowTuiDeployRequest): WorkflowT
 }
 
 function buildDeployRequest(project: WorkflowProjectView, selected: FlattenedWorkItem | undefined): WorkflowTuiDeployRequest | null {
+  if (project.workItemSource === "issue-bindings") {
+    return selected?.worktree ? buildDeployRequestForWorktree(project, selected.worktree, selected) : null
+  }
   const worktree = selected?.worktree ?? project.worktrees[0]
   if (!worktree) return null
   return buildDeployRequestForWorktree(project, worktree, selected)

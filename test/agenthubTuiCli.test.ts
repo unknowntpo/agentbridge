@@ -150,6 +150,40 @@ describe("AgentHub TUI CLI", () => {
     })
   })
 
+  it("does not deploy an issue-backed selected item before a worktree exists", async () => {
+    const stdout = new CaptureStream()
+    const stderr = new CaptureStream()
+    const stdin = new FakeTtyInput()
+    const deployCalls: unknown[] = []
+    const instance = render(
+      React.createElement(WorkflowTui, {
+        model: modelWithUnboundIssue(),
+        deployAgent: async (request) => {
+          deployCalls.push(request)
+          throw new Error("should not deploy")
+        },
+      }),
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stderr: stderr as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        interactive: true,
+        patchConsole: false,
+      },
+    )
+
+    await instance.waitUntilRenderFlush()
+    stdin.write("d")
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    await instance.waitUntilRenderFlush()
+    instance.unmount()
+    await instance.waitUntilExit()
+
+    expect(deployCalls).toHaveLength(0)
+    expect(stdout.output).toContain("no worktree available for deploy")
+  })
+
   it("builds a create-worktree request from a tracked issue without a worktree", () => {
     const model = modelWithUnboundIssue()
     const project = model.projects[0]!
@@ -930,6 +964,7 @@ describe("AgentHub TUI CLI", () => {
       repo: "unknowntpo/tw-example",
     }])
     expect(stdout.output).toContain("created issue unknowntpo/tw-example#99")
+    expect(stdout.output).toContain("https://github.com/unknowntpo/tw-example/issues/99")
   })
 
 })

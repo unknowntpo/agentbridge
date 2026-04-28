@@ -508,6 +508,7 @@ async function runIssueCreate(options: SessionCommandOptions): Promise<void> {
     return
   }
   console.log(`created ${result.repo}#${result.number}: ${result.title}`)
+  console.log(result.url)
   console.log(`bound in ${issueFile}`)
 }
 
