@@ -702,6 +702,87 @@ describe("AgentHub TUI CLI", () => {
     expect(stdout).not.toContain("ticket commit-")
   })
 
+  it("discovers tracked issues from the project .agenthub directory", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-tui-default-issues-"))
+    const plainDir = path.join(root, "demo")
+    const source = path.join(root, "source")
+    createSourceRepo(source)
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "project",
+      "create",
+      plainDir,
+      "--repo",
+      source,
+      "--branch",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    execFileSync("bun", [
+      "src/cli.ts",
+      "worktree",
+      "create",
+      "refactor-hello",
+      "--project",
+      plainDir,
+      "--branch",
+      "refactor-hellotxt",
+      "--base",
+      "main",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      stdio: "pipe",
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    const agenthubDir = path.join(plainDir, ".agenthub")
+    fs.mkdirSync(agenthubDir)
+    fs.writeFileSync(path.join(agenthubDir, "issues.json"), JSON.stringify({
+      issues: [{
+        id: "github:unknowntpo/tw-example#2",
+        provider: "github",
+        repo: "unknowntpo/tw-example",
+        number: 2,
+        title: "Track default issue file",
+        state: "open",
+        labels: ["agentbridge"],
+        assignee: "unknowntpo",
+        branch: "refactor-hellotxt",
+      }],
+    }))
+
+    const stdout = execFileSync("bun", [
+      "src/cli.ts",
+      "tui",
+      "--project",
+      plainDir,
+      "--print",
+    ], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        AGENTHUB_PROJECTS_JSON: JSON.stringify([{ id: "demo", label: "Demo Project", path: plainDir }]),
+      },
+    })
+
+    expect(stdout).toContain("issue github:unknowntpo/tw-example#2 Track default issue file [todo]")
+    expect(stdout).toContain("refactor-hellotxt")
+    expect(stdout).not.toContain("ticket commit-")
+  })
+
 })
 
 function runWorkflowView(view: string): string {

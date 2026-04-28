@@ -78,6 +78,7 @@ export interface WorkflowProjectView {
   name: string
   root?: string
   repo?: WorkflowProjectConfig["repo"]
+  workItemSource?: "synthetic-commits" | "issue-bindings" | "workflow-file"
   workItems: WorkflowWorkItemView[]
   rootItems: WorkflowWorkItemView[]
   worktrees: WorkflowWorktreeConfig[]
@@ -247,6 +248,7 @@ function deriveProjectView(project: WorkflowProjectConfig): WorkflowProjectView 
     name: project.name,
     root: project.root,
     repo: project.repo,
+    workItemSource: "workflow-file",
     workItems: views,
     rootItems,
     worktrees,

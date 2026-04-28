@@ -80,6 +80,7 @@ export function deriveWorkflowViewModelFromProjectScan(
     name: scan.label,
     root: scan.rootPath,
     repo: { provider: "git", remote: scan.anchorPath },
+    workItemSource: hasIssueBindings ? "issue-bindings" : "synthetic-commits",
     workItems: workItems.map((item) => ({
       ...item,
       children: [],

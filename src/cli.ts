@@ -546,14 +546,27 @@ async function loadProjectWorkflowModel(projectPath: string, issuesFile?: string
   const stateStore = new SQLiteStateStore(config.sqlitePath)
   stateStore.initialize()
   try {
-    const issueBindings = issuesFile ? await loadIssueBindings(path.resolve(issuesFile)) : undefined
-    return deriveWorkflowViewModelFromProjectScan(await service.scanProject(projectPath), {
+    const scan = await service.scanProject(projectPath)
+    const issueBindings = await loadProjectIssueBindings(scan.rootPath, issuesFile)
+    return deriveWorkflowViewModelFromProjectScan(scan, {
       bindings: stateStore.listBindings(),
       issueBindings,
     })
   } finally {
     stateStore.close()
   }
+}
+
+async function loadProjectIssueBindings(projectRoot: string, issuesFile?: string) {
+  if (issuesFile) {
+    return loadIssueBindings(path.resolve(issuesFile))
+  }
+
+  const defaultPath = path.join(projectRoot, ".agenthub", "issues.json")
+  if (!fs.existsSync(defaultPath)) {
+    return undefined
+  }
+  return loadIssueBindings(defaultPath)
 }
 
 async function runSessionAttach(options: SessionCommandOptions): Promise<void> {

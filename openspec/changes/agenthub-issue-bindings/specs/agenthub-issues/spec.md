@@ -12,6 +12,13 @@ AgentHub SHALL represent tracked work items from explicit issue bindings rather 
 - **THEN** AgentBridge loads issue bindings from the file
 - **AND** renders those issue bindings as work items.
 
+#### Scenario: User previews tracked issues from the project default file
+
+- **GIVEN** the project root contains `.agenthub/issues.json`
+- **WHEN** the user runs `agentbridge tui --project <path>` without `--issues-file`
+- **THEN** AgentBridge loads issue bindings from `.agenthub/issues.json`
+- **AND** renders those issue bindings as tracked issues.
+
 #### Scenario: Commits remain separate from issues
 
 - **GIVEN** a project has Git commit history
@@ -19,6 +26,12 @@ AgentHub SHALL represent tracked work items from explicit issue bindings rather 
 - **WHEN** AgentBridge renders the task-tree view
 - **THEN** commits are not rendered as `ticket commit-...` work items
 - **AND** commits remain available from the commits view.
+
+#### Scenario: TUI names the issue-backed work list clearly
+
+- **GIVEN** issue bindings are rendered in the interactive TUI
+- **WHEN** the task-tree view is visible
+- **THEN** the list title says `Tracked Issues` instead of the generic `Work Items`.
 
 #### Scenario: Issue bindings link to local worktrees
 
@@ -43,4 +56,3 @@ AgentHub SHALL treat GitHub or other remote issue tracker integration as a produ
 - **WHEN** AgentBridge adds local issue binding support
 - **THEN** it does not require a GitHub bot, webhook, or Cloudflare Worker
 - **AND** the later GitHub integration can reuse the same projection path.
-

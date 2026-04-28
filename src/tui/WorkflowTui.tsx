@@ -361,7 +361,7 @@ function TaskTreeView({
   return (
     <Box marginTop={1}>
       <Box flexDirection="column" width="58%" marginRight={2}>
-        <ViewportHeader title="Work Items" viewport={viewport} />
+        <ViewportHeader title={projectWorkItemTitle(selected)} viewport={viewport} />
         {visibleItems.map((item, visibleIndex) => {
           const index = viewport.start + visibleIndex
           return (
@@ -373,10 +373,15 @@ function TaskTreeView({
       </Box>
       <Box flexDirection="column" width="42%">
         <Text bold>Selected</Text>
-        {selected ? <SelectedItem item={selected} /> : <Text color="gray">No work item.</Text>}
+        {selected ? <SelectedItem item={selected} /> : <Text color="gray">No tracked item.</Text>}
       </Box>
     </Box>
   )
+}
+
+function projectWorkItemTitle(selected: FlattenedWorkItem | undefined): string {
+  if (!selected) return "Tracked Issues"
+  return selected.source === "git" ? "Local Commit Tickets" : "Tracked Issues"
 }
 
 function ProjectionView({ lines, itemIndex, maxRows }: { lines: string[]; itemIndex: number; maxRows: number }): React.ReactElement {
