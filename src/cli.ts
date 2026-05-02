@@ -19,6 +19,9 @@ import { DiscordThreadPublisher } from "./discord/discordThreadPublisher.js"
 import { GeminiCliAdapter } from "./gemini/geminiCliAdapter.js"
 import { appendIssueBinding, loadIssueBindings, updateIssueBindingBranch } from "./agenthub/issueBindings.js"
 import { createGitHubIssueWithGh } from "./agenthub/githubIssues.js"
+import { loadGitHubProjectWorkflowConfig } from "./agenthub/githubProjectConfig.js"
+import { createGhProjectClient } from "./agenthub/githubProjectGh.js"
+import { syncGitHubProjectWorkflow } from "./agenthub/githubProjectSync.js"
 import { createAgentHubProjectServiceFromEnv } from "./agenthub/projectService.js"
 import { deriveWorkflowViewModelFromProjectScan } from "./agenthub/projectWorkflow.js"
 import { deployAgent as deployAgentHandler, ensureCodexAppServer } from "./agenthub/agentDeploy.js"
@@ -75,6 +78,8 @@ interface SessionCommandOptions {
   worktreeId?: string
   worktreePath?: string
   mode?: string
+  config?: string
+  once?: boolean
 }
 
 async function main(): Promise<void> {
@@ -150,6 +155,34 @@ async function main(): Promise<void> {
     .option("--json", "Emit machine-readable JSON.")
     .action(async (options: SessionCommandOptions) => {
       await runIssueCreate(options)
+    })
+
+  const github = program
+    .command("github")
+    .description("Sync GitHub Project control-plane state into local AgentBridge execution.")
+    .showHelpAfterError()
+    .action(() => {
+      github.help()
+    })
+
+  github
+    .command("sync")
+    .description("Run one GitHub Project -> local AgentBridge reconciliation pass.")
+    .requiredOption("--project <path>", "AgentHub project/worktree path.")
+    .option("--config <path>", "GitHub Project workflow config path. Defaults to .agentbridge/project.yml.")
+    .option("--json", "Emit machine-readable JSON.")
+    .action(async (options: SessionCommandOptions) => {
+      await runGitHubSync(options)
+    })
+
+  github
+    .command("daemon")
+    .description("Poll GitHub Project and reconcile local AgentBridge execution.")
+    .requiredOption("--project <path>", "AgentHub project/worktree path.")
+    .option("--config <path>", "GitHub Project workflow config path. Defaults to .agentbridge/project.yml.")
+    .option("--once", "Run one sync pass and exit.")
+    .action(async (options: SessionCommandOptions) => {
+      await runGitHubDaemon(options)
     })
 
   const agent = program
@@ -577,6 +610,74 @@ async function runAgentDeploy(options: SessionCommandOptions): Promise<void> {
 
   console.log(`${session.provider} ${session.mode} session ${session.id}`)
   console.log(session.messages.at(-1)?.text ?? "(no output)")
+}
+
+async function runGitHubSync(options: SessionCommandOptions): Promise<void> {
+  const result = await runGitHubSyncOnce(options)
+  if (options.json) {
+    writeJson(result)
+    return
+  }
+  console.log(`deployed: ${result.deployed.length}`)
+  for (const deployment of result.deployed) {
+    console.log(`- ${deployment.issueId} ${deployment.branch}`)
+    console.log(`  ${deployment.handoffCommand}`)
+  }
+  console.log(`updated: ${result.updated.length}`)
+  for (const update of result.updated) {
+    console.log(`- ${update.issueId} -> ${update.status} (${update.reason})`)
+  }
+  console.log(`skipped: ${result.skipped.length}`)
+}
+
+async function runGitHubDaemon(options: SessionCommandOptions): Promise<void> {
+  if (options.once) {
+    await runGitHubSync(options)
+    return
+  }
+  if (!options.project) {
+    throw new Error("`agentbridge github daemon` requires `--project <path>`.")
+  }
+  const service = createAgentHubProjectServiceFromEnv()
+  const scan = await service.scanProject(options.project)
+  const workflowConfig = await loadGitHubProjectWorkflowConfig(scan.rootPath, options.config)
+  const intervalMs = workflowConfig.sync.pollIntervalSeconds * 1000
+  console.log(`AgentBridge GitHub daemon polling every ${workflowConfig.sync.pollIntervalSeconds}s for ${workflowConfig.github.repo}`)
+  for (;;) {
+    try {
+      const result = await runGitHubSyncOnce(options)
+      const summary = `deployed=${result.deployed.length} updated=${result.updated.length} skipped=${result.skipped.length}`
+      console.log(`${new Date().toISOString()} ${summary}`)
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error))
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+}
+
+async function runGitHubSyncOnce(options: SessionCommandOptions) {
+  if (!options.project) {
+    throw new Error("`agentbridge github sync` requires `--project <path>`.")
+  }
+  const config = loadConfig()
+  const service = createAgentHubProjectServiceFromEnv()
+  const scan = await service.scanProject(options.project)
+  const workflowConfig = await loadGitHubProjectWorkflowConfig(scan.rootPath, options.config)
+  const stateStore = new SQLiteStateStore(config.sqlitePath)
+  stateStore.initialize()
+  try {
+    return await syncGitHubProjectWorkflow({
+      projectRoot: scan.rootPath,
+      issuesFile: resolveProjectIssuesFile(scan.rootPath),
+      config: workflowConfig,
+      client: createGhProjectClient(scan.anchorPath),
+      projectService: service,
+      stateStore,
+      deployAgent: (request) => deployAgentHandler(request),
+    })
+  } finally {
+    stateStore.close()
+  }
 }
 
 async function runTui(options: SessionCommandOptions): Promise<void> {

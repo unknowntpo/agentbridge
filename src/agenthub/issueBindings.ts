@@ -14,6 +14,15 @@ export interface IssueBinding {
   labels: string[]
   assignee?: string
   branch?: string
+  projectItemId?: string
+  projectStatus?: string
+  worktreePath?: string
+  sessionId?: string
+  handoffCommand?: string
+  handoffCommentedAt?: string
+  prUrl?: string
+  prState?: string
+  lastSyncedAt?: string
 }
 
 export interface IssueBindingsFile {
@@ -38,25 +47,40 @@ export async function updateIssueBindingBranch(filePath: string, issueId: string
   await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
 }
 
-export async function appendIssueBinding(filePath: string, issue: IssueBinding): Promise<void> {
-  let file: IssueBindingsFile
-  try {
-    const source = await fs.readFile(filePath, "utf8")
-    const parsed = JSON.parse(source) as unknown
-    file = parseIssueBindingsFile(parsed, filePath)
-  } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
-      throw error
-    }
-    file = { issues: [] }
+export async function upsertIssueBinding(filePath: string, issue: IssueBinding): Promise<IssueBinding> {
+  const file = await readIssueBindingsFile(filePath)
+  const existingIndex = file.issues.findIndex((candidate) => candidate.id === issue.id)
+  const nextIssue = existingIndex >= 0
+    ? { ...file.issues[existingIndex]!, ...issue }
+    : issue
+  if (existingIndex >= 0) {
+    file.issues[existingIndex] = nextIssue
+  } else {
+    file.issues.push(nextIssue)
   }
+  await writeIssueBindingsFile(filePath, file)
+  return nextIssue
+}
+
+export async function updateIssueBinding(filePath: string, issueId: string, patch: Partial<IssueBinding>): Promise<IssueBinding> {
+  const file = await readIssueBindingsFile(filePath)
+  const issue = file.issues.find((candidate) => candidate.id === issueId)
+  if (!issue) {
+    throw new Error(`Issue binding not found: ${issueId}`)
+  }
+  Object.assign(issue, patch)
+  await writeIssueBindingsFile(filePath, file)
+  return issue
+}
+
+export async function appendIssueBinding(filePath: string, issue: IssueBinding): Promise<void> {
+  const file = await readIssueBindingsFile(filePath)
 
   if (file.issues.some((candidate) => candidate.id === issue.id)) {
     throw new Error(`Issue binding already exists: ${issue.id}`)
   }
   file.issues.push(issue)
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
+  await writeIssueBindingsFile(filePath, file)
 }
 
 export function parseIssueBindingsFile(value: unknown, context = "issue bindings file"): IssueBindingsFile {
@@ -84,7 +108,34 @@ function parseIssueBinding(value: unknown, context: string): IssueBinding {
     labels: parseStringArray(record.labels, `${context}.labels`),
     assignee: optionalString(record.assignee, `${context}.assignee`),
     branch: optionalString(record.branch, `${context}.branch`),
+    projectItemId: optionalString(record.projectItemId, `${context}.projectItemId`),
+    projectStatus: optionalString(record.projectStatus, `${context}.projectStatus`),
+    worktreePath: optionalString(record.worktreePath, `${context}.worktreePath`),
+    sessionId: optionalString(record.sessionId, `${context}.sessionId`),
+    handoffCommand: optionalString(record.handoffCommand, `${context}.handoffCommand`),
+    handoffCommentedAt: optionalString(record.handoffCommentedAt, `${context}.handoffCommentedAt`),
+    prUrl: optionalString(record.prUrl, `${context}.prUrl`),
+    prState: optionalString(record.prState, `${context}.prState`),
+    lastSyncedAt: optionalString(record.lastSyncedAt, `${context}.lastSyncedAt`),
   }
+}
+
+async function readIssueBindingsFile(filePath: string): Promise<IssueBindingsFile> {
+  try {
+    const source = await fs.readFile(filePath, "utf8")
+    const parsed = JSON.parse(source) as unknown
+    return parseIssueBindingsFile(parsed, filePath)
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
+      throw error
+    }
+    return { issues: [] }
+  }
+}
+
+async function writeIssueBindingsFile(filePath: string, file: IssueBindingsFile): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true })
+  await fs.writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`)
 }
 
 function requireRecord(value: unknown, context: string): Record<string, unknown> {

@@ -34,6 +34,15 @@ describe("AgentHub issue bindings", () => {
       labels: ["agentbridge"],
       assignee: "@me",
       branch: undefined,
+      projectItemId: undefined,
+      projectStatus: undefined,
+      worktreePath: undefined,
+      sessionId: undefined,
+      handoffCommand: undefined,
+      handoffCommentedAt: undefined,
+      prUrl: undefined,
+      prState: undefined,
+      lastSyncedAt: undefined,
     }])
   })
 
