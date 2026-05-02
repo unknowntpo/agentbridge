@@ -1,3 +1,4 @@
+import fs from "node:fs"
 import path from "node:path"
 
 import { buildSessionOpenCommand } from "../local/handoffCommand.js"
@@ -137,12 +138,14 @@ async function deployIssue(
       worktreePath,
       lastSyncedAt: now,
     })
-    await request.projectService.createWorktree({
-      projectPath: request.projectRoot,
-      slug,
-      branch,
-      base: "HEAD",
-    })
+    if (!fs.existsSync(worktreePath)) {
+      await request.projectService.createWorktree({
+        projectPath: request.projectRoot,
+        slug,
+        branch,
+        base: "HEAD",
+      })
+    }
   }
 
   const profile = request.config.agent.defaultPermission
@@ -155,6 +158,7 @@ async function deployIssue(
     mode: "write",
     profile,
     prompt,
+    handoffOnly: provider === "codex",
   })
   saveThreadBinding(request.stateStore, {
     sessionId: session.id,
@@ -236,7 +240,8 @@ function buildInitialPrompt(item: GitHubProjectIssueItem, branch: string): strin
     `Branch: ${branch}`,
     "",
     "You are running from AgentBridge after the issue was explicitly labeled for agent work.",
-    "Keep changes scoped to this issue. When ready, help the user open a PR back to GitHub.",
+    "This deployment is handoff-only: do not modify files until the user opens this session locally and gives direction.",
+    "When the user starts working locally, keep changes scoped to this issue and help them open a PR back to GitHub.",
   ].join("\n")
 }
 

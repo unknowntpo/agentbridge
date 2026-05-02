@@ -62,6 +62,32 @@ export class CodexAppServerAdapter implements SessionAdapter {
     }
   }
 
+  async startHandoffSession(): Promise<CodexTurnResult> {
+    const client = new CodexAppServerClient(this.serverUrl)
+    await client.connect()
+
+    try {
+      await client.initialize()
+      const started = await client.request<AppServerThreadStartResult>("thread/start", {
+        cwd: this.cwd,
+        sandbox: resolveProviderCapability("codex", this.permissionProfile).mappedMode,
+        approvalPolicy: this.approvalPolicy,
+      })
+      const threadId = started.thread?.id
+      if (!threadId) {
+        throw new Error("App server did not return a thread id")
+      }
+
+      return {
+        sessionId: threadId,
+        output: "Handoff session is ready. Open it locally to start the first turn.",
+        events: [],
+      }
+    } finally {
+      client.close()
+    }
+  }
+
   async resumeSession(sessionId: string, prompt: string): Promise<CodexTurnResult> {
     const client = new CodexAppServerClient(this.serverUrl)
     await client.connect()

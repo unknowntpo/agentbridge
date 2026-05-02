@@ -14,6 +14,7 @@ export interface AgentDeployRequest {
   mode: "read" | "write"
   profile: PermissionProfile
   prompt: string
+  handoffOnly?: boolean
 }
 
 export interface AgentDeployResult {
@@ -78,7 +79,9 @@ export async function deployAgent(request: AgentDeployRequest, options: {
   const stop = options.adapter || request.provider !== "codex" ? async () => {} : await ensureCodexAppServer(config)
   try {
     const adapter = options.adapter ?? createProviderAdapter(request.provider, config, permission.workspace.path, profile)
-    const result = await adapter.startSession(request.prompt)
+    const result = request.handoffOnly && adapter instanceof CodexAppServerAdapter
+      ? await adapter.startHandoffSession()
+      : await adapter.startSession(request.prompt)
     const now = options.now?.() ?? new Date().toISOString()
     const provider = displayProvider(request.provider)
     const backendLabel = adapter.backendKind === "app-server" ? "app-server" : "CLI"
@@ -95,7 +98,7 @@ export async function deployAgent(request: AgentDeployRequest, options: {
       messages: [
         message("system", `${provider} ${request.mode} session started through AgentBridge daemon/${backendLabel}.`, now),
         message("user", request.prompt, now),
-        message("assistant", result.output || "(no output)", now),
+        message("assistant", result.output || "(handoff ready)", now),
       ],
       runs: [{
         id: `run-${result.sessionId}`,

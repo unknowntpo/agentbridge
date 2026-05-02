@@ -62,6 +62,15 @@ export function createGhProjectClient(cwd: string, runner: GhRunner = runGh): Gi
       })))
     },
     async loadStatusField(config) {
+      const projectOutput = await runner(cwd, [
+        "project",
+        "view",
+        String(config.github.project.number),
+        "--owner",
+        config.github.project.owner,
+        "--format",
+        "json",
+      ])
       const output = await runner(cwd, [
         "project",
         "field-list",
@@ -73,7 +82,7 @@ export function createGhProjectClient(cwd: string, runner: GhRunner = runGh): Gi
         "--limit",
         "100",
       ])
-      return parseProjectStatusField(output, config.github.project.statusField)
+      return parseProjectStatusField(output, config.github.project.statusField, parseProjectId(projectOutput))
     },
     async updateProjectStatus(itemId, status, field) {
       const optionId = field.options[status]
@@ -137,7 +146,7 @@ export function parseProjectIssueItems(source: string, config: GitHubProjectWork
   return result
 }
 
-export function parseProjectStatusField(source: string, statusFieldName: string): GitHubProjectStatusField | null {
+export function parseProjectStatusField(source: string, statusFieldName: string, fallbackProjectId?: string): GitHubProjectStatusField | null {
   const parsed = parseJsonRecord(source, "gh project field-list output")
   const fields = Array.isArray(parsed.fields) ? parsed.fields : []
   for (const rawField of fields) {
@@ -151,7 +160,7 @@ export function parseProjectStatusField(source: string, statusFieldName: string)
       const id = stringValue(option.id)
       if (name && id) options[name] = id
     }
-    const projectId = stringValue(field.projectId) ?? stringValue(parsed.projectId)
+    const projectId = stringValue(field.projectId) ?? stringValue(parsed.projectId) ?? fallbackProjectId
     const fieldId = stringValue(field.id) ?? stringValue(field.fieldId)
     if (!projectId) {
       throw new Error(`GitHub Project field \`${statusFieldName}\` is missing projectId`)
@@ -162,6 +171,11 @@ export function parseProjectStatusField(source: string, statusFieldName: string)
     return { projectId, fieldId, options }
   }
   return null
+}
+
+export function parseProjectId(source: string): string | undefined {
+  const parsed = parseJsonRecord(source, "gh project view output")
+  return stringValue(parsed.id)
 }
 
 export function parsePullRequestList(source: string): GitHubPullRequestSummary | null {

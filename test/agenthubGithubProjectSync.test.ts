@@ -6,7 +6,7 @@ import { describe, expect, it } from "bun:test"
 
 import { parseGitHubProjectWorkflowConfig } from "../src/agenthub/githubProjectConfig.js"
 import type { GitHubProjectClient, GitHubProjectIssueItem, GitHubProjectStatusField } from "../src/agenthub/githubProjectGh.js"
-import { parseProjectStatusField } from "../src/agenthub/githubProjectGh.js"
+import { parseProjectId, parseProjectStatusField } from "../src/agenthub/githubProjectGh.js"
 import { issueBranch, issueSlug, syncGitHubProjectWorkflow } from "../src/agenthub/githubProjectSync.js"
 import { appendIssueBinding, loadIssueBindings } from "../src/agenthub/issueBindings.js"
 import type { AgentHubProjectService } from "../src/agenthub/projectService.js"
@@ -78,9 +78,12 @@ describe("GitHub Project agent workflow sync", () => {
     expect(deployCalls).toEqual([expect.objectContaining({
       provider: "codex",
       profile: "workspace-write",
+      handoffOnly: true,
       worktreeId: "42-refactor-checkout-timeout",
       worktreePath: path.join(root, "42-refactor-checkout-timeout"),
     })])
+    expect(deployCalls[0]?.prompt).toContain("handoff-only")
+    expect(deployCalls[0]?.prompt).toContain("do not modify files")
     expect(client.comments).toHaveLength(1)
     expect(client.comments[0]?.body).toContain("AgentBridge deployed Codex")
     expect(client.comments[0]?.body).toContain("agentbridge session open --session-id session-1 --provider codex")
@@ -245,6 +248,34 @@ describe("GitHub Project agent workflow sync", () => {
     expect(deployCalls).toHaveLength(0)
   })
 
+  it("retries deployment without recreating a worktree that already exists from a partial sync", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-gh-existing-wt-"))
+    const worktreePath = path.join(root, "42-refactor-checkout-timeout")
+    fs.mkdirSync(worktreePath, { recursive: true })
+    const projectService = new FakeProjectService()
+    const deployCalls: AgentDeployRequest[] = []
+
+    const result = await syncGitHubProjectWorkflow({
+      projectRoot: root,
+      issuesFile: path.join(root, ".agenthub", "issues.json"),
+      config: testConfig(),
+      client: new FakeGitHubProjectClient([projectIssue({
+        status: "In Progress",
+        labels: ["agentbridge"],
+      })]),
+      projectService: projectService as unknown as AgentHubProjectService,
+      stateStore: new FakeStateStore(),
+      deployAgent: async (request) => {
+        deployCalls.push(request)
+        return deployResult(request, "session-after-retry")
+      },
+    })
+
+    expect(result.deployed).toHaveLength(1)
+    expect(projectService.createCalls).toHaveLength(0)
+    expect(deployCalls[0]?.worktreePath).toBe(worktreePath)
+  })
+
   it("does not deploy after moving an existing PR branch to Review", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "agenthub-gh-review-skip-"))
     const issuesFile = path.join(root, ".agenthub", "issues.json")
@@ -349,6 +380,21 @@ describe("GitHub Project agent workflow sync", () => {
         options: [{ id: "opt-review", name: "Review" }],
       }],
     }), "Status")).toThrow("missing field id")
+  })
+
+  it("can combine gh project view id with field-list output that lacks projectId", () => {
+    const projectId = parseProjectId(JSON.stringify({ id: "PVT_project" }))
+    expect(parseProjectStatusField(JSON.stringify({
+      fields: [{
+        id: "PVTSSF_status",
+        name: "Status",
+        options: [{ id: "opt-review", name: "Review" }],
+      }],
+    }), "Status", projectId)).toEqual({
+      projectId: "PVT_project",
+      fieldId: "PVTSSF_status",
+      options: { Review: "opt-review" },
+    })
   })
 })
 
